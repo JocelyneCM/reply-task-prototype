@@ -1,0 +1,423 @@
+:root{
+  --bg:#0f1115;
+  --card:#171a21;
+  --text:#e9ecf1;
+  --muted:#a9b1c3;
+  --line:#2a2f3b;
+  --accent:#6ea8fe;
+  --good:#7ee787;
+  --warn:#ffcc66;
+  --bad:#ff6b6b;
+
+  --radius:16px;
+}
+
+*{ box-sizing:border-box; }
+
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  background: radial-gradient(1200px 700px at 20% 0%, #1b2040, var(--bg));
+  color:var(--text);
+}
+
+.app{
+  max-width:1100px;
+  margin:28px auto;
+  padding:0 16px;
+}
+
+.topbar{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:14px;
+}
+
+.topbar h1{
+  margin:0 0 6px 0;
+  font-size:22px;
+}
+
+.sub{
+  margin:0;
+  color:var(--muted);
+}
+
+.topStatus{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.card{
+  background: color-mix(in srgb, var(--card) 88%, #000 12%);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:16px;
+  box-shadow:0 12px 30px rgba(0,0,0,.35);
+}
+
+.row{
+  display:flex;
+  gap:12px;
+  align-items:end;
+  flex-wrap:wrap;
+}
+
+.controls{
+  margin-bottom:14px;
+  gap:14px;
+}
+
+.field{
+  min-width:180px;
+}
+
+.label{
+  display:block;
+  margin:10px 0 6px 0;
+  font-size:12px;
+  letter-spacing:.02em;
+  color:var(--muted);
+}
+
+.small{ color:var(--muted); font-size:12px; }
+
+select, textarea, input[type="text"]{
+  width:100%;
+  border:1px solid var(--line);
+  background:#0d0f14;
+  color:var(--text);
+  border-radius:12px;
+  padding:10px;
+  outline:none;
+}
+
+textarea{
+  resize:vertical;
+  min-height:90px;
+}
+
+button{
+  border:1px solid var(--line);
+  background:#0d0f14;
+  color:var(--text);
+  border-radius:12px;
+  padding:10px 12px;
+  cursor:pointer;
+}
+
+button:hover{ border-color: rgba(110,168,254,.6); }
+
+button.primary{
+  background: rgba(110,168,254,.18);
+  border-color: rgba(110,168,254,.45);
+}
+
+button.ghost{ background:transparent; }
+
+.pill{
+  display:inline-flex;
+  align-items:center;
+  padding:6px 10px;
+  border-radius:999px;
+  background: rgba(110,168,254,.18);
+  border:1px solid rgba(110,168,254,.35);
+  color:var(--accent);
+  font-size:12px;
+  white-space:nowrap;
+}
+
+.pill.subtle{
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  color: var(--muted);
+}
+
+.serverBox{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.actions{ margin-top:14px; }
+
+.metrics{
+  margin-left:auto;
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background: rgba(0,0,0,.18);
+}
+
+.metrics .k{ color:var(--muted); margin-right:6px; }
+
+.correctionRow{
+  margin-top:12px;
+  align-items:center;
+}
+
+.checkbox{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+
+.bottomActions{
+  margin-top:14px;
+  justify-content:flex-end;
+}
+
+.resultBox{
+  margin-top:12px;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background: rgba(0,0,0,.18);
+}
+
+.result{
+  margin-top:6px;
+  font-size:14px;
+}
+
+.details{
+  margin-top:12px;
+  border-top:1px solid var(--line);
+  padding-top:10px;
+}
+
+.hidden{ display:none !important; }
+
+/* ---------- Layout common ---------- */
+.layoutHead{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:12px;
+  margin-bottom:10px;
+}
+
+.layoutTitle{
+  font-weight:700;
+}
+
+/* ---------- SMS (iMessage-ish) ---------- */
+.phone{
+  border:1px solid var(--line);
+  border-radius:22px;
+  background: rgba(0,0,0,.18);
+  overflow:hidden;
+}
+
+.phoneTop{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 12px;
+  border-bottom:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+}
+
+.dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background: rgba(255,255,255,.18);
+}
+
+.phoneTitle{
+  margin-left:6px;
+  font-weight:700;
+}
+
+.chatWindow{
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.bubble{
+  max-width:88%;
+  border-radius:18px;
+  border:1px solid var(--line);
+  padding:10px;
+}
+
+.bubble textarea{
+  border:none;
+  background:transparent;
+  padding:0;
+  min-height:60px;
+}
+
+.bubble.incoming{
+  align-self:flex-start;
+  background: rgba(255,255,255,.06);
+}
+
+.bubble.outgoing{
+  align-self:flex-end;
+  background: rgba(110,168,254,.14);
+  border-color: rgba(110,168,254,.35);
+}
+
+.bubbleLabel{
+  margin-bottom:6px;
+}
+
+/* ---------- Email (Gmail-ish) ---------- */
+.emailGrid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+}
+
+@media (max-width: 900px){
+  .emailGrid{ grid-template-columns:1fr; }
+}
+
+.emailCard{
+  border:1px solid var(--line);
+  border-radius:16px;
+  background: rgba(0,0,0,.18);
+  padding:12px;
+}
+
+.emailCardTitle{
+  font-weight:700;
+  margin-bottom:10px;
+}
+
+.emailMeta{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+@media (max-width: 700px){
+  .emailMeta{ grid-template-columns:1fr; }
+}
+
+.metaField .metaLabel{
+  display:block;
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:6px;
+}
+
+/* ---------- Messenger-ish ---------- */
+.messenger{
+  display:grid;
+  grid-template-columns: 260px 1fr;
+  gap:12px;
+  min-height:360px;
+}
+
+@media (max-width: 900px){
+  .messenger{ grid-template-columns:1fr; }
+}
+
+.threadList{
+  border:1px solid var(--line);
+  border-radius:16px;
+  background: rgba(0,0,0,.18);
+  overflow:hidden;
+}
+
+.threadHeader{
+  padding:10px 12px;
+  border-bottom:1px solid var(--line);
+  font-weight:700;
+  background: rgba(255,255,255,.03);
+}
+
+.thread{
+  width:100%;
+  text-align:left;
+  border:none;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  background: transparent;
+  padding:10px 12px;
+  display:flex;
+  gap:10px;
+  cursor:pointer;
+}
+
+.thread:hover{ background: rgba(255,255,255,.04); }
+
+.thread.active{
+  background: rgba(110,168,254,.12);
+}
+
+.avatar{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  background: rgba(255,255,255,.12);
+  flex: 0 0 auto;
+}
+
+.threadText .name{
+  font-weight:700;
+}
+
+.threadMain{
+  border:1px solid var(--line);
+  border-radius:16px;
+  background: rgba(0,0,0,.18);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+
+.threadTop{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-bottom:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+}
+
+.threadBody{
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.msg{
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:10px;
+  max-width:92%;
+}
+
+.msg textarea{
+  border:none;
+  background:transparent;
+  padding:0;
+  min-height:60px;
+}
+
+.incomingMsg{
+  align-self:flex-start;
+  background: rgba(255,255,255,.06);
+}
+
+.outgoingMsg{
+  align-self:flex-end;
+  background: rgba(110,168,254,.14);
+  border-color: rgba(110,168,254,.35);
+}
