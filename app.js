@@ -26,6 +26,7 @@ const els = {
   analyzeBtn: document.getElementById("analyzeBtn"),
   downloadBtn: document.getElementById("downloadBtn"),
   resetBtn: document.getElementById("resetBtn"),
+  randomPromptBtn: document.getElementById("randomPromptBtn"),
 
   resultText: document.getElementById("resultText"),
   sentenceTableWrap: document.getElementById("sentenceTableWrap"),
@@ -34,6 +35,7 @@ const els = {
   layoutSMS: document.getElementById("layoutSMS"),
   layoutEmail: document.getElementById("layoutEmail"),
   layoutMessenger: document.getElementById("layoutMessenger"),
+  layoutMP3: document.getElementById("layoutMP3"),
 
   // SMS inputs
   promptSMS: document.getElementById("promptSMS"),
@@ -50,7 +52,76 @@ const els = {
   // Messenger inputs
   promptMsg: document.getElementById("promptMsg"),
   replyMsg: document.getElementById("replyMsg"),
+
+  // MP3 inputs
+  promptAudio: document.getElementById("promptAudio"),
+  replyMP3: document.getElementById("replyMP3"),
+  recordBtn: document.getElementById("recordBtn"),
+  playBtn: document.getElementById("playBtn"),
 };
+
+const conversationPrompts = {
+  SMS: [
+    "Hey! What's up?",
+    "Good morning! How's your day going?",
+    "Hi there! Long time no chat 😊",
+    "Hey, quick question for you...",
+    "Can you help me with something real quick?",
+    "I need your opinion on this...",
+    "Got a minute to chat about work?",
+    "Mind if I ask you something?",
+    "Free this weekend? Want to grab coffee?",
+    "Did you see that new movie trailer?",
+    "What's your take on the game last night?",
+    "Party at my place Saturday - you in?",
+    "Running late, can you cover for me?",
+    "Emergency! Need your help ASAP",
+    "Quick - what's the address again?",
+    "Meeting moved to 3pm, you aware?"
+  ],
+  Messenger: [
+    "Hey! Saw your story, that looks amazing! 📸",
+    "What's cooking? Literally and figuratively 😄",
+    "You up? Can't sleep, wanna chat?",
+    "That meme you sent yesterday had me dying 😂",
+    "Guys, what are we doing for dinner tonight?",
+    "Anyone seen the new episode? No spoilers please!",
+    "Group project meeting - who's free tomorrow?",
+    "Quick poll: Pizza or burgers for lunch?",
+    "I've been thinking about what you said the other day...",
+    "How are you really doing? Like, genuinely?",
+    "I need to talk about something important...",
+    "Can I vent to you for a minute?",
+    "Just beat your high score! 🎮",
+    "Check out this video I found hilarious",
+    "Tag you're it! What's your favorite memory?",
+    "Spotify wrapped just dropped - what'd you get?"
+  ],
+  Email: [
+    "Following up on our discussion from yesterday...",
+    "I wanted to share some updates on the project...",
+    "Could you please review the attached document?",
+    "Regarding our meeting next week...",
+    "Hope you're doing well! Just wanted to check in...",
+    "I came across something that reminded me of you...",
+    "How have you been? It's been too long since we last spoke...",
+    "I wanted to share some good news with you...",
+    "Would you be able to help me with this task?",
+    "I'm looking for your feedback on the proposal...",
+    "Could you please send me the latest version?",
+    "I need your approval on these changes...",
+    "I hope this email finds you well. I'm reaching out because...",
+    "A mutual colleague suggested I contact you about...",
+    "I'd like to introduce myself - I'm currently working on...",
+    "I'm interested in learning more about your experience with..."
+  ],
+  MP3: [
+    "VoiceFiles/Voice1.mp3",
+    "VoiceFiles/Voice2.mp3", 
+    "VoiceFiles/Voice3.mp3"
+  ]
+}
+
 
 // --- trial state ---
 let trial = resetTrialState();
@@ -98,6 +169,7 @@ function getActiveReplyEl() {
   const m = els.medium.value;
   if (m === "SMS") return els.replySMS;
   if (m === "Email") return els.replyEmail;
+  if (m === "MP3") return els.replyMP3;
   return els.replyMsg;
 }
 
@@ -111,6 +183,9 @@ function getActivePromptText() {
     const subj = (els.emailSubject.value || "").trim();
     const body = (els.promptEmail.value || "").trim();
     return `From: ${from}\nSubject: ${subj}\n\n${body}`.trim();
+  }
+  if (m === "MP3") {
+    return `[Audio file: ${els.promptAudio.src || "No file loaded"}]`;
   }
   // Messenger
   return (els.promptMsg.value || "").trim();
@@ -127,6 +202,9 @@ function getActiveReplyText() {
     const body = (els.replyEmail.value || "").trim();
     return `To: ${to}\nSubject: ${subj}\n\n${body}`.trim();
   }
+  if (m === "MP3") {
+    return (els.replyMP3.value || "").trim();
+  }
   // Messenger
   return (els.replyMsg.value || "").trim();
 }
@@ -137,6 +215,17 @@ function showLayout(medium) {
   els.layoutSMS.classList.toggle("hidden", medium !== "SMS");
   els.layoutEmail.classList.toggle("hidden", medium !== "Email");
   els.layoutMessenger.classList.toggle("hidden", medium !== "Messenger");
+  els.layoutMP3.classList.toggle("hidden", medium !== "MP3");
+
+  // auto-load a random audio file when switching to MP3
+  if (medium === "MP3") {
+    const mp3Prompts = conversationPrompts["MP3"];
+    if (mp3Prompts && mp3Prompts.length > 0) {
+      const randomMP3 = mp3Prompts[Math.floor(Math.random() * mp3Prompts.length)];
+      els.promptAudio.src = randomMP3;
+      els.promptAudio.load();
+    }
+  }
 
   // reset timing when switching medium so trials don't mix
   trial = resetTrialState();
@@ -178,6 +267,7 @@ function attachReplyListeners(textarea) {
 attachReplyListeners(els.replySMS);
 attachReplyListeners(els.replyEmail);
 attachReplyListeners(els.replyMsg);
+attachReplyListeners(els.replyMP3);
 
 // prompt inputs update sentence table too
 [els.promptSMS, els.promptEmail, els.promptMsg].forEach((t) => {
@@ -196,6 +286,36 @@ setInterval(updateMetricsLive, 120);
 
 // medium change
 els.medium.addEventListener("change", () => showLayout(els.medium.value));
+
+// random prompt
+els.randomPromptBtn.addEventListener("click", () => {
+  const medium = els.medium.value;
+  const prompts = conversationPrompts[medium];
+  
+  if (!prompts || prompts.length === 0) {
+    alert(`No prompts available for ${medium}`);
+    return;
+  }
+  
+  const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
+  
+  // Set the prompt in the appropriate textarea/player based on medium
+  if (medium === "SMS") {
+    els.promptSMS.value = randomPrompt;
+  } else if (medium === "Email") {
+    els.promptEmail.value = randomPrompt;
+  } else if (medium === "Messenger") {
+    els.promptMsg.value = randomPrompt;
+  } else if (medium === "MP3") {
+    // Load the audio file
+    els.promptAudio.src = randomPrompt;
+    // Optionally autoplay or pause
+    els.promptAudio.load();
+  }
+  
+  renderSentenceTable();
+  setReadyState("Random prompt loaded. Ready to reply.");
+});
 
 // reset trial
 els.resetBtn.addEventListener("click", () => {
