@@ -32,6 +32,7 @@
             <option>SMS</option>
             <option>Email</option>
             <option>Messenger</option>
+            <option>MP3</option>
           </select>
         </label>
 
@@ -191,8 +192,39 @@
         </div>
       </section>
 
+      <!-- ========================= -->
+      <!-- MP3 layout -->
+      <!-- ========================= -->
+      <section id="layoutMP3" class="layout hidden">
+        <div class="layoutHead">
+          <div class="layoutTitle">MP3 Audio</div>
+          <div class="layoutHint small">Voice message layout (audio playback + transcription).</div>
+        </div>
+
+        <div class="mp3Container">
+          <div class="audioCard">
+            <div class="audioCardTitle">Incoming voice message</div>
+            <audio id="promptAudio" controls>
+              <p>Your browser does not support the audio element.</p>
+            </audio>
+            <div class="audioLabel small">Prompt audio</div>
+          </div>
+
+          <div class="audioCard">
+            <div class="audioCardTitle">Record your reply</div>
+            <div class="audioControls">
+              <button id="recordBtn" class="recordBtn">🎤 Start Recording</button>
+              <button id="playBtn" class="playBtn" disabled>▶️ Play Recording</button>
+            </div>
+            <div class="audioLabel small">Voice reply (placeholder - recording not implemented)</div>
+            <textarea id="replyMP3" rows="4" spellcheck="true" placeholder="Or type your reply here..."></textarea>
+          </div>
+        </div>
+      </section>
+
       <!-- shared controls -->
       <div class="row actions">
+        <button id="randomPromptBtn" class="ghost">Random Prompt</button>
         <button id="resetBtn" class="ghost">Reset trial</button>
 
         <div class="metrics">
