@@ -1,30 +1,50 @@
 :root{
   --bg:#0f1115;
+  --bg2:#171a21;
   --card:#171a21;
   --text:#e9ecf1;
   --muted:#a9b1c3;
   --line:#2a2f3b;
   --accent:#6ea8fe;
+  --accent-soft:rgba(110,168,254,.18);
   --good:#7ee787;
   --warn:#ffcc66;
   --bad:#ff6b6b;
-
+  --incoming:#2b2f39;
+  --outgoing:#2f4d7a;
+  --surface:#0d0f14;
+  --shadow:0 12px 30px rgba(0,0,0,.35);
   --radius:16px;
+}
+
+body[data-theme="light"]{
+  --bg:#eef2f8;
+  --bg2:#f7f9fc;
+  --card:#ffffff;
+  --text:#1a2230;
+  --muted:#637086;
+  --line:#d7deea;
+  --accent:#3d73d8;
+  --accent-soft:rgba(61,115,216,.12);
+  --incoming:#edf1f7;
+  --outgoing:#dbe8ff;
+  --surface:#ffffff;
+  --shadow:0 12px 24px rgba(31,41,55,.08);
 }
 
 *{ box-sizing:border-box; }
 
 body{
   margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-  background: radial-gradient(1200px 700px at 20% 0%, #1b2040, var(--bg));
+  font-family:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  background:radial-gradient(1200px 700px at 20% 0%, var(--bg2), var(--bg));
   color:var(--text);
 }
 
 .app{
-  max-width:1100px;
+  max-width:1150px;
   margin:28px auto;
-  padding:0 16px;
+  padding:0 16px 30px;
 }
 
 .topbar{
@@ -54,11 +74,11 @@ body{
 }
 
 .card{
-  background: color-mix(in srgb, var(--card) 88%, #000 12%);
+  background:var(--card);
   border:1px solid var(--line);
   border-radius:var(--radius);
   padding:16px;
-  box-shadow:0 12px 30px rgba(0,0,0,.35);
+  box-shadow:var(--shadow);
 }
 
 .row{
@@ -75,9 +95,11 @@ body{
 
 .field{
   min-width:180px;
+  flex:1 1 180px;
 }
 
-.label{
+.label,
+.metaLabel{
   display:block;
   margin:10px 0 6px 0;
   font-size:12px;
@@ -85,12 +107,17 @@ body{
   color:var(--muted);
 }
 
-.small{ color:var(--muted); font-size:12px; }
+.small{
+  color:var(--muted);
+  font-size:12px;
+}
 
-select, textarea, input[type="text"]{
+select,
+textarea,
+input[type="text"]{
   width:100%;
   border:1px solid var(--line);
-  background:#0d0f14;
+  background:var(--surface);
   color:var(--text);
   border-radius:12px;
   padding:10px;
@@ -100,32 +127,44 @@ select, textarea, input[type="text"]{
 textarea{
   resize:vertical;
   min-height:90px;
+  text-align:left;
+  line-height:1.45;
+  vertical-align:top;
 }
 
 button{
   border:1px solid var(--line);
-  background:#0d0f14;
+  background:var(--surface);
   color:var(--text);
   border-radius:12px;
   padding:10px 12px;
   cursor:pointer;
 }
 
-button:hover{ border-color: rgba(110,168,254,.6); }
-
-button.primary{
-  background: rgba(110,168,254,.18);
-  border-color: rgba(110,168,254,.45);
+button:hover{
+  border-color:rgba(110,168,254,.6);
 }
 
-button.ghost{ background:transparent; }
+button.primary{
+  background:var(--accent-soft);
+  border-color:rgba(110,168,254,.45);
+}
+
+button.ghost{
+  background:transparent;
+}
+
+.smallBtn{
+  padding:7px 10px;
+  font-size:12px;
+}
 
 .pill{
   display:inline-flex;
   align-items:center;
   padding:6px 10px;
   border-radius:999px;
-  background: rgba(110,168,254,.18);
+  background:var(--accent-soft);
   border:1px solid rgba(110,168,254,.35);
   color:var(--accent);
   font-size:12px;
@@ -133,9 +172,9 @@ button.ghost{ background:transparent; }
 }
 
 .pill.subtle{
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.10);
-  color: var(--muted);
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--line);
+  color:var(--muted);
 }
 
 .serverBox{
@@ -145,7 +184,9 @@ button.ghost{ background:transparent; }
   gap:8px;
 }
 
-.actions{ margin-top:14px; }
+.actions{
+  margin-top:14px;
+}
 
 .metrics{
   margin-left:auto;
@@ -155,10 +196,13 @@ button.ghost{ background:transparent; }
   padding:8px 10px;
   border:1px solid var(--line);
   border-radius:12px;
-  background: rgba(0,0,0,.18);
+  background:rgba(0,0,0,.08);
 }
 
-.metrics .k{ color:var(--muted); margin-right:6px; }
+.metrics .k{
+  color:var(--muted);
+  margin-right:6px;
+}
 
 .correctionRow{
   margin-top:12px;
@@ -181,12 +225,13 @@ button.ghost{ background:transparent; }
   padding:12px;
   border-radius:12px;
   border:1px solid var(--line);
-  background: rgba(0,0,0,.18);
+  background:rgba(0,0,0,.06);
 }
 
 .result{
   margin-top:6px;
   font-size:14px;
+  line-height:1.5;
 }
 
 .details{
@@ -195,9 +240,10 @@ button.ghost{ background:transparent; }
   padding-top:10px;
 }
 
-.hidden{ display:none !important; }
+.hidden{
+  display:none !important;
+}
 
-/* ---------- Layout common ---------- */
 .layoutHead{
   display:flex;
   justify-content:space-between;
@@ -208,88 +254,185 @@ button.ghost{ background:transparent; }
 
 .layoutTitle{
   font-weight:700;
+  font-size:18px;
 }
 
-/* ---------- SMS (iMessage-ish) ---------- */
-.phone{
+/* ---------- Shared app-like shells ---------- */
+
+.phoneFrame,
+.emailShell,
+.threadMain,
+.audioCard{
+  box-shadow:0 8px 24px rgba(0,0,0,.12);
+}
+
+.sentBubble,
+.autoReplyBubble{
+  max-width:92%;
+}
+
+/* ---------- SMS ---------- */
+
+.phoneFrame{
   border:1px solid var(--line);
-  border-radius:22px;
-  background: rgba(0,0,0,.18);
+  border-radius:28px;
+  background:rgba(0,0,0,.08);
   overflow:hidden;
 }
 
-.phoneTop{
+.phoneBar{
   display:flex;
   align-items:center;
-  gap:8px;
-  padding:10px 12px;
+  gap:10px;
+  padding:12px 14px;
   border-bottom:1px solid var(--line);
-  background: rgba(255,255,255,.03);
+  background:rgba(255,255,255,.03);
 }
 
-.dot{
+.phoneDots{
+  display:flex;
+  gap:6px;
+}
+
+.phoneDots span{
   width:10px;
   height:10px;
   border-radius:50%;
-  background: rgba(255,255,255,.18);
+  background:rgba(255,255,255,.18);
 }
 
 .phoneTitle{
-  margin-left:6px;
   font-weight:700;
 }
 
 .chatWindow{
-  padding:12px;
+  padding:16px;
   display:flex;
   flex-direction:column;
-  gap:10px;
+  gap:12px;
+  min-height:320px;
 }
 
 .bubble{
-  max-width:88%;
-  border-radius:18px;
+  max-width:92%;
+  border-radius:22px;
   border:1px solid var(--line);
-  padding:10px;
+  padding:12px;
 }
 
 .bubble textarea{
   border:none;
   background:transparent;
-  padding:0;
-  min-height:60px;
+  padding:6px 4px;
+  min-height:80px;
+  text-align:left;
+  line-height:1.45;
+  display:block;
 }
 
-.bubble.incoming{
+.incoming{
   align-self:flex-start;
-  background: rgba(255,255,255,.06);
+  background:var(--incoming);
 }
 
-.bubble.outgoing{
+.outgoing{
   align-self:flex-end;
-  background: rgba(110,168,254,.14);
-  border-color: rgba(110,168,254,.35);
+  background:var(--outgoing);
+  border-color:rgba(110,168,254,.35);
 }
 
-.bubbleLabel{
+.bubbleMeta,
+.msgMeta{
   margin-bottom:6px;
+  font-size:12px;
+  color:var(--muted);
+  font-weight:600;
 }
 
-/* ---------- Email (Gmail-ish) ---------- */
+.composer{
+  display:flex;
+  align-items:flex-end;
+  gap:10px;
+  padding:12px 14px;
+  border-top:1px solid var(--line);
+  background:rgba(255,255,255,.03);
+}
+
+.composer textarea{
+  flex:1;
+  min-height:48px;
+  max-height:140px;
+  resize:none;
+  border-radius:20px;
+  padding:12px 14px;
+  text-align:left;
+  line-height:1.45;
+}
+
+.composer button{
+  flex:0 0 auto;
+  border-radius:999px;
+  min-width:76px;
+  height:44px;
+  padding:0 16px;
+  font-weight:600;
+}
+
+.composerSMS textarea,
+.composerMsg textarea{
+  overflow-y:auto;
+}
+
+.smsWindow .sentBubble,
+.smsWindow .autoReplyBubble{
+  border-radius:22px;
+  padding:12px 14px;
+  line-height:1.45;
+}
+
+/* ---------- Email ---------- */
+
+.emailShell{
+  border:1px solid var(--line);
+  border-radius:18px;
+  overflow:hidden;
+  background:rgba(0,0,0,.06);
+}
+
+.emailToolbar{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 12px;
+  border-bottom:1px solid var(--line);
+}
+
+.emailDot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+}
+
+.emailDot.red{ background:#ff6b6b; }
+.emailDot.yellow{ background:#ffcc66; }
+.emailDot.green{ background:#7ee787; }
+
+.emailBrand{
+  font-weight:700;
+  margin-left:6px;
+}
+
 .emailGrid{
   display:grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns:1fr 1fr;
   gap:12px;
-}
-
-@media (max-width: 900px){
-  .emailGrid{ grid-template-columns:1fr; }
+  padding:12px;
 }
 
 .emailCard{
   border:1px solid var(--line);
   border-radius:16px;
-  background: rgba(0,0,0,.18);
+  background:rgba(0,0,0,.06);
   padding:12px;
 }
 
@@ -300,38 +443,53 @@ button.ghost{ background:transparent; }
 
 .emailMeta{
   display:grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns:1fr 1fr;
   gap:10px;
   margin-bottom:10px;
 }
 
-@media (max-width: 700px){
-  .emailMeta{ grid-template-columns:1fr; }
+.emailCard textarea{
+  min-height:120px;
+  text-align:left;
+  line-height:1.45;
 }
 
-.metaField .metaLabel{
-  display:block;
-  font-size:12px;
-  color:var(--muted);
-  margin-bottom:6px;
+.emailCard button.primary{
+  margin-top:10px;
 }
 
-/* ---------- Messenger-ish ---------- */
+#emailAutoReplyWrap{
+  margin-top:12px;
+}
+
+#emailAutoReplyWrap .sentBubble,
+#emailAutoReplyWrap .autoReplyBubble{
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:12px;
+  background:rgba(255,255,255,.03);
+  max-width:100%;
+}
+
+.emailReplyPreview,
+.emailPreviewBody{
+  line-height:1.5;
+  text-align:left;
+}
+
+/* ---------- Messenger ---------- */
+
 .messenger{
   display:grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns:260px 1fr;
   gap:12px;
   min-height:360px;
-}
-
-@media (max-width: 900px){
-  .messenger{ grid-template-columns:1fr; }
 }
 
 .threadList{
   border:1px solid var(--line);
   border-radius:16px;
-  background: rgba(0,0,0,.18);
+  background:rgba(0,0,0,.06);
   overflow:hidden;
 }
 
@@ -339,7 +497,6 @@ button.ghost{ background:transparent; }
   padding:10px 12px;
   border-bottom:1px solid var(--line);
   font-weight:700;
-  background: rgba(255,255,255,.03);
 }
 
 .thread{
@@ -347,25 +504,22 @@ button.ghost{ background:transparent; }
   text-align:left;
   border:none;
   border-bottom:1px solid rgba(255,255,255,.06);
-  background: transparent;
+  background:transparent;
   padding:10px 12px;
   display:flex;
   gap:10px;
-  cursor:pointer;
 }
 
-.thread:hover{ background: rgba(255,255,255,.04); }
-
 .thread.active{
-  background: rgba(110,168,254,.12);
+  background:var(--accent-soft);
 }
 
 .avatar{
   width:34px;
   height:34px;
   border-radius:50%;
-  background: rgba(255,255,255,.12);
-  flex: 0 0 auto;
+  background:rgba(255,255,255,.15);
+  flex:0 0 auto;
 }
 
 .threadText .name{
@@ -375,7 +529,7 @@ button.ghost{ background:transparent; }
 .threadMain{
   border:1px solid var(--line);
   border-radius:16px;
-  background: rgba(0,0,0,.18);
+  background:rgba(0,0,0,.06);
   overflow:hidden;
   display:flex;
   flex-direction:column;
@@ -387,37 +541,209 @@ button.ghost{ background:transparent; }
   gap:10px;
   padding:10px 12px;
   border-bottom:1px solid var(--line);
-  background: rgba(255,255,255,.03);
 }
 
 .threadBody{
   padding:12px;
   display:flex;
   flex-direction:column;
-  gap:10px;
+  gap:12px;
+  min-height:320px;
 }
 
 .msg{
   border:1px solid var(--line);
-  border-radius:16px;
-  padding:10px;
+  border-radius:18px;
+  padding:12px;
   max-width:92%;
 }
 
 .msg textarea{
   border:none;
   background:transparent;
-  padding:0;
-  min-height:60px;
+  padding:6px 4px;
+  min-height:80px;
+  text-align:left;
+  line-height:1.45;
+  display:block;
 }
 
 .incomingMsg{
   align-self:flex-start;
-  background: rgba(255,255,255,.06);
+  background:var(--incoming);
 }
 
 .outgoingMsg{
   align-self:flex-end;
-  background: rgba(110,168,254,.14);
-  border-color: rgba(110,168,254,.35);
+  background:var(--outgoing);
+  border-color:rgba(110,168,254,.35);
+}
+
+.threadBody .sentBubble,
+.threadBody .autoReplyBubble{
+  border-radius:18px;
+  padding:12px 14px;
+  line-height:1.45;
+}
+
+/* ---------- MP3 ---------- */
+
+.mp3Container{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+.audioCard{
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:rgba(0,0,0,.06);
+  padding:14px;
+}
+
+.audioCardTitle{
+  font-weight:700;
+  margin-bottom:10px;
+}
+
+.audioControls{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:10px;
+}
+
+.audioLabel{
+  margin-top:8px;
+  margin-bottom:8px;
+}
+
+.audioCard textarea{
+  text-align:left;
+  line-height:1.45;
+}
+
+#mp3AutoReplyWrap{
+  margin-top:12px;
+}
+
+#mp3AutoReplyWrap .sentBubble,
+#mp3AutoReplyWrap .autoReplyBubble{
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:12px;
+  background:rgba(255,255,255,.03);
+  max-width:100%;
+}
+
+/* ---------- Suggestions ---------- */
+
+.suggestionInline{
+  margin-top:10px;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.suggestionChip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:7px 10px;
+  border:1px dashed rgba(110,168,254,.5);
+  border-radius:999px;
+  background:var(--accent-soft);
+  font-size:12px;
+}
+
+.suggestionChip button{
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:12px;
+}
+
+/* ---------- Tables ---------- */
+
+.tableWrap{
+  overflow:auto;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:10px;
+  font-size:13px;
+}
+
+th, td{
+  border:1px solid var(--line);
+  padding:8px;
+  text-align:left;
+  vertical-align:top;
+}
+
+th{
+  color:var(--muted);
+  font-weight:600;
+}
+
+.tag{
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:12px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.05);
+}
+
+.tag.formal{ color:#63a4ff; }
+.tag.informal{ color:#ff9b63; }
+.tag.neutral{ color:#8fd18f; }
+
+/* ---------- Role handling ---------- */
+
+.participantOnly{ display:block; }
+.adminOnly{ display:flex; }
+
+body[data-role="participant"] .adminOnly{
+  display:none !important;
+}
+
+body[data-role="participant"] .participantOnly{
+  display:block !important;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 950px){
+  .emailGrid,
+  .mp3Container,
+  .messenger{
+    grid-template-columns:1fr;
+  }
+
+  .topbar{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .topStatus{
+    justify-content:flex-start;
+  }
+
+  .bubble,
+  .msg{
+    max-width:100%;
+  }
+
+  .composer{
+    align-items:stretch;
+  }
+
+  .composer button{
+    width:100%;
+    height:auto;
+    min-height:44px;
+  }
 }
