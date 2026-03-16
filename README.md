@@ -56,4 +56,4 @@ This is still a prototype and may change a bit.
 
 Feedback welcome! 😊
 
-Jocelyne M and Jakob Topholt
+Jocelyne M, Yusrat and Jakob Topholt
