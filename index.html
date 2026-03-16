@@ -4,28 +4,38 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Reply Task Prototype</title>
-
-  <!-- must be in same folder as index.html -->
   <link rel="stylesheet" href="./style.css" />
 </head>
 
-<body data-medium="SMS">
+<body data-medium="SMS" data-theme="dark" data-role="admin">
+
   <main class="app">
+
+    <!-- HEADER -->
+
     <header class="topbar">
       <div>
         <h1>Reply Task Prototype</h1>
-        <p class="sub">Logs trials + typing behaviour. Sentiment runs via Flask (TextBlob/VADER).</p>
+        <p class="sub">
+          Logs trials + typing behaviour.  
+          Sentiment runs via Flask (TextBlob/VADER) + rule-based style labels.
+        </p>
       </div>
 
       <div class="topStatus">
+        <button id="themeToggleBtn" class="ghost smallBtn">Light mode</button>
+        <button id="roleToggleBtn" class="ghost smallBtn">Switch to participant view</button>
         <span class="pill" id="readyPill">Ready</span>
         <span class="small" id="statusText">Waiting for you to start typing…</span>
       </div>
     </header>
 
     <section class="card">
-      <!-- controls -->
-      <div class="row controls">
+
+      <!-- ADMIN CONTROLS -->
+
+      <div class="row controls adminOnly">
+
         <label class="field">
           <span class="label">Medium</span>
           <select id="medium">
@@ -55,120 +65,168 @@
           </select>
         </label>
 
+        <label class="field">
+          <span class="label">Participant ID</span>
+          <input id="participantId" type="text" value="P001" />
+        </label>
+
         <div class="serverBox">
           <span class="small">Server:</span>
           <span class="pill subtle" id="serverPill">Checking…</span>
         </div>
+
       </div>
 
-      <!-- ========================= -->
-      <!-- SMS layout -->
-      <!-- ========================= -->
+      <!-- SMS -->
+
       <section id="layoutSMS" class="layout">
+
         <div class="layoutHead">
           <div class="layoutTitle">SMS</div>
-          <div class="layoutHint small">iMessage-ish layout (bubble chat).</div>
+          <div class="layoutHint small">iMessage-inspired layout.</div>
         </div>
 
-        <div class="phone">
-          <div class="phoneTop">
-            <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        <div class="phoneFrame">
+
+          <div class="phoneBar">
+            <div class="phoneDots">
+              <span></span><span></span><span></span>
+            </div>
             <div class="phoneTitle">Messages</div>
           </div>
 
-          <div class="chatWindow">
+          <div class="chatWindow smsWindow" id="smsThread">
+
+            <!-- PROMPT -->
+
             <div class="bubble incoming">
-              <div class="bubbleLabel small">Prompt</div>
-              <textarea id="promptSMS" rows="3">Hi! Can you help me with something today?</textarea>
+              <div class="bubbleMeta">Prompt</div>
+              <textarea id="promptSMS" rows="3">
+Hi! Can you help me with something today?
+              </textarea>
             </div>
 
-            <div class="bubble outgoing">
-              <div class="bubbleLabel small">Your reply</div>
-              <textarea id="replySMS" rows="3" spellcheck="true" placeholder="Type your reply…"></textarea>
-            </div>
+            <!-- SENT BUBBLES WILL APPEAR HERE -->
+
+            <div id="smsAutoReplyWrap"></div>
+
           </div>
+
+          <!-- COMPOSER -->
+
+          <div class="composer composerSMS">
+
+            <textarea
+              id="replySMS"
+              rows="2"
+              spellcheck="true"
+              placeholder="Type your reply…">
+            </textarea>
+
+            <button id="sendSMSBtn" class="primary">
+              Send
+            </button>
+
+          </div>
+
+          <div class="suggestionInline" id="suggestionSMS"></div>
+
         </div>
       </section>
 
-      <!-- ========================= -->
-      <!-- Email layout -->
-      <!-- ========================= -->
+      <!-- EMAIL -->
+
       <section id="layoutEmail" class="layout hidden">
+
         <div class="layoutHead">
           <div class="layoutTitle">Email</div>
-          <div class="layoutHint small">Gmail-ish layout (headers + message body).</div>
+          <div class="layoutHint small">Gmail-inspired layout.</div>
         </div>
 
-        <div class="emailGrid">
-          <div class="emailCard">
-            <div class="emailCardTitle">Incoming email (prompt)</div>
+        <div class="emailShell">
 
-            <div class="emailMeta">
-              <label class="metaField">
-                <span class="metaLabel">From</span>
-                <input id="emailFrom" type="text" value="someone@example.com" />
-              </label>
+          <div class="emailGrid">
 
-              <label class="metaField">
-                <span class="metaLabel">Subject</span>
-                <input id="emailSubject" type="text" value="Quick question" />
-              </label>
+            <!-- INCOMING EMAIL -->
+
+            <div class="emailCard">
+
+              <div class="emailCardTitle">Incoming email</div>
+
+              <div class="emailMeta">
+                <label class="metaField">
+                  <span class="metaLabel">From</span>
+                  <input id="emailFrom" type="text" value="someone@example.com" />
+                </label>
+
+                <label class="metaField">
+                  <span class="metaLabel">Subject</span>
+                  <input id="emailSubject" type="text" value="Quick question" />
+                </label>
+              </div>
+
+              <label class="label">Message body</label>
+
+              <textarea id="promptEmail" rows="7">
+Hi! Can you help me with something today?
+              </textarea>
+
             </div>
 
-            <label class="label">Message</label>
-            <textarea id="promptEmail" rows="6">Hi! Can you help me with something today?</textarea>
-          </div>
+            <!-- EMAIL REPLY -->
 
-          <div class="emailCard">
-            <div class="emailCardTitle">Compose reply</div>
+            <div class="emailCard">
 
-            <div class="emailMeta">
-              <label class="metaField">
-                <span class="metaLabel">To</span>
-                <input id="emailTo" type="text" value="someone@example.com" />
-              </label>
+              <div class="emailCardTitle">Compose reply</div>
 
-              <label class="metaField">
-                <span class="metaLabel">Subject</span>
-                <input id="replyEmailSubject" type="text" value="Re: Quick question" />
-              </label>
+              <div class="emailMeta">
+                <label class="metaField">
+                  <span class="metaLabel">To</span>
+                  <input id="emailTo" type="text" value="someone@example.com" />
+                </label>
+
+                <label class="metaField">
+                  <span class="metaLabel">Subject</span>
+                  <input id="replyEmailSubject" type="text" value="Re: Quick question" />
+                </label>
+              </div>
+
+              <label class="label">Reply body</label>
+
+              <textarea
+                id="replyEmail"
+                rows="8"
+                spellcheck="true"
+                placeholder="Write your email reply…">
+              </textarea>
+
+              <button id="sendEmailBtn" class="primary">
+                Send
+              </button>
+
+              <div id="emailAutoReplyWrap"></div>
+
+              <div class="suggestionInline" id="suggestionEmail"></div>
+
             </div>
 
-            <label class="label">Reply</label>
-            <textarea id="replyEmail" rows="8" spellcheck="true" placeholder="Write your email reply…"></textarea>
           </div>
         </div>
       </section>
 
-      <!-- ========================= -->
-      <!-- Messenger layout -->
-      <!-- ========================= -->
+      <!-- MESSENGER -->
+
       <section id="layoutMessenger" class="layout hidden">
+
         <div class="layoutHead">
           <div class="layoutTitle">Messenger</div>
-          <div class="layoutHint small">Messenger-ish layout (thread + composer).</div>
+          <div class="layoutHint small">Messenger-inspired layout.</div>
         </div>
 
         <div class="messenger">
-          <aside class="threadList">
-            <div class="threadHeader">Chats</div>
-            <button class="thread active" type="button">
-              <div class="avatar"></div>
-              <div class="threadText">
-                <div class="name">Friend</div>
-                <div class="preview small">Hi! Can you help me…</div>
-              </div>
-            </button>
-            <button class="thread" type="button">
-              <div class="avatar"></div>
-              <div class="threadText">
-                <div class="name">Group</div>
-                <div class="preview small">Last message…</div>
-              </div>
-            </button>
-          </aside>
 
           <div class="threadMain">
+
             <div class="threadTop">
               <div class="avatar"></div>
               <div>
@@ -177,55 +235,104 @@
               </div>
             </div>
 
-            <div class="threadBody">
+            <div class="threadBody" id="messengerThread">
+
               <div class="msg incomingMsg">
-                <div class="msgLabel small">Prompt</div>
-                <textarea id="promptMsg" rows="3">Hi! Can you help me with something today?</textarea>
+                <div class="msgMeta">Prompt</div>
+                <textarea id="promptMsg" rows="3">
+Hi! Can you help me with something today?
+                </textarea>
               </div>
 
-              <div class="msg outgoingMsg">
-                <div class="msgLabel small">Your reply</div>
-                <textarea id="replyMsg" rows="3" spellcheck="true" placeholder="Type your message…"></textarea>
-              </div>
+              <div id="msgAutoReplyWrap"></div>
+
             </div>
+
+            <!-- MESSAGE COMPOSER -->
+
+            <div class="composer composerMsg">
+
+              <textarea
+                id="replyMsg"
+                rows="2"
+                spellcheck="true"
+                placeholder="Type your message…">
+              </textarea>
+
+              <button id="sendMsgBtn" class="primary">
+                Send
+              </button>
+
+            </div>
+
+            <div class="suggestionInline" id="suggestionMsg"></div>
+
           </div>
         </div>
       </section>
 
-      <!-- ========================= -->
-      <!-- MP3 layout -->
-      <!-- ========================= -->
+      <!-- MP3 -->
+
       <section id="layoutMP3" class="layout hidden">
+
         <div class="layoutHead">
           <div class="layoutTitle">MP3 Audio</div>
-          <div class="layoutHint small">Voice message layout (audio playback + transcription).</div>
+          <div class="layoutHint small">Voice message layout.</div>
         </div>
 
         <div class="mp3Container">
+
           <div class="audioCard">
             <div class="audioCardTitle">Incoming voice message</div>
-            <audio id="promptAudio" controls>
-              <p>Your browser does not support the audio element.</p>
-            </audio>
+            <audio id="promptAudio" controls></audio>
             <div class="audioLabel small">Prompt audio</div>
           </div>
 
           <div class="audioCard">
+
             <div class="audioCardTitle">Record your reply</div>
+
             <div class="audioControls">
-              <button id="recordBtn" class="recordBtn">🎤 Start Recording</button>
-              <button id="playBtn" class="playBtn" disabled>▶️ Play Recording</button>
+              <button id="recordBtn" class="ghost">🎤 Start Recording</button>
+              <button id="playBtn" class="ghost" disabled>▶ Play Recording</button>
             </div>
-            <div class="audioLabel small">Voice reply (placeholder - recording not implemented)</div>
-            <textarea id="replyMP3" rows="4" spellcheck="true" placeholder="Or type your reply here..."></textarea>
+
+            <div class="audioLabel small" id="recordStatus">
+              Voice reply is currently simulated.
+            </div>
+
+            <label class="label">Typed fallback reply</label>
+
+            <textarea
+              id="replyMP3"
+              rows="5"
+              spellcheck="true"
+              placeholder="Or type your reply here…">
+            </textarea>
+
+            <button id="sendMP3Btn" class="primary">
+              Send
+            </button>
+
+            <div id="mp3AutoReplyWrap"></div>
+
+            <div class="suggestionInline" id="suggestionMP3"></div>
+
           </div>
         </div>
       </section>
 
-      <!-- shared controls -->
+      <!-- ACTION BAR -->
+
       <div class="row actions">
-        <button id="randomPromptBtn" class="ghost">Random Prompt</button>
-        <button id="resetBtn" class="ghost">Reset trial</button>
+
+        <button id="randomPromptBtn" class="ghost adminOnly">
+          Random Prompt
+        </button>
+
+        <button id="resetBtn" class="ghost">
+          Reset trial
+        </button>
 
         <div class="metrics">
           <div><span class="k">Time</span> <span id="timeVal">0.000</span>s</div>
@@ -233,6 +340,18 @@
           <div><span class="k">Backspace</span> <span id="backsVal">0</span></div>
           <div><span class="k">Paste</span> <span id="pasteVal">no</span></div>
         </div>
+
+      </div>
+
+      <!-- CORRECTIONS -->
+
+      <div class="row correctionRow adminOnly">
+        <button id="suggestBtn" class="ghost">
+          Suggest correction
+        </button>
+        <span class="small" id="suggestionStatus">
+          Suggestion: none
+        </span>
       </div>
 
       <div class="row correctionRow">
@@ -243,27 +362,57 @@
         <span class="small" id="corrStatus">Correction: none</span>
       </div>
 
-      <label class="label" for="notes">Notes (optional)</label>
-      <input id="notes" type="text" placeholder="Anything you want to note…" />
+      <!-- NOTES -->
+
+      <label class="label adminOnly" for="notes">
+        Notes (optional)
+      </label>
+
+      <input
+        id="notes"
+        class="adminOnly"
+        type="text"
+        placeholder="Anything you want to note…" />
+
+      <!-- ANALYSIS -->
 
       <div class="row bottomActions">
-        <button id="analyzeBtn" class="primary">Analyze + Save</button>
-        <button id="downloadBtn">Download CSV</button>
+
+        <button id="analyzeBtn" class="primary">
+          Analyze + Save
+        </button>
+
+        <button id="downloadBtn">
+          Download CSV
+        </button>
+
       </div>
 
       <div class="resultBox">
+
         <div class="label">Result</div>
-        <div id="resultText" class="result">Results will appear here after you click Analyze + Save.</div>
+
+        <div id="resultText" class="result">
+          Results will appear here after you click Analyze + Save.
+        </div>
+
       </div>
 
-      <details class="details">
-        <summary>Optional: sentence breakdown (for later)</summary>
+      <!-- SENTENCE BREAKDOWN -->
+
+      <details class="details adminOnly">
+
+        <summary>Sentence breakdown</summary>
+
         <div id="sentenceTableWrap"></div>
+
       </details>
+
     </section>
+
   </main>
 
-  <!-- must be in same folder as index.html -->
   <script src="./app.js" defer></script>
+
 </body>
 </html>
