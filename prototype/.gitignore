@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Environment
+.env
+
+# Audio files
+static/audio/
+
+# Data logs
+*.csv
+
+# Mac
+.DS_Store
