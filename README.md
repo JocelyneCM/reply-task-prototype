@@ -7,7 +7,7 @@ The interface mimics SMS, Email, and Messenger so we can test responses in diffe
 
 It logs things like:
 - medium (SMS / Email / Messenger)
-- input method
+- input method (keyboard or voice)
 - prompt
 - reply
 - response time
@@ -19,10 +19,12 @@ It logs things like:
 For sentiment analysis I currently use:
 - TextBlob
 - VADER
+- (BERT-based analysis in progress)
 
 I am still working on:
 - SVM classifier
-- text correction tracking
+- Improved text correction tracking
+- More consistent sentiment normalization
 
 The goal is to collect experimental data for our project.
 
@@ -34,12 +36,15 @@ The goal is to collect experimental data for our project.
 2.  Activate the environment
 
 - Mac:
+
 source sentiment_env/bin/activate
 
 3. Run the server
+
 python3 server.py
 
 4. Open in browser
+
 http://localhost:8000
 
 ---
@@ -50,10 +55,15 @@ The web interface lets you:
 - simulate replying to messages
 - track typing behavior
 - analyze sentiment
-- save trials to CSV
+- store trial data in CSV format
+- View results in an admin dashboard
 
-This is still a prototype and may change a bit.
+---
+## Notes
+This is a research prototype and is still evolving.
+Some features and outputs (e.g., sentiment labels) may be inconsistent as models and logging are being refined.
+---
 
 Feedback welcome! 😊
 
-Jocelyne M, Yusrat and Jakob Topholt
+Jocelyne M, Yusrat A. J. and Jakob Topholt
