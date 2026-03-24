@@ -60,6 +60,7 @@ The web interface lets you:
 
 ---
 ## Notes
+
 This is a research prototype and is still evolving.
 Some features and outputs (e.g., sentiment labels) may be inconsistent as models and logging are being refined.
 ---
