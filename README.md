@@ -37,15 +37,15 @@ The goal is to collect experimental data for our project.
 
 - Mac:
 
-source sentiment_env/bin/activate
+    source sentiment_env/bin/activate
 
 3. Run the server
 
-python3 server.py
+    python3 server.py
 
 4. Open in browser
 
-http://localhost:8000
+    http://localhost:8000
 
 ---
 
