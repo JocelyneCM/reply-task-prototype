@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Relay — Research console</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+
+  <body data-role="admin" data-theme="dark">
+    <!--
+      Admin shell: same Relay visual language as the participant app (tokens in style.css).
+      Multi-section console: overview, participants, trials, exports, settings.
+    -->
+    <div class="pex-admin-app">
+      <button
+        type="button"
+        class="pex-admin-nav-toggle"
+        id="pexAdminNavToggle"
+        aria-label="Open navigation menu"
+        aria-expanded="false"
+        aria-controls="pexAdminSidebar"
+      >
+        <span class="pex-hamburger-lines" aria-hidden="true"></span>
+      </button>
+
+      <div
+        class="pex-admin-backdrop"
+        id="pexAdminNavBackdrop"
+        hidden
+        aria-hidden="true"
+      ></div>
+
+      <aside class="pex-admin-sidebar" id="pexAdminSidebar">
+        <div class="pex-admin-brand-block">
+          <div class="pex-admin-brand-title">Relay</div>
+          <div class="pex-admin-brand-sub">Research console</div>
+        </div>
+
+        <nav class="pex-admin-nav" aria-label="Admin sections">
+          <button
+            type="button"
+            class="pex-admin-nav-item is-active"
+            data-admin-view="overview"
+          >
+            <span class="pex-admin-nav-label">Overview</span>
+            <span class="pex-admin-nav-hint">Study snapshot</span>
+          </button>
+          <button type="button" class="pex-admin-nav-item" data-admin-view="participants">
+            <span class="pex-admin-nav-label">Participants</span>
+            <span class="pex-admin-nav-hint">Who has data</span>
+          </button>
+          <button type="button" class="pex-admin-nav-item" data-admin-view="trials">
+            <span class="pex-admin-nav-label">Trials &amp; charts</span>
+            <span class="pex-admin-nav-hint">Filter &amp; inspect</span>
+          </button>
+          <button type="button" class="pex-admin-nav-item" data-admin-view="exports">
+            <span class="pex-admin-nav-label">Exports</span>
+            <span class="pex-admin-nav-hint">CSV downloads</span>
+          </button>
+          <button type="button" class="pex-admin-nav-item" data-admin-view="settings">
+            <span class="pex-admin-nav-label">About</span>
+            <span class="pex-admin-nav-hint">How this fits together</span>
+          </button>
+        </nav>
+
+        <div class="pex-admin-sidebar-footer">
+          <a class="pex-admin-participant-link" href="/">← Participant experience</a>
+          <p class="pex-admin-sidebar-note">
+            Same study session as the Relay UI at <code>/</code>
+          </p>
+        </div>
+      </aside>
+
+      <div class="pex-admin-shell">
+        <header class="pex-admin-topbar">
+          <div class="pex-admin-topbar-text">
+            <h1 class="pex-admin-heading" id="pexAdminPageTitle">Overview</h1>
+            <p class="pex-admin-lead" id="pexAdminPageDesc">
+              Snapshot of logged trials and participants.
+            </p>
+          </div>
+          <div class="pex-admin-topbar-actions">
+            <span class="pex-admin-pill" id="serverPill">Checking…</span>
+            <button type="button" class="pex-btn-ghost" id="themeToggleBtn">
+              Light mode
+            </button>
+            <button type="button" class="pex-btn-primary" id="adminRefreshBtn">
+              Refresh data
+            </button>
+          </div>
+        </header>
+
+        <main class="pex-admin-main">
+          <!-- Overview -->
+          <section
+            id="adminViewOverview"
+            class="pex-admin-view"
+            data-admin-view-panel="overview"
+            aria-labelledby="pexAdminPageTitle"
+          >
+            <div class="pex-admin-kpi-grid" id="adminKpiGrid">
+              <article class="pex-admin-kpi">
+                <div class="pex-admin-kpi-label">Total trials</div>
+                <div class="pex-admin-kpi-value" id="kpiTotalTrials">—</div>
+              </article>
+              <article class="pex-admin-kpi">
+                <div class="pex-admin-kpi-label">Participants</div>
+                <div class="pex-admin-kpi-value" id="kpiParticipantCount">—</div>
+              </article>
+              <article class="pex-admin-kpi">
+                <div class="pex-admin-kpi-label">Data refreshed</div>
+                <div class="pex-admin-kpi-value pex-admin-kpi-value--sm" id="kpiRefreshedAt">
+                  —
+                </div>
+              </article>
+            </div>
+
+            <div class="pex-admin-card-grid">
+              <div class="pex-admin-card">
+                <h2 class="pex-admin-card-title">Trials by medium</h2>
+                <p class="pex-admin-card-desc">Where replies were composed</p>
+                <div class="pex-admin-chart-wrap">
+                  <canvas id="overviewMediumChart" height="220"></canvas>
+                </div>
+              </div>
+              <div class="pex-admin-card">
+                <h2 class="pex-admin-card-title">Sentiment (BERT)</h2>
+                <p class="pex-admin-card-desc">Labels from server-side analysis at log time</p>
+                <div class="pex-admin-chart-wrap">
+                  <canvas id="overviewBertChart" height="220"></canvas>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Participants -->
+          <section
+            id="adminViewParticipants"
+            class="pex-admin-view"
+            data-admin-view-panel="participants"
+            hidden
+          >
+            <div class="pex-admin-card pex-admin-card--flush">
+              <div class="pex-admin-card-header">
+                <h2 class="pex-admin-card-title">Participant directory</h2>
+                <p class="pex-admin-card-desc">
+                  Trial counts from the global log. Open <strong>Trials</strong> to filter by
+                  person.
+                </p>
+              </div>
+              <div class="pex-admin-table-scroll">
+                <table class="pex-admin-table">
+                  <thead>
+                    <tr>
+                      <th><input type="checkbox" id="participantSelectAll" aria-label="Select all participants" /></th>
+                      <th>Participant</th>
+                      <th>Trials</th>
+                      <th>Last activity</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="participantStatsBody"></tbody>
+                </table>
+              </div>
+              <div class="pex-admin-card-header" style="padding-top:10px; display:flex; gap:10px;">
+                <button type="button" class="pex-btn-ghost" id="deleteSelectedParticipantsBtn">
+                  Delete selected participants
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Trials -->
+          <section
+            id="adminViewTrials"
+            class="pex-admin-view"
+            data-admin-view-panel="trials"
+            hidden
+          >
+            <div class="pex-admin-filters pex-admin-card">
+              <div class="pex-admin-filters-grid">
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="participantFilter">Participant</label>
+                  <select id="participantFilter">
+                    <option value="">All participants</option>
+                  </select>
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="dateFilter">Date</label>
+                  <input id="dateFilter" type="date" />
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="mediumFilter">Medium</label>
+                  <select id="mediumFilter">
+                    <option value="">All</option>
+                    <option>SMS</option>
+                    <option>Messenger</option>
+                    <option>Email</option>
+                    <option>Voice</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="pex-admin-trials-split">
+              <div class="pex-admin-trials-left">
+                <div class="pex-admin-card">
+                  <h2 class="pex-admin-card-title">Charts</h2>
+                  <p class="pex-admin-card-desc">Updates with the filters above</p>
+                  <div class="pex-admin-charts-grid">
+                    <div class="pex-admin-chart-card">
+                      <div class="pex-admin-chart-title">Sentiment (BERT)</div>
+                      <canvas id="sentimentChart"></canvas>
+                    </div>
+                    <div class="pex-admin-chart-card">
+                      <div class="pex-admin-chart-title">Response time (s)</div>
+                      <canvas id="responseTimeChart"></canvas>
+                    </div>
+                    <div class="pex-admin-chart-card">
+                      <div class="pex-admin-chart-title">Style</div>
+                      <canvas id="styleChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pex-admin-card pex-admin-card--flush">
+                  <div class="pex-admin-card-header">
+                    <h2 class="pex-admin-card-title">Trial log</h2>
+                    <p class="pex-admin-card-desc">
+                      Select a row to inspect text, transcript, audio, and metrics.
+                    </p>
+                  </div>
+                  <div class="pex-admin-table-scroll">
+                    <table class="pex-admin-table pex-admin-table--dense">
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>ID</th>
+                          <th>Medium</th>
+                          <th>Preview</th>
+                          <th>BERT</th>
+                          <th>Response (s)</th>
+                          <th>Style</th>
+                        </tr>
+                      </thead>
+                      <tbody id="resultsTableBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <aside class="pex-admin-detail-panel" id="trialDetailPanel" aria-live="polite">
+                <div class="pex-admin-detail-inner" id="trialDetailInner">
+                  <p class="pex-admin-detail-placeholder">
+                    Select a trial on the left to see full fields, sentiment scores, and audio.
+                  </p>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <!-- Exports -->
+          <section
+            id="adminViewExports"
+            class="pex-admin-view"
+            data-admin-view-panel="exports"
+            hidden
+          >
+            <div class="pex-admin-export-grid">
+              <article class="pex-admin-export-card">
+                <h2 class="pex-admin-card-title">All participants</h2>
+                <p class="pex-admin-card-desc">
+                  Global log CSV (<code>data/logs/sentiment_log_web.csv</code>).
+                </p>
+                <button type="button" class="pex-btn-primary" id="downloadAllBtn">
+                  Download full CSV
+                </button>
+              </article>
+              <article class="pex-admin-export-card">
+                <h2 class="pex-admin-card-title">One participant</h2>
+                <p class="pex-admin-card-desc">
+                  Per-participant file under <code>data/participants/&lt;id&gt;/</code>.
+                </p>
+                <label class="pex-admin-label" for="exportParticipantSelect">Participant</label>
+                <select id="exportParticipantSelect">
+                  <option value="">Choose…</option>
+                </select>
+                <button type="button" class="pex-btn-ghost" id="downloadParticipantBtn">
+                  Download selected CSV
+                </button>
+              </article>
+            </div>
+          </section>
+
+          <!-- Settings / about -->
+          <section
+            id="adminViewSettings"
+            class="pex-admin-view"
+            data-admin-view-panel="settings"
+            hidden
+          >
+            <div class="pex-admin-card">
+              <h2 class="pex-admin-card-title">How Relay logging works</h2>
+              <ul class="pex-admin-about-list">
+                <li>
+                  Each participant reply is saved with time, channel, response text (or transcript), and behavior metrics.
+                </li>
+                <li>
+                  Voice replies can be transcribed when transcription support is available on the server.
+                </li>
+                <li>
+                  This admin console reads the saved data and shows summaries, trial details, and analysis in one place.
+                </li>
+                <li>
+                  Exports download the same CSV files used by this dashboard.
+                </li>
+                <li>
+                  <strong>Transcription status:</strong>
+                  <span id="adminTranscriptionRuntime">Checking…</span>
+                </li>
+              </ul>
+            </div>
+            <div class="pex-admin-card" style="margin-top:16px">
+              <h2 class="pex-admin-card-title">Prompt management</h2>
+              <p class="pex-admin-card-desc">
+                Choose a one-shot prompt for the next exercise, or keep random selection.
+              </p>
+              <div class="pex-admin-field" style="margin-top:12px">
+                <label class="pex-admin-label" for="adminNextPromptSelect">Next text prompt</label>
+                <select id="adminNextPromptSelect">
+                  <option value="">Random (default)</option>
+                </select>
+              </div>
+              <div class="pex-admin-field" style="margin-top:12px">
+                <label class="pex-admin-label" for="adminCustomSmsPrompt">Custom prompt (SMS/Messenger)</label>
+                <textarea id="adminCustomSmsPrompt" rows="2" placeholder="Type a custom text prompt"></textarea>
+              </div>
+              <div class="pex-admin-field" style="margin-top:10px">
+                <label class="pex-admin-label" for="adminCustomEmailSubject">Custom email subject</label>
+                <input id="adminCustomEmailSubject" type="text" placeholder="Subject" />
+              </div>
+              <div class="pex-admin-field" style="margin-top:10px">
+                <label class="pex-admin-label" for="adminCustomEmailBody">Custom email body</label>
+                <textarea id="adminCustomEmailBody" rows="3" placeholder="Type a custom email prompt"></textarea>
+              </div>
+              <div class="row" style="margin-top:10px">
+                <button type="button" class="pex-btn-primary" id="adminSaveNextPromptBtn">
+                  Save next prompt
+                </button>
+                <button type="button" class="pex-btn-ghost" id="adminSaveCustomPromptBtn">
+                  Save custom prompt for next exercise
+                </button>
+                <button type="button" class="pex-btn-ghost" id="adminClearNextPromptBtn">
+                  Clear override
+                </button>
+              </div>
+              <p class="small" id="adminNextPromptStatus" style="margin-top:8px">
+                Next exercise prompt: random
+              </p>
+              <div class="pex-admin-field" style="margin-top:12px">
+                <label class="pex-admin-label" for="adminPromptAudioFile">Voice prompt audio (upload)</label>
+                <input id="adminPromptAudioFile" type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,audio/*" />
+              </div>
+              <div class="row" style="margin-top:10px">
+                <button type="button" class="pex-btn-ghost" id="adminUploadPromptAudioBtn">
+                  Upload voice prompt audio
+                </button>
+              </div>
+              <p class="small" id="adminPromptAudioStatus" style="margin-top:8px"></p>
+              <details class="pex-admin-advanced" style="margin-top:10px">
+                <summary>View prompt pool</summary>
+                <ul id="adminPromptPoolList" class="pex-admin-about-list"></ul>
+              </details>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  </body>
+</html>

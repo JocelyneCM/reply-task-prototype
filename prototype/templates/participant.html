@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title>Relay</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  </head>
+
+  <body data-role="participant" data-theme="dark">
+    <!--
+      Participant shell: one cohesive app. No research metrics or admin copy.
+      Modes: SMS, Messenger, Email (inbox → read → compose), Voice (prompt + record).
+    -->
+    <div class="pex-app" id="participantApp">
+      <header class="pex-topbar">
+        <button
+          type="button"
+          class="pex-icon-btn pex-hamburger"
+          id="pexMenuBtn"
+          aria-label="Open menu"
+          aria-expanded="false"
+          aria-controls="pexDrawer"
+        >
+          <span class="pex-hamburger-lines" aria-hidden="true"></span>
+        </button>
+        <div class="pex-topbar-titles">
+          <h1 class="pex-app-title" id="pexScreenTitle">Messages</h1>
+          <p class="pex-app-tagline" id="pexScreenTagline">Text</p>
+        </div>
+        <button
+          type="button"
+          class="pex-icon-btn pex-theme-btn"
+          id="themeToggleBtn"
+          aria-label="Toggle light or dark theme"
+        >
+          <span class="pex-theme-icon" aria-hidden="true">◐</span>
+        </button>
+      </header>
+
+      <!-- Drawer: mobile-style navigation between modes -->
+      <div
+        class="pex-drawer-backdrop"
+        id="pexDrawerBackdrop"
+        hidden
+        aria-hidden="true"
+      ></div>
+      <nav
+        class="pex-drawer"
+        id="pexDrawer"
+        aria-hidden="true"
+        aria-label="Conversation modes"
+      >
+        <div class="pex-drawer-header">
+          <span class="pex-brand">Relay</span>
+          <button
+            type="button"
+            class="pex-icon-btn"
+            id="pexDrawerClose"
+            aria-label="Close menu"
+          >
+            ×
+          </button>
+        </div>
+        <ul class="pex-nav">
+          <li>
+            <button type="button" class="pex-nav-btn is-active" data-medium="SMS">
+              <span class="pex-nav-icon" aria-hidden="true">💬</span>
+              <span class="pex-nav-label">Messages</span>
+              <span class="pex-nav-desc">SMS-style thread</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="pex-nav-btn" data-medium="Messenger">
+              <span class="pex-nav-icon" aria-hidden="true">✉️</span>
+              <span class="pex-nav-label">Chats</span>
+              <span class="pex-nav-desc">Messenger-style</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="pex-nav-btn" data-medium="Email">
+              <span class="pex-nav-icon" aria-hidden="true">📧</span>
+              <span class="pex-nav-label">Mail</span>
+              <span class="pex-nav-desc">Inbox &amp; reply</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="pex-nav-btn" data-medium="Voice">
+              <span class="pex-nav-icon" aria-hidden="true">🎙️</span>
+              <span class="pex-nav-label">Voice</span>
+              <span class="pex-nav-desc">Voice notes</span>
+            </button>
+          </li>
+        </ul>
+        <p class="pex-drawer-footnote">
+          Same conversation — different apps people use every day.
+        </p>
+      </nav>
+
+      <main class="pex-main">
+        <input type="hidden" id="participantId" value="" />
+
+        <!-- ——— SMS (iMessage-inspired) ——— -->
+        <section
+          id="layoutSMS"
+          class="pex-mode pex-mode-sms"
+          data-medium="SMS"
+          aria-label="Messages"
+        >
+          <div class="pex-chat-shell pex-chat-shell--sms">
+            <div class="pex-chat-header pex-chat-header--sms">
+              <span class="pex-back-placeholder" aria-hidden="true"></span>
+              <span class="pex-chat-header-title">Messages</span>
+              <span class="pex-back-placeholder" aria-hidden="true"></span>
+            </div>
+            <div class="pex-thread pex-thread--sms" id="smsThread">
+              <div class="pex-time-pill">Today</div>
+              <article class="pex-bubble pex-bubble--in pex-bubble--sms">
+                <div class="pex-bubble-name">Alex</div>
+                <div class="pex-bubble-text" id="promptSMS" data-placeholder>
+                  Hi! Can you help me with something today?
+                </div>
+              </article>
+            </div>
+            <div class="pex-corrections" id="suggestionSMS"></div>
+            <footer class="pex-composer pex-composer--sms">
+              <label class="pex-sr-only" for="replySMS">Your message</label>
+              <textarea
+                id="replySMS"
+                class="pex-input pex-input--rounded"
+                rows="1"
+                spellcheck="true"
+                placeholder="iMessage"
+                autocomplete="off"
+              ></textarea>
+              <button type="button" class="pex-send pex-send--sms" id="sendSMSBtn">
+                <span aria-hidden="true">↑</span>
+                <span class="pex-sr-only">Send</span>
+              </button>
+            </footer>
+          </div>
+        </section>
+
+        <!-- ——— Messenger (WhatsApp / Messenger-inspired) ——— -->
+        <section
+          id="layoutMessenger"
+          class="pex-mode pex-mode-msg hidden"
+          data-medium="Messenger"
+          aria-label="Chats"
+        >
+          <div class="pex-chat-shell pex-chat-shell--msg">
+            <div class="pex-chat-header pex-chat-header--msg">
+              <div class="pex-avatar pex-avatar--msg" aria-hidden="true"></div>
+              <div class="pex-chat-header-info">
+                <span class="pex-chat-peer">Alex</span>
+                <span class="pex-chat-status" id="typingIndicator">online</span>
+              </div>
+            </div>
+            <div class="pex-thread pex-thread--msg" id="messengerThread">
+              <div class="pex-time-pill">Today</div>
+              <article class="pex-bubble pex-bubble--in pex-bubble--msg">
+                <div class="pex-bubble-text" id="promptMsg" data-placeholder>
+                  Hey! Can you help me with something today?
+                </div>
+                <div class="pex-bubble-tail pex-bubble-tail--in" aria-hidden="true"></div>
+              </article>
+            </div>
+            <div class="pex-corrections" id="suggestionMsg"></div>
+            <footer class="pex-composer pex-composer--msg">
+              <label class="pex-sr-only" for="replyMsg">Your message</label>
+              <textarea
+                id="replyMsg"
+                class="pex-input pex-input--msg"
+                rows="1"
+                spellcheck="true"
+                placeholder="Message"
+                autocomplete="off"
+              ></textarea>
+              <button type="button" class="pex-send pex-send--msg" id="sendMsgBtn">
+                <span aria-hidden="true">➤</span>
+                <span class="pex-sr-only">Send</span>
+              </button>
+            </footer>
+          </div>
+        </section>
+
+        <!-- ——— Email (inbox → read → compose, not chat) ——— -->
+        <section
+          id="layoutEmail"
+          class="pex-mode pex-mode-mail hidden"
+          data-medium="Email"
+          aria-label="Mail"
+        >
+          <div class="pex-mail-app" id="pexMailApp" data-email-step="list">
+            <!-- List -->
+            <div class="pex-mail-panel" id="pexMailList">
+              <div class="pex-mail-toolbar">
+                <span class="pex-mail-toolbar-title">Inbox</span>
+              </div>
+              <button type="button" class="pex-mail-row" id="pexMailOpenBtn">
+                <div class="pex-mail-row-avatar" aria-hidden="true">A</div>
+                <div class="pex-mail-row-body">
+                  <div class="pex-mail-row-top">
+                    <span class="pex-mail-row-from" id="emailFromPreview"
+                      >Someone</span
+                    >
+                    <span class="pex-mail-row-time">9:41 AM</span>
+                  </div>
+                  <div class="pex-mail-row-subject" id="emailSubjectPreview">
+                    Quick question
+                  </div>
+                  <div class="pex-mail-row-snippet">
+                    Hi! Can you help me with something…
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <!-- Read -->
+            <div class="pex-mail-panel hidden" id="pexMailRead">
+              <div class="pex-mail-toolbar">
+                <button
+                  type="button"
+                  class="pex-mail-back"
+                  id="pexMailBackList"
+                  aria-label="Back to inbox"
+                >
+                  ← Inbox
+                </button>
+              </div>
+              <article class="pex-mail-read">
+                <h2 class="pex-mail-read-subject" id="emailSubject">
+                  Quick question
+                </h2>
+                <div class="pex-mail-read-meta">
+                  <span class="pex-mail-read-from"
+                    ><strong id="emailFrom">someone@example.com</strong></span
+                  >
+                  <span class="pex-mail-read-to" id="emailTo"
+                    >to you@study.local</span
+                  >
+                </div>
+                <div class="pex-mail-read-body" id="promptEmail">
+                  Hi! Can you help me with something today?
+                </div>
+              </article>
+              <div class="pex-mail-read-actions">
+                <button type="button" class="pex-btn-primary" id="pexMailReplyBtn">
+                  Reply
+                </button>
+              </div>
+            </div>
+
+            <!-- Compose -->
+            <div class="pex-mail-panel hidden" id="pexMailCompose">
+              <div class="pex-mail-toolbar">
+                <button
+                  type="button"
+                  class="pex-mail-back"
+                  id="pexMailBackRead"
+                  aria-label="Back to message"
+                >
+                  ← Message
+                </button>
+              </div>
+              <div class="pex-mail-compose-meta">
+                <div class="pex-mail-field">
+                  <span class="pex-mail-field-label">To</span>
+                  <span id="emailToCompose">someone@example.com</span>
+                </div>
+                <div class="pex-mail-field">
+                  <span class="pex-mail-field-label">Subject</span>
+                  <span id="replyEmailSubject">Re: Quick question</span>
+                </div>
+              </div>
+              <label class="pex-sr-only" for="replyEmail">Reply</label>
+              <textarea
+                id="replyEmail"
+                class="pex-mail-compose-body"
+                rows="8"
+                spellcheck="true"
+                placeholder="Write your reply…"
+              ></textarea>
+              <div class="pex-mail-compose-footer">
+                <button type="button" class="pex-btn-primary" id="sendEmailBtn">
+                  Send
+                </button>
+              </div>
+              <div class="pex-corrections" id="suggestionEmail"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ——— Voice (voice-note thread + record strip) ——— -->
+        <section
+          id="layoutVoice"
+          class="pex-mode pex-mode-voice hidden"
+          data-medium="Voice"
+          aria-label="Voice messages"
+        >
+          <div class="pex-chat-shell pex-chat-shell--voice">
+            <div class="pex-chat-header pex-chat-header--voice">
+              <span class="pex-chat-header-title">Voice</span>
+            </div>
+            <div class="pex-thread pex-thread--voice" id="voiceThread">
+              <div class="pex-time-pill">Today</div>
+              <article class="pex-voice-prompt-card">
+                <div class="pex-voice-prompt-label">Alex · voice message</div>
+                <!-- src set by JS from server-supplied list (VoiceFiles/, audio/mp3/, static/audio/prompts/) -->
+                <audio id="promptAudio" class="pex-sr-only" preload="metadata"></audio>
+                <div class="pex-voice-player" id="pexPromptPlayer">
+                  <button
+                    type="button"
+                    class="pex-voice-play"
+                    id="pexPromptPlayBtn"
+                    aria-label="Play voice prompt"
+                  >
+                    <span class="pex-voice-play-icon" aria-hidden="true">▶</span>
+                  </button>
+                  <div class="pex-voice-player-main">
+                    <div class="pex-voice-wave" id="voiceWave" aria-hidden="true">
+                      <!-- bars filled by JS when playing -->
+                    </div>
+                    <div class="pex-voice-time">
+                      <span id="pexPromptTime">0:00</span>
+                      <span class="pex-voice-time-sep">/</span>
+                      <span id="pexPromptDuration">—</span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <div class="pex-voice-record-zone">
+              <p class="pex-voice-hint" id="voiceStatus">
+                Tap the mic to start recording, tap again to stop.
+              </p>
+              <div class="pex-voice-meter" id="pexRecordMeter" aria-hidden="true"></div>
+              <div class="pex-voice-record-row">
+                <button
+                  type="button"
+                  class="pex-mic-btn"
+                  id="recordBtn"
+                  aria-label="Record voice reply"
+                >
+                  <span class="pex-mic-inner" aria-hidden="true"></span>
+                </button>
+              </div>
+              <div class="pex-voice-draft hidden" id="recordedClip">
+                <div class="pex-voice-draft-label">Your reply</div>
+                <div class="pex-voice-draft-player">
+                  <audio id="playbackAudio" class="pex-playback-audio"></audio>
+                  <button
+                    type="button"
+                    class="pex-btn-ghost pex-voice-replay-btn"
+                    id="pexPlaybackToggleBtn"
+                  >
+                    Play
+                  </button>
+                  <span class="pex-voice-draft-meta" id="pexDraftMeta"></span>
+                </div>
+                <p
+                  class="pex-voice-transcript hidden"
+                  id="pexVoiceTranscriptDisplay"
+                ></p>
+                <div class="pex-voice-draft-actions">
+                  <button type="button" class="pex-btn-ghost" id="pexVoiceDiscardBtn">
+                    Discard
+                  </button>
+                  <button type="button" class="pex-btn-primary" id="sendVoiceBtn">
+                    Send
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="pex-corrections" id="suggestionMP3"></div>
+            <textarea id="replyMP3" class="hidden" rows="1" aria-hidden="true"></textarea>
+          </div>
+        </section>
+      </main>
+
+      <div class="pex-toast hidden" id="pexToast" role="status" aria-live="polite"></div>
+    </div>
+
+    <script type="application/json" id="pexVoicePromptsData">
+      {{ voice_prompts | tojson }}
+    </script>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  </body>
+</html>
