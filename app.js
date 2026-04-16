@@ -150,6 +150,9 @@ let rows = [];
 // Current correction suggestion
 let currentSuggestion = "";
 
+// Conversation history for Llama
+let conversationHistory = [];
+
 // Store the most recent sent reply for each medium
 // This helps because the composer gets cleared after Send.
 let lastSentReplies = {
@@ -161,6 +164,7 @@ let lastSentReplies = {
 
 // Create a fresh trial state
 function resetTrialState() {
+  conversationHistory = [];
   return {
     startedAtMs: null,
     lastInputAtMs: null,
@@ -169,6 +173,11 @@ function resetTrialState() {
     pasteUsed: false,
     correctionApplied: "no",
   };
+}
+
+// Initialize conversation with prompt
+function initializeConversation(promptText) {
+  conversationHistory = [`Human: ${promptText}`];
 }
 
 // Current high-resolution timestamp in the browser
@@ -642,39 +651,46 @@ function classifyStyle(text) {
   return { label, formalScore, informalScore };
 }
 
-// Build a small follow-up auto reply based on simple cues
-function buildAutoReply(text) {
-  const t = (text || "").toLowerCase().trim();
+// Build a small follow-up auto reply using Llama
+async function buildAutoReply(replyText) {
+  try {
+    const res = await fetch("/generate-reply", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation: conversationHistory }),
+    });
 
-  if (!t) return "Okay.";
-
-  if (/\b(thank|thanks|thank you)\b/.test(t)) {
-    return "You’re welcome!";
+    if (!res.ok) throw new Error("Generate reply failed");
+    const data = await res.json();
+    return data.reply || "Got it.";
+  } catch (e) {
+    console.warn("Auto reply generation failed:", e);
+    // Fallback to simple rule-based
+    const t = (replyText || "").toLowerCase().trim();
+    if (!t) return "Okay.";
+    if (/\b(thank|thanks|thank you)\b/.test(t)) return "You’re welcome!";
+    if (/\b(sad|upset|bad|angry|hate|terrible|awful|cry|stressed)\b/.test(t)) return "I’m sorry to hear that.";
+    if (/\b(happy|great|good|excited|love|amazing|nice)\b/.test(t)) return "That sounds really nice 😊";
+    if (/\b(help|can you|could you|would you)\b/.test(t)) return "Yes, of course.";
+    if (/\?\s*$/.test(t)) return "Hmm, let me think about that.";
+    return "Got it.";
   }
-
-  if (/\b(sad|upset|bad|angry|hate|terrible|awful|cry|stressed)\b/.test(t)) {
-    return "I’m sorry to hear that. Do you want to talk about it?";
-  }
-
-  if (/\b(happy|great|good|excited|love|amazing|nice)\b/.test(t)) {
-    return "That sounds really nice 😊";
-  }
-
-  if (/\b(help|can you|could you|would you)\b/.test(t)) {
-    return "Yes, of course. What do you need help with?";
-  }
-
-  if (/\?\s*$/.test(t)) {
-    return "Hmm, let me think about that.";
-  }
-
-  return "Got it.";
 }
 
 // Remove any old sent/auto-reply UI for a given medium
 function clearSentAndAutoReplyUIForMedium(medium) {
-  if (medium === "SMS" && els.smsAutoReplyWrap) {
-    els.smsAutoReplyWrap.innerHTML = "";
+  if (medium === "SMS") {
+    if (els.smsAutoReplyWrap) els.smsAutoReplyWrap.innerHTML = "";
+    // Also clear sent bubbles, keep only prompt
+    const thread = els.smsThread;
+    if (thread) {
+      const children = Array.from(thread.children);
+      for (const child of children) {
+        if (child.classList.contains('sentBlock') || child.classList.contains('autoReplyBlock')) {
+          child.remove();
+        }
+      }
+    }
   }
 
   if (medium === "Email" && els.emailAutoReplyWrap) {
@@ -692,14 +708,23 @@ function clearSentAndAutoReplyUIForMedium(medium) {
 
 // Send the current reply
 // This turns the typed reply into visible sent UI and stores it for later analysis.
-function sendCurrentReply() {
+async function sendCurrentReply() {
   const medium = els.medium?.value || "SMS";
   const replyText = getComposerReplyText();
+  const promptText = getActivePromptText();
 
   if (!replyText) {
     alert("Please type a reply first.");
     return;
   }
+
+  // Initialize conversation if first send
+  if (conversationHistory.length === 0) {
+    initializeConversation(promptText);
+  }
+
+  // Add user reply to history
+  conversationHistory.push(`Assistant: ${replyText}`);
 
   if (trial.startedAtMs == null) {
     trial.startedAtMs = nowMs();
@@ -708,13 +733,16 @@ function sendCurrentReply() {
   trial.lastInputAtMs = nowMs();
   lastSentReplies[medium] = replyText;
 
-  const autoReply = buildAutoReply(replyText);
+  const autoReply = await buildAutoReply(replyText);
 
-  clearSentAndAutoReplyUIForMedium(medium);
+  // Add AI reply to history
+  conversationHistory.push(`Human: ${autoReply}`);
+
+  // Do not clear for continuation
 
   // SMS sent + reply
-  if (medium === "SMS" && els.smsAutoReplyWrap) {
-    els.smsAutoReplyWrap.innerHTML = `
+  if (medium === "SMS" && els.smsThread) {
+    const sentBubble = `
       <div class="bubble outgoing sentBlock">
         <div class="bubbleMeta">Sent</div>
         <div>${escapeHtml(replyText)}</div>
@@ -724,8 +752,8 @@ function sendCurrentReply() {
         <div>${escapeHtml(autoReply)}</div>
       </div>
     `;
-
-    if (els.replySMS) els.replySMS.value = "";
+    els.smsThread.insertAdjacentHTML('beforeend', sentBubble);
+    // Do not clear composer
   }
 
   // Email sent + reply
@@ -816,11 +844,11 @@ async function checkServer() {
 }
 
 // Ask Flask to analyze reply sentiment
-async function analyzeReply(replyText) {
+async function analyzeReply(promptText, replyText) {
   const res = await fetch("/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ reply_text: replyText }),
+    body: JSON.stringify({ prompt_text: promptText, reply_text: replyText }),
   });
 
   if (!res.ok) throw new Error("Analyze failed");
@@ -857,7 +885,7 @@ if (els.analyzeBtn) {
 
     let analysis;
     try {
-      analysis = await analyzeReply(replyText);
+      analysis = await analyzeReply(promptText, replyText);
     } catch {
       if (els.resultText) {
         els.resultText.textContent = "Could not analyze. Is the Flask server running?";
@@ -874,10 +902,18 @@ if (els.analyzeBtn) {
     const tbSub = Number(analysis.reply_tb_subjectivity ?? 0);
     const vaderComp = analysis.reply_vader_compound;
 
+    // Formality values
+    const promptFormality = analysis.prompt_formality;
+    const replyFormality = analysis.reply_formality;
+    const formalityMatch = analysis.formality_match;
+
     // Show analysis result in the result box
     const resultLine = `
       <div><strong>Reply style:</strong> <span class="tag ${replyStyle.label}">${replyStyle.label}</span></div>
       <div><strong>Prompt style:</strong> <span class="tag ${promptStyle.label}">${promptStyle.label}</span></div>
+      <div><strong>Reply formality:</strong> ${replyFormality ? `${replyFormality.label} (${(replyFormality.confidence * 100).toFixed(1)}%)` : "not available"}</div>
+      <div><strong>Prompt formality:</strong> ${promptFormality ? `${promptFormality.label} (${(promptFormality.confidence * 100).toFixed(1)}%)` : "not available"}</div>
+      <div><strong>Formality match:</strong> ${formalityMatch !== null ? (formalityMatch ? "✓ Match" : "✗ Mismatch") : "N/A"}</div>
       <div><strong>TextBlob:</strong> polarity=${tbPol.toFixed(3)}, subjectivity=${tbSub.toFixed(3)}</div>
       <div><strong>VADER:</strong> ${
         vaderComp !== null && vaderComp !== undefined && vaderComp !== ""
@@ -910,6 +946,11 @@ if (els.analyzeBtn) {
       reply_tb_polarity: tbPol,
       reply_tb_subjectivity: tbSub,
       reply_vader_compound: vaderComp ?? "",
+      prompt_formality_label: promptFormality?.label || "",
+      prompt_formality_confidence: promptFormality?.confidence || "",
+      reply_formality_label: replyFormality?.label || "",
+      reply_formality_confidence: replyFormality?.confidence || "",
+      formality_match: formalityMatch !== null ? formalityMatch : "",
     };
 
     try {
