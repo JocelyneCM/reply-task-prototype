@@ -99,17 +99,10 @@ const els = {
   replyMP3: document.getElementById("replyMP3"),
   recordBtn: document.getElementById("recordBtn"),
   playBtn: document.getElementById("playBtn"),
-  recordStatus: document.getElementById("recordStatus"),
-  mp3AutoReplyWrap: document.getElementById("mp3AutoReplyWrap"),
-
-  // Suggestion containers for each layout
-  suggestionSMS: document.getElementById("suggestionSMS"),
-  suggestionEmail: document.getElementById("suggestionEmail"),
-  suggestionMsg: document.getElementById("suggestionMsg"),
-  suggestionMP3: document.getElementById("suggestionMP3"),
+  llmReply: document.getElementById("llmReply"),
+  finalMessage: document.getElementById("finalMessage"),
 };
 
-// Example prompts used by "Random Prompt"
 const conversationPrompts = {
   SMS: [
     "Hey! What's up?",
@@ -372,20 +365,22 @@ attachReplyListeners(els.replyMP3);
   if (t) t.addEventListener("input", renderSentenceTable);
 });
 
-// Manual correction checkbox behaviour
-if (els.manualCorrection) {
-  els.manualCorrection.addEventListener("change", () => {
-    if (!els.corrStatus) return;
-    els.corrStatus.textContent = els.manualCorrection.checked
-      ? "Correction: manual yes"
-      : "Correction: none";
-  });
-}
+// optional LLM reply / final message inputs update sentence table
+if (els.llmReply) els.llmReply.addEventListener("input", renderSentenceTable);
+if (els.finalMessage) els.finalMessage.addEventListener("input", renderSentenceTable);
 
-// Medium dropdown behaviour
-if (els.medium) {
-  els.medium.addEventListener("change", () => showLayout(els.medium.value));
-}
+// manual correction toggle
+els.manualCorrection.addEventListener("change", () => {
+  els.corrStatus.textContent = els.manualCorrection.checked
+    ? "Correction: user says they corrected"
+    : "Correction: none";
+});
+
+// live timer refresh
+setInterval(updateMetricsLive, 120);
+
+// medium change
+els.medium.addEventListener("change", () => showLayout(els.medium.value));
 
 // Theme toggle
 if (els.themeToggleBtn) {
@@ -843,12 +838,16 @@ async function checkServer() {
   }
 }
 
-// Ask Flask to analyze reply sentiment
-async function analyzeReply(promptText, replyText) {
+async function analyzeReply(replyText, promptText = "", llmReplyText = "", finalText = "") {
   const res = await fetch("/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt_text: promptText, reply_text: replyText }),
+    body: JSON.stringify({
+      reply_text: replyText,
+      prompt_text: promptText,
+      llm_reply_text: llmReplyText,
+      final_text: finalText,
+    }),
   });
 
   if (!res.ok) throw new Error("Analyze failed");
@@ -867,113 +866,114 @@ async function logTrial(payload) {
   return await res.json();
 }
 
-// Analyze + Save button
-if (els.analyzeBtn) {
-  els.analyzeBtn.addEventListener("click", async () => {
-    const promptText = getActivePromptText();
-    const replyText = getActiveReplyText();
+// Analyze + Save
+els.analyzeBtn.addEventListener("click", async () => {
+  const promptText = getActivePromptText();
+  const replyText = getActiveReplyText();
+  const llmReplyText = (els.llmReply && els.llmReply.value) ? els.llmReply.value.trim() : "";
+  const finalText = (els.finalMessage && els.finalMessage.value) ? els.finalMessage.value.trim() : "";
+  const participantId = (els.participantId && els.participantId.value) ? els.participantId.value.trim() : "";
 
-    if (!replyText) {
-      alert("Please type a reply first.");
-      return;
-    }
+  if (!replyText) {
+    alert("Please type a reply first.");
+    return;
+  }
 
-    // Stop timing at last input, not at button click
-    const endMs = trial.lastInputAtMs ?? nowMs();
-    const startMs = trial.startedAtMs ?? endMs;
-    const responseTime = secondsBetween(startMs, endMs);
+  const endMs = nowMs();
+  const startMs = trial.startedAtMs ?? endMs;
+  const responseTime = secondsBetween(startMs, endMs);
 
-    let analysis;
-    try {
-      analysis = await analyzeReply(promptText, replyText);
-    } catch {
-      if (els.resultText) {
-        els.resultText.textContent = "Could not analyze. Is the Flask server running?";
-      }
-      return;
-    }
+  if (els.model && els.model.value === "SVM (TODO)") {
+    alert("SVM is not implemented yet. For now this logs TextBlob/VADER via Flask.");
+  }
 
-    // Rule-based style labels
-    const replyStyle = classifyStyle(replyText);
-    const promptStyle = classifyStyle(promptText);
+  let analysis;
+  try {
+    analysis = await analyzeReply(replyText, promptText, llmReplyText, finalText);
+  } catch (e) {
+    if (els.resultText) els.resultText.textContent = "Could not analyze. Is the Flask server running? (Run: python3 server.py)";
+    return;
+  }
 
-    // Sentiment values from Flask
-    const tbPol = Number(analysis.reply_tb_polarity ?? 0);
-    const tbSub = Number(analysis.reply_tb_subjectivity ?? 0);
-    const vaderComp = analysis.reply_vader_compound;
+  const replyStyle = classifyStyle(replyText);
+  const promptStyle = classifyStyle(promptText);
 
-    // Formality values
-    const promptFormality = analysis.prompt_formality;
-    const replyFormality = analysis.reply_formality;
-    const formalityMatch = analysis.formality_match;
+  const tbPol = Number(analysis.reply_tb_polarity ?? 0);
+  const tbSub = Number(analysis.reply_tb_subjectivity ?? 0);
+  const vaderComp = analysis.reply_vader_compound;
 
-    // Show analysis result in the result box
-    const resultLine = `
-      <div><strong>Reply style:</strong> <span class="tag ${replyStyle.label}">${replyStyle.label}</span></div>
-      <div><strong>Prompt style:</strong> <span class="tag ${promptStyle.label}">${promptStyle.label}</span></div>
-      <div><strong>Reply formality:</strong> ${replyFormality ? `${replyFormality.label} (${(replyFormality.confidence * 100).toFixed(1)}%)` : "not available"}</div>
-      <div><strong>Prompt formality:</strong> ${promptFormality ? `${promptFormality.label} (${(promptFormality.confidence * 100).toFixed(1)}%)` : "not available"}</div>
-      <div><strong>Formality match:</strong> ${formalityMatch !== null ? (formalityMatch ? "✓ Match" : "✗ Mismatch") : "N/A"}</div>
-      <div><strong>TextBlob:</strong> polarity=${tbPol.toFixed(3)}, subjectivity=${tbSub.toFixed(3)}</div>
-      <div><strong>VADER:</strong> ${
-        vaderComp !== null && vaderComp !== undefined && vaderComp !== ""
-          ? Number(vaderComp).toFixed(3)
-          : "not available"
-      }</div>
-    `;
+  const pfLabel = analysis.prompt_formality_label ?? null;
+  const pfConf = analysis.prompt_formality_confidence ?? null;
+  const rfLabel = analysis.reply_formality_label ?? null;
+  const rfConf = analysis.reply_formality_confidence ?? null;
+  const llfLabel = analysis.llm_reply_formality_label ?? null;
+  const llfConf = analysis.llm_reply_formality_confidence ?? null;
+  const finalLabel = analysis.final_formality_label ?? null;
+  const finalConf = analysis.final_formality_confidence ?? null;
+  const mismatch = analysis.formality_mismatch == null ? null : analysis.formality_mismatch;
 
-    if (els.resultText) {
-      els.resultText.innerHTML = resultLine;
-    }
+  const resultHTML = `
+    <div><strong>Reply style:</strong> <span class="tag ${replyStyle.label}">${replyStyle.label}</span></div>
+    <div><strong>Prompt style:</strong> <span class="tag ${promptStyle.label}">${promptStyle.label}</span></div>
+    <div><strong>Reply formality:</strong> ${rfLabel ? `${rfLabel} (${(Number(rfConf) * 100).toFixed(1)}%)` : "not available"}</div>
+    <div><strong>Prompt formality:</strong> ${pfLabel ? `${pfLabel} (${(Number(pfConf) * 100).toFixed(1)}%)` : "not available"}</div>
+    <div><strong>Formality match:</strong> ${mismatch === null ? "N/A" : (mismatch ? "✓ Match" : "✗ Mismatch")}</div>
+    <div><strong>TextBlob:</strong> polarity=${tbPol.toFixed(3)}, subjectivity=${tbSub.toFixed(3)}</div>
+    <div><strong>VADER:</strong> ${vaderComp !== null && vaderComp !== undefined && vaderComp !== "" ? Number(vaderComp).toFixed(3) : "not available"}</div>
+  `;
 
-    // Payload to Flask /log
-    const payload = {
-      participant_id: (els.participantId?.value || "").trim(),
-      medium: els.medium?.value || "SMS",
-      input_method: els.inputMethod?.value || "",
-      model_choice: els.model?.value || "",
-      prompt_text: promptText,
-      reply_text: replyText,
-      prompt_style: promptStyle.label,
-      reply_style: replyStyle.label,
-      correction_applied: trial.correctionApplied,
-      response_time_seconds: responseTime.toFixed(3),
-      keypress_count: trial.keypressCount,
-      backspace_count: trial.backspaceCount,
-      paste_used: trial.pasteUsed ? "yes" : "no",
-      correction_manual: els.manualCorrection?.checked ? "yes" : "no",
-      notes: (els.notes?.value || "").trim(),
-      reply_tb_polarity: tbPol,
-      reply_tb_subjectivity: tbSub,
-      reply_vader_compound: vaderComp ?? "",
-      prompt_formality_label: promptFormality?.label || "",
-      prompt_formality_confidence: promptFormality?.confidence || "",
-      reply_formality_label: replyFormality?.label || "",
-      reply_formality_confidence: replyFormality?.confidence || "",
-      formality_match: formalityMatch !== null ? formalityMatch : "",
-    };
+  if (els.resultText) els.resultText.innerHTML = resultHTML;
 
-    try {
-      await logTrial(payload);
-    } catch {
-      if (els.resultText) {
-        els.resultText.textContent = "Analyzed OK, but failed to save to CSV.";
-      }
-      return;
-    }
+  const payload = {
+    participant_id: participantId,
+    medium: els.medium.value,
+    input_method: els.inputMethod.value,
+    model_choice: els.model.value,
+    prompt_text: promptText,
+    reply_text: replyText,
+    llm_reply_text: llmReplyText,
+    final_text: finalText,
 
-    // Keep browser copy too
-    rows.push({
-      timestamp: new Date().toISOString(),
-      ...payload,
-    });
+    prompt_style: promptStyle.label,
+    reply_style: replyStyle.label,
+    correction_applied: trial.correctionApplied || "no",
 
-    trial = resetTrialState();
-    setReadyState("Saved. Ready for next trial.");
-    updateMetricsLive();
-    renderSentenceTable();
-  });
-}
+    response_time_seconds: responseTime.toFixed(3),
+    keypress_count: trial.keypressCount,
+    backspace_count: trial.backspaceCount,
+    paste_used: trial.pasteUsed ? "yes" : "no",
+    correction_manual: els.manualCorrection.checked ? "yes" : "no",
+    notes: (els.notes && els.notes.value ? els.notes.value.trim() : ""),
+
+    reply_tb_polarity: tbPol,
+    reply_tb_subjectivity: tbSub,
+    reply_vader_compound: vaderComp ?? "",
+    prompt_formality_label: pfLabel ?? "",
+    prompt_formality_confidence: pfConf ?? "",
+    reply_formality_label: rfLabel ?? "",
+    reply_formality_confidence: rfConf ?? "",
+    llm_reply_formality_label: llfLabel ?? "",
+    llm_reply_formality_confidence: llfConf ?? "",
+    final_formality_label: finalLabel ?? "",
+    final_formality_confidence: finalConf ?? "",
+    formality_mismatch: mismatch == null ? "" : (mismatch ? "yes" : "no"),
+  };
+
+  try {
+    await logTrial(payload);
+  } catch (e) {
+    if (els.resultText) els.resultText.textContent = "Analyzed OK, but failed to save to CSV.";
+    return;
+  }
+
+  rows.push({ timestamp: new Date().toISOString(), ...payload });
+
+  trial = resetTrialState();
+  setReadyState("Saved. Ready for next trial.");
+  updateMetricsLive();
+  renderSentenceTable();
+});
+
 
 // Download CSV from in-browser saved rows
 if (els.downloadBtn) {
@@ -1024,51 +1024,28 @@ function splitSentences(text) {
 
 // Rebuild the sentence breakdown table
 function renderSentenceTable() {
-  if (!els.sentenceTableWrap) return;
+  const promptS = splitSentences(getActivePromptText());
+  const replyS = splitSentences(getActiveReplyText());
+  const llmS = els.llmReply ? splitSentences((els.llmReply.value || "").trim()) : [];
+  const finalS = els.finalMessage ? splitSentences((els.finalMessage.value || "").trim()) : [];
 
-  const promptBody = getPromptBodyOnly();
-  const replyBody = getActiveReplyText();
-
-  const promptS = splitSentences(promptBody);
-  const replyS = splitSentences(replyBody);
-
-  const promptRows = promptS.map((s, i) => {
-    const c = classifyStyle(s);
-    return `<tr>
-      <td>prompt</td>
-      <td>${i + 1}</td>
-      <td>${escapeHtml(s)}</td>
-      <td><span class="tag ${c.label}">${c.label}</span></td>
-    </tr>`;
-  }).join("");
-
-  const replyRows = replyS.map((s, i) => {
-    const c = classifyStyle(s);
-    return `<tr>
-      <td>reply</td>
-      <td>${i + 1}</td>
-      <td>${escapeHtml(s)}</td>
-      <td><span class="tag ${c.label}">${c.label}</span></td>
-    </tr>`;
-  }).join("");
-
-  els.sentenceTableWrap.innerHTML = `
-    <div class="tableWrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>#</th>
-            <th>Sentence</th>
-            <th>Rule label</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${promptRows}
-          ${replyRows}
-        </tbody>
-      </table>
-    </div>
+  const html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>#</th>
+          <th>Sentence</th>
+          <th>Sentiment</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${promptS.map((s, i) => `<tr><td>prompt</td><td>${i + 1}</td><td>${escapeHtml(s)}</td><td>later</td></tr>`).join("")}
+        ${replyS.map((s, i) => `<tr><td>reply</td><td>${i + 1}</td><td>${escapeHtml(s)}</td><td>later</td></tr>`).join("")}
+        ${llmS.map((s, i) => `<tr><td>llm_reply</td><td>${i + 1}</td><td>${escapeHtml(s)}</td><td>later</td></tr>`).join("")}
+        ${finalS.map((s, i) => `<tr><td>final</td><td>${i + 1}</td><td>${escapeHtml(s)}</td><td>later</td></tr>`).join("")}
+      </tbody>
+    </table>
   `;
 }
 

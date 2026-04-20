@@ -1,0 +1,72 @@
+timestamp,medium,input_method,model_choice,prompt_text,reply_text,response_time_seconds,keypress_count,backspace_count,paste_used,correction_manual,notes,reply_tb_polarity,reply_tb_subjectivity,reply_vader_compound
+2026-03-05T09:30:26,SMS,Keyboard,Both (TextBlob+VADER),Hi! Can you help me with something today?,"Of course I can, what do you need me to do?",10.766,50,2,no,no,,0,0,0
+2026-03-05T10:05:00,Email,Keyboard,Both (TextBlob+VADER),"From: someone@example.com
+Subject: Quick question
+
+Hi! Can you help me with something today?","To: someone@example.com
+Subject: Re: Quick question
+
+yes of course I can, what do you need?",20.539,54,3,no,no,,0.08333333333333333,0.41666666666666663,0.4019
+2026-03-05T10:05:13,Email,Keyboard,Both (TextBlob+VADER),"From: someone@example.com
+Subject: Quick question
+
+Hi! Can you help me with something today?","To: someone@example.com
+Subject: Re: Quick question
+
+yes of course I can, what do you need?",0.000,0,0,no,no,,0.08333333333333333,0.41666666666666663,0.4019
+2026-03-05T10:05:15,Email,Keyboard,Both (TextBlob+VADER),"From: someone@example.com
+Subject: Quick question
+
+Hi! Can you help me with something today?","To: someone@example.com
+Subject: Re: Quick question
+
+yes of course I can, what do you need?",0.000,0,0,no,no,,0.08333333333333333,0.41666666666666663,0.4019
+2026-03-05T10:34:12,Email,Keyboard,Both (TextBlob+VADER),"From: someone@example.com
+Subject: Quick question
+
+Hi! Can you help me with something today?","To: someone@example.com
+Subject: Re: Quick question
+
+yes of course I can, what do you need?",0.000,0,0,no,no,My reply might be a bit short,0.08333333333333333,0.41666666666666663,0.4019
+2026-03-05T10:37:12,Email,Keyboard,Both (TextBlob+VADER),"From: someone@example.com
+Subject: Quick question
+
+Hi! Can you help me with something today?","To: someone@example.com
+Subject: Re: Quick question
+
+yes of course I can, what do you need? I will not be available after 2 PM due to a meeting which will definitely drag out.",25.727,120,16,no,no,My reply might be a bit short,0.06833333333333333,0.3358333333333333,0.5423
+2026-03-05T10:37:23,Email,Keyboard,Both (TextBlob+VADER),"From: someone@example.com
+Subject: Quick question
+
+Hi! Can you help me with something today?","To: someone@example.com
+Subject: Re: Quick question
+
+yes of course I can, what do you need? I will not be available after 2 PM due to a meeting which will definitely drag out. unga bunga tunga",6.274,17,0,no,no,My reply might be a bit short,0.06833333333333333,0.3358333333333333,0.5423
+2026-03-05T10:37:50,Email,Keyboard,Both (TextBlob+VADER),"From: someone@example.com
+Subject: Quick question
+
+Hi! Can you help me with something today?","To: someone@example.com
+Subject: Re: Quick question
+
+waddup brother, if we wuz driving we would be winning big time.",19.962,96,9,no,no,My reply might be a bit short,0.16666666666666666,0.42083333333333334,0.5267
+2026-03-05T10:38:20,Email,Keyboard,Both (TextBlob+VADER),"From: someone@example.com
+Subject: Quick question
+
+Hi! Can you help me with something today?","To: someone@example.com
+Subject: Re: Quick question
+
+I hate my life because of being struck by depression and melancholy.",15.414,71,0,no,no,My reply might be a bit short,-0.21111111111111114,0.5777777777777778,-0.9062
+2026-03-05T10:38:42,Email,Keyboard,Both (TextBlob+VADER),"From: someone@example.com
+Subject: Quick question
+
+Hi! Can you help me with something today?","To: someone@example.com
+Subject: Re: Quick question
+
+This is great because it is based on collected data.",13.919,69,3,no,no,My reply might be a bit short,0.32222222222222224,0.5277777777777778,0.6249
+2026-03-05T10:39:08,Email,Keyboard,Both (TextBlob+VADER),"From: someone@example.com
+Subject: Quick question
+
+Hi! Can you help me with something today?","To: someone@example.com
+Subject: Re: Quick question
+
+A person’s political affiliations are likely shaped by factors such as position on the social hierarchy, views of social justice, economic ideology, upbringing, personal values, and more. As a result, one government can be loved by one person and detested by another.",1.410,3,0,yes,no,My reply might be a bit short,0.14848484848484847,0.39696969696969703,0.875
