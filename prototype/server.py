@@ -7,7 +7,7 @@ Flask backend for the reply‑writing research prototype.
 Responsibilities:
 * Serve separate participant and admin UIs.
 * Accept text and audio replies from participants.
-* Run NLP analysis (TextBlob, VADER, BERT sentiment, rule‑based style).
+ * Run NLP analysis (TextBlob, BERT sentiment, rule‑based style).
 * Transcribe audio replies with Whisper (if available).
 * Log all trials into CSV files under data/logs and data/participants.
 * Expose JSON APIs used by the admin dashboard for filtering and CSV download.
@@ -49,7 +49,6 @@ from utils.analysis_utils import (
     analyze_full_text,
     classify_style,
     BERT_AVAILABLE,
-    VADER_AVAILABLE,
 )
 from utils.audio_utils import (
     AUDIO_DIR,
@@ -313,7 +312,6 @@ def api_health() -> Response:
     """
     payload = {
         "ok": True,
-        "vader_ok": VADER_AVAILABLE,
         "bert_ok": BERT_AVAILABLE,
         "whisper_ok": WHISPER_AVAILABLE,
         "ffmpeg_ok": FFMPEG_AVAILABLE,
@@ -335,7 +333,6 @@ def api_config() -> Response:
         "default_medium": "SMS",
         "sentiment_models": {
             "textblob": True,
-            "vader": VADER_AVAILABLE,
             "bert": BERT_AVAILABLE,
         },
     }
@@ -546,7 +543,7 @@ def api_log_reply() -> Response:
     The backend:
         * Optionally runs Whisper on the audio (if transcript was not already
           sent by the front‑end).
-        * Runs TextBlob, VADER and BERT sentiment models on the final text.
+        * Runs TextBlob and BERT sentiment models on the final text.
         * Classifies style (formal / informal / neutral) using rule‑based
           heuristics on the reply text.
         * Logs a single row into data/logs/sentiment_log_web.csv and a
@@ -632,7 +629,6 @@ def api_log_reply() -> Response:
         or ("upload_api" if client_transcript else ("api_log_reply_fallback" if transcript else "")),
         "textblob_polarity": analysis["textblob_polarity"],
         "textblob_subjectivity": analysis["textblob_subjectivity"],
-        "vader_compound": analysis["vader_compound"],
         "bert_label": bert_normalized,
         "bert_raw": bert_raw,
         "bert_confidence": analysis["bert_confidence"],
@@ -652,7 +648,6 @@ def api_log_reply() -> Response:
         row["reply_style"] = ""
         row["textblob_polarity"] = ""
         row["textblob_subjectivity"] = ""
-        row["vader_compound"] = ""
         row["bert_label"] = "ok"
         row["bert_raw"] = "unavailable"
         row["bert_confidence"] = ""
@@ -840,7 +835,6 @@ def api_download_csv() -> Response:
             "transcript_source",
             "textblob_polarity",
             "textblob_subjectivity",
-            "vader_compound",
             "bert_label",
             "bert_raw",
             "bert_confidence",

@@ -2049,7 +2049,6 @@ function initAdminUI() {
             <dt>BERT confidence</dt><dd>${escapeHtml(String(row.bert_confidence ?? ""))}</dd>
             <dt>TextBlob polarity</dt><dd>${escapeHtml(String(row.textblob_polarity ?? ""))}</dd>
             <dt>TextBlob subjectivity</dt><dd>${escapeHtml(String(row.textblob_subjectivity ?? ""))}</dd>
-            <dt>VADER compound</dt><dd>${escapeHtml(String(row.vader_compound ?? ""))}</dd>
             <dt>Transcript status</dt><dd>${escapeHtml(transcriptStatus)}</dd>
             <dt>Transcript source</dt><dd>${escapeHtml(transcriptSource)}</dd>
             <dt>Prompt tone</dt><dd>${escapeHtml(row.prompt_tone || "")}</dd>

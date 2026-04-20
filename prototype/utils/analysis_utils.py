@@ -6,7 +6,6 @@ NLP and style‑classification utilities used by the Flask backend.
 
 This module wraps:
 * TextBlob sentiment (polarity + subjectivity)
-* VADER sentiment (compound score)
 * BERT‑based sentiment from HuggingFace Transformers
 * A simple rule‑based style classifier (formal / informal / neutral)
 
@@ -20,14 +19,7 @@ from typing import Dict, Tuple
 
 from textblob import TextBlob
 
-try:
-    from nltk.sentiment import SentimentIntensityAnalyzer
-
-    _vader_analyzer = SentimentIntensityAnalyzer()
-    VADER_AVAILABLE: bool = True
-except Exception:  # pragma: no cover - environment‑dependent
-    _vader_analyzer = None
-    VADER_AVAILABLE = False
+# VADER removed. We rely on TextBlob and optional BERT pipeline.
 
 try:
     from transformers import pipeline  # type: ignore
@@ -58,16 +50,11 @@ def analyze_textblob(text: str) -> Tuple[float, float]:
 
 def analyze_vader(text: str) -> float:
     """
-    Run VADER sentiment analysis and return the compound score.
-
-    Returns:
-        float in the range [-1, 1].
-        0.0 is returned if VADER is unavailable or the text is empty.
+    Placeholder for historical VADER analysis. VADER was removed from
+    the prototype; this function returns a neutral 0.0 score for
+    compatibility with older code paths.
     """
-    if not text or not VADER_AVAILABLE or _vader_analyzer is None:
-        return 0.0
-    scores = _vader_analyzer.polarity_scores(text)
-    return float(scores.get("compound", 0.0))
+    return 0.0
 
 
 def analyze_bert(text: str) -> Dict[str, float or str]:
@@ -184,13 +171,11 @@ def analyze_full_text(text: str) -> Dict[str, float or str]:
     and returns a single, well‑named dictionary.
     """
     polarity, subjectivity = analyze_textblob(text)
-    vader_compound = analyze_vader(text)
     bert_result = analyze_bert(text)
 
     return {
         "textblob_polarity": polarity,
         "textblob_subjectivity": subjectivity,
-        "vader_compound": vader_compound,
         "bert_label": bert_result["label"],
         "bert_confidence": bert_result["confidence"],
     }

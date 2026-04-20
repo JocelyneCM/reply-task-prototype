@@ -1,4 +1,4 @@
-timestamp,medium,input_method,model_choice,prompt_text,reply_text,response_time_seconds,keypress_count,backspace_count,paste_used,correction_manual,notes,reply_tb_polarity,reply_tb_subjectivity,reply_vader_compound
+timestamp,medium,input_method,model_choice,prompt_text,reply_text,response_time_seconds,keypress_count,backspace_count,paste_used,correction_manual,notes,reply_tb_polarity,reply_tb_subjectivity
 2026-03-05T09:30:26,SMS,Keyboard,Both (TextBlob+VADER),Hi! Can you help me with something today?,"Of course I can, what do you need me to do?",10.766,50,2,no,no,,0,0,0
 2026-03-05T10:05:00,Email,Keyboard,Both (TextBlob+VADER),"From: someone@example.com
 Subject: Quick question

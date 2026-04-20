@@ -77,7 +77,6 @@ def _csv_headers() -> List[str]:
         "transcript_source",
         "textblob_polarity",
         "textblob_subjectivity",
-        "vader_compound",
         "bert_label",
         "bert_raw",
         "bert_confidence",

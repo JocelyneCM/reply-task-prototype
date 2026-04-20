@@ -18,7 +18,7 @@
         <h1>Reply Task Prototype</h1>
         <p class="sub">
           Logs trials + typing behaviour.  
-          Sentiment runs via Flask (TextBlob/VADER) + rule-based style labels.
+          Sentiment runs via Flask (TextBlob) + rule-based style labels.
         </p>
       </div>
 
@@ -58,9 +58,7 @@
         <label class="field">
           <span class="label">Model</span>
           <select id="model">
-            <option>Both (TextBlob+VADER)</option>
             <option>TextBlob</option>
-            <option>VADER</option>
             <option>SVM (TODO)</option>
           </select>
         </label>
