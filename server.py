@@ -1,41 +1,29 @@
-# server.py
-# Reply Task Prototype backend
-#
-# What this file does:
-# 1. Serves the front-end files (index.html, style.css, app.js)
-# 2. Provides a simple /health route so the UI can check if the server is running
-# 3. Provides /analyze for sentiment analysis with TextBlob + VADER
-# 4. Provides /log to save one trial row into a CSV file
-#
-# Notes:
-# - This version analyzes text only.
-# - MP3 audio is NOT transcribed here yet.
-# - If MP3 is used, the front-end currently sends typed fallback text / placeholder text.
+"""server.py
+Reply Task Prototype backend (cleaned merge)
+
+Provides:
+- static file serving for the front-end
+- /health for basic health checks
+- /analyze for sentiment + formality scoring
+- /generate-reply for optional LLM reply generation
+- /log to append trial rows to a CSV
+
+This file is defensive about optional dependencies (TextBlob, VADER, transformers).
+"""
 
 from flask import Flask, request, jsonify, send_from_directory
 from datetime import datetime
 from pathlib import Path
 import csv
 
-# Try to load transformer model for formality classification
+# Optional imports (fail gracefully)
 try:
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification
-    import torch
-    FORMALITY_OK = True
+    from textblob import TextBlob
+    TEXTBLOB_OK = True
 except Exception as e:
-    FORMALITY_OK = False
-    print(f"Warning: Formality classifier unavailable: {e}")
+    TextBlob = None
+    TEXTBLOB_OK = False
 
-# Try to load Llama model for reply generation
-try:
-    from transformers import AutoModelForCausalLM, AutoTokenizer
-    LLAMA_OK = True
-except Exception as e:
-    LLAMA_OK = False
-    print(f"Warning: Llama model unavailable: {e}")
-
-# Try to load VADER from nltk
-# If it fails, the app still works, but VADER will be unavailable
 try:
     from nltk.sentiment import SentimentIntensityAnalyzer
     SIA = SentimentIntensityAnalyzer()
@@ -44,46 +32,58 @@ except Exception:
     SIA = None
     VADER_OK = False
 
-# Serve files from the current folder
+try:
+    import torch
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModelForCausalLM
+    TRANSFORMERS_OK = True
+except Exception as e:
+    TRANSFORMERS_OK = False
+
+# Try to load formality model from local folder `formality_model/` if available
+FORMALITY_OK = False
+tokenizer_formality = None
+model_formality = None
+MODEL_DIR = Path("formality_model")
+if TRANSFORMERS_OK and MODEL_DIR.exists():
+    try:
+        tokenizer_formality = AutoTokenizer.from_pretrained(str(MODEL_DIR))
+        model_formality = AutoModelForSequenceClassification.from_pretrained(str(MODEL_DIR))
+        FORMALITY_OK = True
+        print("Loaded formality model from ./formality_model/")
+    except Exception as e:
+        print(f"Warning: failed to load formality model: {e}")
+        tokenizer_formality = None
+        model_formality = None
+        FORMALITY_OK = False
+
+# Optional LLM (for /generate-reply). Deferred load to avoid heavy downloads at import-time.
+LLAMA_OK = False
+llama_tokenizer = None
+llama_model = None
+llama_model_name = "microsoft/DialoGPT-medium"
+
+def ensure_llama_loaded():
+    """Load the reply-generation model on first use. Returns True if available."""
+    global LLAMA_OK, llama_model, llama_tokenizer
+    if LLAMA_OK:
+        return True
+    if not TRANSFORMERS_OK:
+        return False
+    try:
+        llama_tokenizer = AutoTokenizer.from_pretrained(llama_model_name)
+        llama_model = AutoModelForCausalLM.from_pretrained(llama_model_name)
+        LLAMA_OK = True
+        print(f"Loaded reply generation model: {llama_model_name}")
+        return True
+    except Exception as e:
+        print(f"Info: reply generation model not available: {e}")
+        return False
+
 app = Flask(__name__, static_folder=".", static_url_path="")
 
-# Formality classifier state
-formality_model = None
-formality_tokenizer = None
-
-if FORMALITY_OK:
-    try:
-        print("Loading formality model from ./formality_model...")
-        formality_model = AutoModelForSequenceClassification.from_pretrained("./formality_model")
-        formality_tokenizer = AutoTokenizer.from_pretrained("./formality_model")
-        print("✓ Formality classifier loaded successfully")
-    except Exception as e:
-        print(f"Warning: Could not load formality model: {e}")
-        FORMALITY_OK = False
-else:
-    print("Formality classifier support disabled: transformers or torch not installed.")
-
-# Llama model for reply generation
-llama_model = None
-llama_tokenizer = None
-
-if LLAMA_OK:
-    try:
-        print("Loading Llama model for reply generation...")
-        # Use a small Llama model
-        model_name = "microsoft/DialoGPT-medium"
-        llama_tokenizer = AutoTokenizer.from_pretrained(model_name)
-        llama_model = AutoModelForCausalLM.from_pretrained(model_name)
-        print("✓ Llama model loaded successfully")
-    except Exception as e:
-        print(f"Warning: Could not load Llama model: {e}")
-        LLAMA_OK = False
-else:
-    print("Llama model support disabled.")
 CSV_PATH = Path("sentiment_log_web.csv")
 
-# CSV columns
-# Keep these aligned with what the front-end sends to /log
+# Fields expected in CSV rows (keep in sync with front-end payload)
 FIELDNAMES = [
     "timestamp",
     "participant_id",
@@ -92,6 +92,8 @@ FIELDNAMES = [
     "model_choice",
     "prompt_text",
     "reply_text",
+    "llm_reply_text",
+    "final_text",
     "prompt_style",
     "reply_style",
     "correction_applied",
@@ -101,7 +103,7 @@ FIELDNAMES = [
     "paste_used",
     "correction_manual",
     "notes",
-    # Reply sentiment
+    # Sentiment
     "reply_tb_polarity",
     "reply_tb_subjectivity",
     "reply_vader_compound",
@@ -110,157 +112,125 @@ FIELDNAMES = [
     "prompt_formality_confidence",
     "reply_formality_label",
     "reply_formality_confidence",
-    "formality_match",
+    "llm_reply_formality_label",
+    "llm_reply_formality_confidence",
+    "final_formality_label",
+    "final_formality_confidence",
+    "formality_mismatch",
 ]
 
+
 def ensure_csv():
-    """
-    Create the CSV file with headers if it does not exist yet.
-    """
     if not CSV_PATH.exists():
         with CSV_PATH.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
-            writer.writeheader()
+            w = csv.DictWriter(f, fieldnames=FIELDNAMES)
+            w.writeheader()
 
-def classify_formality(text: str):
-    """
-    Classify formality of text using the trained model.
-    Returns a dict with label, confidence, and label_id.
-    Returns None if classifier is unavailable.
-    """
-    if not FORMALITY_OK or not formality_model or not formality_tokenizer:
+
+def analyze_textblob(text: str):
+    if not TEXTBLOB_OK or not text:
+        return 0.0, 0.0
+    b = TextBlob(text)
+    return float(b.sentiment.polarity), float(b.sentiment.subjectivity)
+
+
+def analyze_vader(text: str):
+    if not SIA or not text:
         return None
-    
+    return float(SIA.polarity_scores(text).get("compound", 0.0))
+
+
+def classify_formality_single(text: str):
+    """Classify a single text string and return {label, confidence} or {None, None} if unavailable."""
+    if not FORMALITY_OK or not text:
+        return {"label": None, "confidence": None}
+
     try:
-        inputs = formality_tokenizer(
-            text,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=128,
-        )
+        inputs = tokenizer_formality([text], return_tensors="pt", padding=True, truncation=True, max_length=128)
         with torch.no_grad():
-            outputs = formality_model(**inputs)
+            outputs = model_formality(**inputs)
 
         logits = outputs.logits
-        predictions = torch.argmax(logits, dim=-1)
-        confidence = torch.softmax(logits, dim=-1)
+        probs = torch.softmax(logits, dim=-1).cpu().numpy()
+        pred = int(probs.argmax(axis=-1)[0])
 
-        label_id = predictions[0].item()
-        confidence_score = confidence[0][label_id].item()
-        label_names = {0: "informal", 1: "formal"}
+        # Try to read id2label from model config, otherwise fallback to conventional mapping
+        id2label = getattr(model_formality.config, "id2label", None)
+        label_name = None
+        if id2label and isinstance(id2label, dict):
+            label_name = id2label.get(pred) or id2label.get(str(pred))
 
-        return {
-            "label": label_names.get(label_id, f"class_{label_id}"),
-            "confidence": float(confidence_score),
-            "label_id": label_id,
-        }
+        if not label_name:
+            # Fallback: trained mapping used during training: 0=formal,1=informal
+            label_name = "formal" if pred == 0 else "informal"
+
+        confidence = float(probs[0, pred])
+        return {"label": label_name, "confidence": confidence}
     except Exception as e:
         print(f"Formality classification error: {e}")
-        return None
+        return {"label": None, "confidence": None}
+
 
 def generate_reply_from_history(conversation):
-    """
-    Generate a reply using Llama model based on conversation history.
-    Conversation is a list of strings like ["Human: ...", "Assistant: ..."]
-    """
-    if not LLAMA_OK or not llama_model or not llama_tokenizer:
-        return "Sorry, reply generation is not available."
-    
+    # Load the LLM on demand to avoid heavy startup costs
+    if not ensure_llama_loaded():
+        return ""
     try:
-        # Join conversation with newlines
         conversation_text = "\n".join(conversation) + "\nHuman:"
-        
-        inputs = llama_tokenizer.encode(conversation_text + llama_tokenizer.eos_token, return_tensors="pt")
-        
-        # Generate reply
+        inputs = llama_tokenizer.encode(conversation_text + (llama_tokenizer.eos_token or ""), return_tensors="pt")
         with torch.no_grad():
             outputs = llama_model.generate(
                 inputs,
-                max_length=inputs.shape[1] + 50,
+                max_length=inputs.shape[1] + 60,
                 num_return_sequences=1,
                 no_repeat_ngram_size=2,
                 do_sample=True,
                 top_k=50,
                 top_p=0.95,
                 temperature=0.7,
-                pad_token_id=llama_tokenizer.eos_token_id
+                pad_token_id=llama_tokenizer.eos_token_id,
             )
-        
         reply = llama_tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True).strip()
         return reply
     except Exception as e:
         print(f"Reply generation error: {e}")
-        return "Sorry, I couldn't generate a reply."
+        return ""
 
-def analyze_textblob(text: str):
-    """
-    Return TextBlob polarity + subjectivity for a piece of text.
-    polarity: roughly negative to positive
-    subjectivity: roughly objective to subjective
-    """
-    blob = TextBlob(text)
-    return float(blob.sentiment.polarity), float(blob.sentiment.subjectivity)
-
-def analyze_vader(text: str):
-    """
-    Return VADER compound score if VADER is available.
-    If not available, return None.
-    """
-    if not SIA:
-        return None
-    return float(SIA.polarity_scores(text)["compound"])
 
 @app.get("/")
 def index():
-    """
-    Serve the main page.
-    """
     return send_from_directory(".", "index.html")
+
 
 @app.get("/health")
 def health():
-    """
-    Simple health check for the front-end.
-    Lets the UI know the server is running and whether VADER and formality classifier loaded.
-    """
     return jsonify({
         "ok": True,
         "vader_ok": VADER_OK,
         "formality_ok": FORMALITY_OK,
-        "llama_ok": LLAMA_OK
+        "llama_ok": LLAMA_OK,
     })
+
 
 @app.post("/analyze")
 def analyze():
-    """
-    Analyze prompt and reply text.
-    Expected JSON body:
-    {
-      "prompt_text": "some text",
-      "reply_text": "some text"
-    }
-    """
-    data = request.get_json(force=True)
+    data = request.get_json(force=True) or {}
     prompt = (data.get("prompt_text") or "").strip()
     reply = (data.get("reply_text") or "").strip()
+    llm_reply = (data.get("llm_reply_text") or "").strip()
+    final_text = (data.get("final_text") or "").strip()
 
-    # Analyze reply sentiment
-    if reply:
-        tb_pol, tb_subj = analyze_textblob(reply)
-        vader_comp = analyze_vader(reply)
-    else:
-        tb_pol, tb_subj = 0.0, 0.0
-        vader_comp = None
+    tb_pol, tb_subj = analyze_textblob(reply) if reply else (0.0, 0.0)
+    vader_comp = analyze_vader(reply) if reply else None
 
-    # Classify formality
-    prompt_formality = classify_formality(prompt) if prompt else None
-    reply_formality = classify_formality(reply) if reply else None
+    prompt_form = classify_formality_single(prompt) if prompt else {"label": None, "confidence": None}
+    reply_form = classify_formality_single(reply) if reply else {"label": None, "confidence": None}
+    llm_form = classify_formality_single(llm_reply) if llm_reply else {"label": None, "confidence": None}
+    final_form = classify_formality_single(final_text) if final_text else {"label": None, "confidence": None}
 
-    # Compare formality (simple match)
-    formality_match = None
-    if prompt_formality and reply_formality:
-        formality_match = prompt_formality["label"] == reply_formality["label"]
+    formality_mismatch = None
+    if prompt_form["label"] is not None and reply_form["label"] is not None:
+        formality_mismatch = prompt_form["label"] != reply_form["label"]
 
     return jsonify({
         "reply_tb_polarity": tb_pol,
@@ -268,55 +238,39 @@ def analyze():
         "reply_vader_compound": vader_comp,
         "vader_ok": VADER_OK,
         "formality_ok": FORMALITY_OK,
-        "prompt_formality": prompt_formality,
-        "reply_formality": reply_formality,
-        "formality_match": formality_match
+        "prompt_formality_label": prompt_form["label"],
+        "prompt_formality_confidence": prompt_form["confidence"],
+        "reply_formality_label": reply_form["label"],
+        "reply_formality_confidence": reply_form["confidence"],
+        "llm_reply_formality_label": llm_form["label"],
+        "llm_reply_formality_confidence": llm_form["confidence"],
+        "final_formality_label": final_form["label"],
+        "final_formality_confidence": final_form["confidence"],
+        "formality_mismatch": formality_mismatch,
     })
 
+
 @app.post("/generate-reply")
-def generate_reply_endpoint():
-    """
-    Generate a reply using Llama.
-    Expected JSON: {"conversation": ["Human: ...", "Assistant: ...", ...]}
-    """
-    data = request.get_json(force=True)
-    conversation = data.get("conversation", [])
-    
-    if not conversation:
-        return jsonify({"reply": "Got it.", "llama_ok": LLAMA_OK})
-    
+def generate_reply():
+    data = request.get_json(force=True) or {}
+    conversation = data.get("conversation") or []
+    if not isinstance(conversation, list):
+        conversation = []
     reply = generate_reply_from_history(conversation)
-    
-    return jsonify({
-        "reply": reply,
-        "llama_ok": LLAMA_OK
-    })
+    return jsonify({"reply": reply})
+
 
 @app.post("/log")
 def log():
-    """
-    Save one trial row to the CSV file.
-    The front-end sends a JSON payload with fields matching FIELDNAMES.
-    """
-    data = request.get_json(force=True)
-
+    data = request.get_json(force=True) or {}
     ensure_csv()
-
-    # Build a clean row using only the fields we expect
-    row = {key: data.get(key, "") for key in FIELDNAMES}
-
-    # Always generate timestamp on the server side
+    row = {k: data.get(k, "") for k in FIELDNAMES}
     row["timestamp"] = datetime.now().isoformat(timespec="seconds")
-
     with CSV_PATH.open("a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
-        writer.writerow(row)
+        w = csv.DictWriter(f, fieldnames=FIELDNAMES)
+        w.writerow(row)
+    return jsonify({"saved": True, "csv": str(CSV_PATH.resolve())})
 
-    return jsonify({
-        "saved": True,
-        "csv": str(CSV_PATH.resolve())
-    })
 
 if __name__ == "__main__":
-    # debug=True is good for local prototype work
     app.run(port=8000, debug=True)
