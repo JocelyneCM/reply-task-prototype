@@ -17,6 +17,43 @@ from datetime import datetime
 from pathlib import Path
 import csv
 
+from openai import OpenAI
+import os
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+app = Flask(__name__, static_folder=".", static_url_path="")
+
+sessions = {}
+
+SYSTEM_PROMPT = """
+You are a neutral conversational agent used in a controlled linguistic study.
+
+STRICT 4-TURN PROTOCOL:
+1. User responds to prompt (data)
+2. You respond with 1 short neutral acknowledgment only
+3. The session ends immediately after your response
+
+RULES:
+- No questions
+- No topic expansion
+- No style mirroring
+- Max 1 sentence
+- Only neutral acknowledgments
+"""
+
+# -----------------------------
+# PROMPTS (CLEAN + CONTROLLED)
+# -----------------------------
+FORMAL_PROMPTS = [
+    "Please describe your plans for today in detail."
+]
+
+INFORMAL_PROMPTS = [
+    "What are you up to today?"
+]
+
+
 # TextBlob = simple sentiment tool
 from textblob import TextBlob
 
@@ -156,6 +193,72 @@ def log():
         "saved": True,
         "csv": str(CSV_PATH.resolve())
     })
+
+@app.post("/chat")
+def chat():
+    data = request.get_json(force=True)
+
+    session_id = data.get("session_id", "default")
+    user_message = (data.get("message") or "").strip()
+    mode = data.get("mode")  # "formal" or "informal"
+
+    # init session if new
+    if session_id not in sessions:
+        sessions[session_id] = {
+            "step": "start",
+            "mode": None,
+            "turn": 0
+        }
+
+    state = sessions[session_id]
+
+    # -------------------------
+    # STEP 1: USER SELECTS MODE
+    # -------------------------
+    if state["step"] == "start":
+        state["mode"] = mode
+        state["step"] = "awaiting_answer"
+
+        prompt = FORMAL_PROMPTS[0] if mode == "formal" else INFORMAL_PROMPTS[0]
+
+        return jsonify({
+            "type": "prompt",
+            "message": prompt
+        })
+    
+    # -------------------------
+    # STEP 2: USER ANSWERS
+    # -------------------------
+    if state["step"] == "awaiting_answer":
+
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_message}
+        ]
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=60
+        )
+
+        reply = response.choices[0].message.content.strip()
+
+        state["step"] = "done"
+
+        return jsonify({
+            "type": "final",
+            "message": reply
+        })
+
+    # -------------------------
+    # STEP 3: SESSION DONE
+    # -------------------------
+    return jsonify({
+        "type": "end",
+        "message": "Session already completed."
+    })
+
 
 if __name__ == "__main__":
     # debug=True is good for local prototype work
