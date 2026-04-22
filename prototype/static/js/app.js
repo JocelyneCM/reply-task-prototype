@@ -555,6 +555,21 @@ function initParticipantUI() {
       trial.lastInputAtMs = nowMs();
       trial.keypressCount += 1;
       if (e.key === "Backspace") trial.backspaceCount += 1;
+
+      // Enter without Shift should submit quick chat replies for SMS/Messenger
+      if (e.key === "Enter" && !e.shiftKey) {
+        // Only treat Enter as submit for single-line chat inputs (SMS/Messenger)
+        if (textarea === els.replySMS || textarea === els.replyMsg) {
+          e.preventDefault();
+          if (textarea === els.replySMS) {
+            els.sendSMSBtn && els.sendSMSBtn.click();
+          } else {
+            els.sendMsgBtn && els.sendMsgBtn.click();
+          }
+          return;
+        }
+      }
+
       if (currentMedium === "Messenger" && els.typingIndicator) {
         els.typingIndicator.textContent = "typing…";
         if (typingTimeout) clearTimeout(typingTimeout);
@@ -1946,147 +1961,86 @@ function initAdminUI() {
     const wrap = els.trialDetailInner;
     if (!wrap || !row) return;
 
-    const audioName = (row.audio_filename || "").trim();
-    function resolveAudioSrc(name) {
-      const n = String(name || "").trim();
-      if (!n) return "";
-      if (/^https?:\/\//i.test(n)) return n;
-      if (n.startsWith("/static/audio/")) return n;
-      if (n.startsWith("static/audio/")) return "/" + n;
-      const base = n.split("/").pop() || n;
-      return "/static/audio/" + encodeURIComponent(base);
-    }
-    const audioSrc = resolveAudioSrc(audioName);
-    const audioBlock =
-      audioName &&
-      `<div class="pex-admin-detail-block">
-        <h3>Audio</h3>
-        <audio class="pex-admin-audio" controls preload="metadata" src="${escapeHtml(audioSrc)}"></audio>
-        <p class="small" style="margin-top:8px;color:var(--muted)">${escapeHtml(audioName)}</p>
-      </div>`;
+    wrap.innerHTML = '<p class="pex-admin-detail-placeholder">Loading…</p>';
 
-    const reply = (row.reply_text || "").trim();
-    const trans = (row.transcript || "").trim();
-    const prompt = (row.prompt_text || "").trim();
-    const analysisStatus = (row.reply_analysis_status || "").trim();
-    const analysisBasis = (row.reply_analysis_basis || "").trim();
-    const transcriptStatus = (row.transcript_status || "").trim();
-    const transcriptSource = (row.transcript_source || "").trim();
-
-    const transcriptDisplay = trans || (row.medium === "Voice" ? "No transcript stored." : "");
-    const analysisAvailabilityNote =
-      row.medium === "Voice" && (!trans || analysisStatus.includes("unavailable"))
-        ? "Reply-text sentiment/style analysis is unavailable for this voice trial because no transcript was captured."
-        : "";
-    const transcriptNote =
-      row.medium === "Voice"
-        ? transcriptStatus === "ffmpeg_missing"
-          ? "Transcription unavailable: ffmpeg is missing on server."
-          : transcriptStatus === "whisper_unavailable"
-          ? "Transcription backend unavailable in this environment (Whisper disabled)."
-          : transcriptStatus === "transcription_failed"
-            ? "Transcription attempted but failed."
-            : transcriptStatus === "empty"
-              ? "Transcription ran but returned empty text."
-              : transcriptStatus === "ok"
-                ? "Transcript captured by Whisper."
-                : "Transcript status not recorded."
-        : "";
-    wrap.innerHTML = `
-      <div class="pex-admin-detail-block">
-        <h3>When &amp; who</h3>
-        <dl class="pex-admin-detail-meta">
-          <dt>Timestamp</dt><dd>${escapeHtml(row.timestamp || "")}</dd>
-          <dt>Participant</dt><dd>${escapeHtml(displayParticipantId(row.participant_id || ""))}</dd>
-          <dt>Medium</dt><dd>${escapeHtml(row.medium || "")}</dd>
-          <dt>Input</dt><dd>${escapeHtml(row.input_method || "")}</dd>
-        </dl>
-      </div>
-      <div class="pex-admin-detail-block">
-        <h3>Reply text</h3>
-        <p>${reply ? escapeHtml(reply) : "<em class='small'>—</em>"}</p>
-      </div>
-      <div class="pex-admin-detail-block">
-        <h3>Transcript</h3>
-        <p>${transcriptDisplay ? escapeHtml(transcriptDisplay) : "<em class='small'>—</em>"}</p>
-        ${transcriptNote ? `<p class="small">${escapeHtml(transcriptNote)}</p>` : ""}
-        ${analysisAvailabilityNote ? `<p class="small pex-admin-warn">${escapeHtml(analysisAvailabilityNote)}</p>` : ""}
-      </div>
-      ${audioBlock || ""}
-      <div class="pex-admin-detail-block">
-        <h3>Prompt (excerpt)</h3>
-        <p>${prompt ? escapeHtml(prompt.slice(0, 2000)) : "<em class='small'>—</em>"}</p>
-      </div>
-      <div class="pex-admin-detail-block">
-        <h3>Timing &amp; behaviour</h3>
-        <dl class="pex-admin-detail-meta">
-          <dt>Response (s)</dt><dd>${escapeHtml(String(row.response_time_seconds ?? ""))}</dd>
-          <dt>Keypresses</dt><dd>${escapeHtml(String(row.keypress_count ?? ""))}</dd>
-          <dt>Backspaces</dt><dd>${escapeHtml(String(row.backspace_count ?? ""))}</dd>
-          <dt>Paste</dt><dd>${escapeHtml(row.paste_used || "")}</dd>
-          <dt>Correction</dt><dd>${escapeHtml(row.correction_applied || "")}</dd>
-        </dl>
-      </div>
-      <div class="pex-admin-detail-block">
-        <h3>Primary analysis</h3>
-        <dl class="pex-admin-detail-meta">
-          <dt>Reply analysis status</dt><dd>${escapeHtml(analysisStatus || "ok")}</dd>
-          <dt>Analysis basis</dt><dd>${escapeHtml(analysisBasis || "reply_text")}</dd>
-          <dt>Reply formality/style</dt><dd>${escapeHtml(row.reply_style || "")}</dd>
-          <dt>Prompt formality/style</dt><dd>${escapeHtml(row.prompt_style || "")}</dd>
-          <dt>BERT (normalized)</dt><dd>${escapeHtml(normalizeBertLabel(row.bert_label || ""))}</dd>
-        </dl>
-        <div style="margin-top:10px">
-          <button type="button" class="pex-admin-table-action" id="adminDeleteTrialBtn">Delete this trial…</button>
-        </div>
-      </div>
-      <details class="pex-admin-advanced">
-        <summary>Advanced analysis details</summary>
-        <div class="pex-admin-detail-block">
-          <dl class="pex-admin-detail-meta">
-            <dt>Participant raw ID</dt><dd>${escapeHtml(row.participant_id || "")}</dd>
-            <dt>BERT raw</dt><dd>${escapeHtml(row.bert_raw || row.bert_label || "")}</dd>
-            <dt>BERT confidence</dt><dd>${escapeHtml(String(row.bert_confidence ?? ""))}</dd>
-            <dt>TextBlob polarity</dt><dd>${escapeHtml(String(row.textblob_polarity ?? ""))}</dd>
-            <dt>TextBlob subjectivity</dt><dd>${escapeHtml(String(row.textblob_subjectivity ?? ""))}</dd>
-            <dt>Transcript status</dt><dd>${escapeHtml(transcriptStatus)}</dd>
-            <dt>Transcript source</dt><dd>${escapeHtml(transcriptSource)}</dd>
-            <dt>Prompt tone</dt><dd>${escapeHtml(row.prompt_tone || "")}</dd>
-            <dt>Prompt seriousness</dt><dd>${escapeHtml(row.prompt_seriousness || "")}</dd>
-            <dt>Prompt formality</dt><dd>${escapeHtml(row.prompt_formality || "")}</dd>
-          </dl>
-        </div>
-      </details>
-    `;
-    const delBtn = wrap.querySelector("#adminDeleteTrialBtn");
-    delBtn?.addEventListener("click", () => {
-      const ok = window.confirm("Delete this trial row from CSV logs? This cannot be undone.");
-      if (!ok) return;
-      fetchJSON("/api/admin/delete_trial", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          timestamp: row.timestamp || "",
-          participant_id: row.participant_id || "",
-          medium: row.medium || "",
-          prompt_text: row.prompt_text || "",
-          reply_text: row.reply_text || "",
-          audio_filename: row.audio_filename || "",
-        }),
+    fetch("/api/admin/trial_detail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(row),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("detail fetch failed");
+        return res.text();
       })
-        .then((res) => {
-          if (!res.ok) throw new Error("delete failed");
-          loadLogs();
-          loadSummary();
-          if (els.trialDetailInner) {
-            els.trialDetailInner.innerHTML =
-              '<p class="pex-admin-detail-placeholder">Trial deleted. Select another row to inspect details.</p>';
-          }
-        })
-        .catch(() => {
-          alert("Could not delete trial row.");
+      .then((html) => {
+        wrap.innerHTML = html;
+        const delBtn = wrap.querySelector("#adminDeleteTrialBtn");
+        delBtn?.addEventListener("click", () => {
+          const ok = window.confirm("Delete this trial row from CSV logs? This cannot be undone.");
+          if (!ok) return;
+          fetchJSON("/api/admin/delete_trial", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              timestamp: row.timestamp || "",
+              participant_id: row.participant_id || "",
+              medium: row.medium || "",
+              prompt_text: row.prompt_text || "",
+              reply_text: row.reply_text || "",
+              audio_filename: row.audio_filename || "",
+            }),
+          })
+            .then((res) => {
+              if (!res.ok) throw new Error("delete failed");
+              loadLogs();
+              loadSummary();
+              if (els.trialDetailInner) {
+                els.trialDetailInner.innerHTML =
+                  '<p class="pex-admin-detail-placeholder">Trial deleted. Select another row to inspect details.</p>';
+              }
+            })
+            .catch(() => {
+              alert("Could not delete trial row.");
+            });
         });
-    });
+      })
+      .catch(() => {
+        // Fallback to client-side builder if server render fails.
+        if (typeof buildTrialDetailHtml === "function") {
+          wrap.innerHTML = buildTrialDetailHtml(row);
+        } else {
+          wrap.innerHTML = `<pre>${escapeHtml(JSON.stringify(row, null, 2))}</pre>`;
+        }
+        const delBtn = wrap.querySelector("#adminDeleteTrialBtn");
+        delBtn?.addEventListener("click", () => {
+          const ok = window.confirm("Delete this trial row from CSV logs? This cannot be undone.");
+          if (!ok) return;
+          fetchJSON("/api/admin/delete_trial", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              timestamp: row.timestamp || "",
+              participant_id: row.participant_id || "",
+              medium: row.medium || "",
+              prompt_text: row.prompt_text || "",
+              reply_text: row.reply_text || "",
+              audio_filename: row.audio_filename || "",
+            }),
+          })
+            .then((res) => {
+              if (!res.ok) throw new Error("delete failed");
+              loadLogs();
+              loadSummary();
+              if (els.trialDetailInner) {
+                els.trialDetailInner.innerHTML =
+                  '<p class="pex-admin-detail-placeholder">Trial deleted. Select another row to inspect details.</p>';
+              }
+            })
+            .catch(() => {
+              alert("Could not delete trial row.");
+            });
+        });
+      });
   }
 
   function selectTrialRow(index) {

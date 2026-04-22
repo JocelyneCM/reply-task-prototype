@@ -5,7 +5,7 @@ analysis_utils.py
 NLP and style‑classification utilities used by the Flask backend.
 
 This module wraps:
-* TextBlob sentiment (polarity + subjectivity)
+* Formality model (text classification)
 * BERT‑based sentiment from HuggingFace Transformers
 * A simple rule‑based style classifier (formal / informal / neutral)
 
@@ -15,11 +15,13 @@ In that case we return safe neutral defaults.
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict
 
-from textblob import TextBlob
-
-# VADER removed. We rely on TextBlob and optional BERT pipeline.
+try:
+    # Use the formality service wrapper implemented separately.
+    from .formality_service import predict_formality
+except Exception:
+    predict_formality = None
 
 try:
     from transformers import pipeline  # type: ignore
@@ -32,29 +34,6 @@ try:
 except Exception:  # pragma: no cover - environment‑dependent
     _bert_pipeline = None
     BERT_AVAILABLE = False
-
-
-def analyze_textblob(text: str) -> Tuple[float, float]:
-    """
-    Run TextBlob sentiment analysis on the given text.
-
-    Returns:
-        (polarity, subjectivity)
-    """
-    if not text:
-        return 0.0, 0.0
-    blob = TextBlob(text)
-    sentiment = blob.sentiment
-    return float(sentiment.polarity), float(sentiment.subjectivity)
-
-
-def analyze_vader(text: str) -> float:
-    """
-    Placeholder for historical VADER analysis. VADER was removed from
-    the prototype; this function returns a neutral 0.0 score for
-    compatibility with older code paths.
-    """
-    return 0.0
 
 
 def analyze_bert(text: str) -> Dict[str, float or str]:
@@ -167,15 +146,26 @@ def classify_style(text: str) -> str:
 
 def analyze_full_text(text: str) -> Dict[str, float or str]:
     """
-    Convenience helper that runs all sentiment analyses on a piece of text
-    and returns a single, well‑named dictionary.
+    Convenience helper that returns formality (from the formality model)
+    and BERT sentiment metadata for a given text.
     """
-    polarity, subjectivity = analyze_textblob(text)
+    # Formality via the trained model (preferred).
+    formality_label = ""
+    formality_conf = 0.0
+    if predict_formality is not None:
+        try:
+            res = predict_formality(text)
+            formality_label = res.get("label") or ""
+            formality_conf = float(res.get("score", 0.0))
+        except Exception:
+            formality_label = ""
+            formality_conf = 0.0
+
     bert_result = analyze_bert(text)
 
     return {
-        "textblob_polarity": polarity,
-        "textblob_subjectivity": subjectivity,
+        "formality_label": formality_label,
+        "formality_confidence": formality_conf,
         "bert_label": bert_result["label"],
         "bert_confidence": bert_result["confidence"],
     }
