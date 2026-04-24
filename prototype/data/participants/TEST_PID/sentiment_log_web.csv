@@ -1,0 +1,8 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,transcript,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,prompt_formality,reply_style,reply_analysis_status,reply_analysis_basis,transcript_status,transcript_source,formality_label,formality_confidence,formality_match_prompt_reply,bert_label,bert_raw,bert_confidence,audio_filename
+2026-04-24T09:17:50,TEST_PID,LLM,LLM,Hello,Hello! How are you doing today?,,0,0,0,no,no,neutral,,,,informal,ok,llm_reply,,,LABEL_1,0.9935645461082458,,5 stars,5 stars,0.5822187066078186,
+2026-04-24T09:22:38,TEST_PID,LLM,LLM,Hello,Hello! How are you today?,,0,0,0,no,no,neutral,,,,informal,ok,llm_reply,,,LABEL_1,0.9915909767150879,,5 stars,5 stars,0.6184409856796265,
+2026-04-24T09:39:25,TEST_PID,LLM,LLM,Hello,"Sure! Here is a response that continues the conversation:
+
+""Hi there! How are you doing today?""",,0,0,0,no,no,neutral,,,,informal,ok,llm_reply,,,,0.0,,neutral,neutral,0.0,
+2026-04-24T09:46:09,TEST_PID,LLM,LLM,Hello,Hello! How are you doing today?,,0,0,0,no,no,neutral,,,,informal,ok,llm_reply,,,,0.0,,neutral,neutral,0.0,
+2026-04-24T10:56:25,TEST_PID,LLM,LLM,Hello,Hello! How are you today?,,0,0,0,no,no,neutral,,,,informal,ok,llm_reply,,,LABEL_1,0.9915909767150879,,5 stars,5 stars,0.6184409856796265,

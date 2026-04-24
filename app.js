@@ -143,7 +143,7 @@ let rows = [];
 // Current correction suggestion
 let currentSuggestion = "";
 
-// Conversation history for Llama
+// Conversation history for LLM (OpenAI)
 let conversationHistory = [];
 
 // Store the most recent sent reply for each medium
@@ -646,10 +646,10 @@ function classifyStyle(text) {
   return { label, formalScore, informalScore };
 }
 
-// Build a small follow-up auto reply using Llama
+// Build a small follow-up auto reply using the server-side OpenAI endpoint
 async function buildAutoReply(replyText) {
   try {
-    const res = await fetch("/generate-reply", {
+    const res = await fetch("/api/generate_reply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ conversation: conversationHistory }),

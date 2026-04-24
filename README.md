@@ -16,15 +16,13 @@ It logs things like:
 - notes
 - sentiment scores
 
-For sentiment analysis I currently use:
-- TextBlob
-- VADER
-- (BERT-based analysis in progress)
+For analysis I currently use:
+- Server-side formality model (text classification)
+- (BERT-based analysis available as an auxiliary signal)
 
 I am still working on:
-- SVM classifier
 - Improved text correction tracking
-- More consistent sentiment normalization
+- More consistent analysis normalization
 
 The goal is to collect experimental data for our project.
 

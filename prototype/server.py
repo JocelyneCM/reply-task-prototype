@@ -38,20 +38,22 @@ from flask import (
     request,
     send_file,
 )
-
-from utils.logging_utils import (
+# Use package-relative imports when running as `python -m prototype.server`.
+# This keeps imports deterministic when the package is imported by tests.
+from .utils.logging_utils import (
     ensure_base_directories,
     get_global_log_path,
     log_trial_row,
+    log_run_row,
     load_logs_for_admin,
     list_participants_with_data,
 )
-from utils.analysis_utils import (
+from .utils.analysis_utils import (
     analyze_full_text,
     classify_style,
     BERT_AVAILABLE,
 )
-from utils.audio_utils import (
+from .utils.audio_utils import (
     AUDIO_DIR,
     transcribe_audio_file,
     WHISPER_AVAILABLE,
@@ -753,7 +755,8 @@ def api_generate_reply() -> Response:
             try:
                 if p.exists():
                     j = json.loads(p.read_text())
-                    api_key = j.get("openai_api_key") or j.get("llama_api_key") or api_key
+                    # use OPENAI key
+                    api_key = j.get("openai_api_key") or api_key
                     break
             except Exception:
                 continue
@@ -903,6 +906,94 @@ def api_generate_reply() -> Response:
         "matches_target_formality": (target_formality == "" or fallback_analysis.get("formality_label", "") == target_formality),
         "meta": {"provider": "fallback"},
     })
+
+
+
+@app.post("/api/log_run")
+def api_log_run() -> Response:
+    """Accept a full conversation run and write a single per-run CSV.
+
+    Expected JSON keys:
+        - participant_id, medium, input_method
+        - prompt_text, reply_text, llm_reply_text, final_text
+        - response_time_seconds, keypress_count, backspace_count,
+          paste_used, correction_applied, prompt_tone, prompt_seriousness,
+          prompt_formality, notes
+    """
+    try:
+        payload: Dict[str, Any] = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid JSON body."}), 400
+
+    participant_id = (payload.get("participant_id") or "UNKNOWN").strip()
+    medium = (payload.get("medium") or "SMS").strip()
+    input_method = (payload.get("input_method") or "Keyboard").strip()
+
+    prompt_text = (payload.get("prompt_text") or "").strip()
+    reply_text = (payload.get("reply_text") or "").strip()
+    llm_reply_text = (payload.get("llm_reply_text") or "").strip()
+    final_text = (payload.get("final_text") or "").strip()
+
+    response_time_seconds = float(payload.get("response_time_seconds") or 0.0)
+    keypress_count = int(payload.get("keypress_count") or 0)
+    backspace_count = int(payload.get("backspace_count") or 0)
+    paste_used = bool(payload.get("paste_used") or False)
+    correction_applied = bool(payload.get("correction_applied") or False)
+
+    # Analyze each text for formality / BERT.
+    try:
+        prompt_analysis = analyze_full_text(prompt_text)
+    except Exception:
+        prompt_analysis = {"formality_label": "", "formality_confidence": 0.0, "bert_label": "", "bert_confidence": 0.0}
+    try:
+        reply_analysis = analyze_full_text(reply_text)
+    except Exception:
+        reply_analysis = {"formality_label": "", "formality_confidence": 0.0, "bert_label": "", "bert_confidence": 0.0}
+    try:
+        llm_analysis = analyze_full_text(llm_reply_text)
+    except Exception:
+        llm_analysis = {"formality_label": "", "formality_confidence": 0.0, "bert_label": "", "bert_confidence": 0.0}
+    try:
+        final_analysis = analyze_full_text(final_text)
+    except Exception:
+        final_analysis = {"formality_label": "", "formality_confidence": 0.0, "bert_label": "", "bert_confidence": 0.0}
+
+    # Build the per-run CSV row.
+    run_row: Dict[str, Any] = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "participant_id": participant_id,
+        "medium": medium,
+        "input_method": input_method,
+        "prompt_text": prompt_text,
+        "reply_text": reply_text,
+        "llm_reply_text": llm_reply_text,
+        "final_text": final_text,
+        "prompt_formality_label": prompt_analysis.get("formality_label", ""),
+        "prompt_formality_confidence": prompt_analysis.get("formality_confidence", 0.0),
+        "reply_formality_label": reply_analysis.get("formality_label", ""),
+        "reply_formality_confidence": reply_analysis.get("formality_confidence", 0.0),
+        "llm_reply_formality_label": llm_analysis.get("formality_label", ""),
+        "llm_reply_formality_confidence": llm_analysis.get("formality_confidence", 0.0),
+        "final_formality_label": final_analysis.get("formality_label", ""),
+        "final_formality_confidence": final_analysis.get("formality_confidence", 0.0),
+        "response_time_seconds": response_time_seconds,
+        "keypress_count": keypress_count,
+        "backspace_count": backspace_count,
+        "paste_used": "yes" if paste_used else "no",
+        "correction_applied": "yes" if correction_applied else "no",
+        "prompt_style": payload.get("prompt_style") or derive_prompt_metadata(prompt_text).get("prompt_formality") or "",
+        "prompt_tone": payload.get("prompt_tone") or "",
+        "prompt_seriousness": payload.get("prompt_seriousness") or "",
+        "notes": payload.get("notes") or "",
+    }
+
+    try:
+        path = log_run_row(BASE_DIR, run_row)
+    except Exception:
+        app.logger.exception("Failed to write run CSV")
+        return jsonify({"ok": False, "error": "Failed to write run CSV"}), 500
+
+    return jsonify({"ok": True, "run_csv": str(path.relative_to(BASE_DIR))})
 
 
 # ---------------------------------------------------------------------------

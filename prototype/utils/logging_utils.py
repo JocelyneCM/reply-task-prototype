@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 import csv
+from datetime import datetime
 
 
 GLOBAL_LOG_FILENAME = "sentiment_log_web.csv"
@@ -176,6 +177,79 @@ def list_participants_with_data(base_dir: Path) -> List[str]:
             participants.append(child.name)
     participants.sort()
     return participants
+
+
+def runs_dir(base_dir: Path) -> Path:
+    """Directory for per-run CSV exports."""
+    return base_data_dir(base_dir) / "runs"
+
+
+def _run_csv_headers() -> List[str]:
+    """Headers for per-run CSV files and the run summary."""
+    return [
+        "timestamp",
+        "participant_id",
+        "medium",
+        "input_method",
+        "prompt_text",
+        "reply_text",
+        "llm_reply_text",
+        "final_text",
+        "prompt_formality_label",
+        "prompt_formality_confidence",
+        "reply_formality_label",
+        "reply_formality_confidence",
+        "llm_reply_formality_label",
+        "llm_reply_formality_confidence",
+        "final_formality_label",
+        "final_formality_confidence",
+        "response_time_seconds",
+        "keypress_count",
+        "backspace_count",
+        "paste_used",
+        "correction_applied",
+        "prompt_style",
+        "prompt_tone",
+        "prompt_seriousness",
+        "notes",
+    ]
+
+
+def log_run_row(base_dir: Path, row: Dict[str, Any]) -> Path:
+    """Write a per-run CSV file (one-row) and append it to run_summary.csv.
+
+    Returns the path to the created per-run CSV file.
+    """
+    rd = runs_dir(base_dir)
+    rd.mkdir(parents=True, exist_ok=True)
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    pid = (row.get("participant_id") or "UNKNOWN").strip() or "UNKNOWN"
+    fname = f"run_{ts}_{pid}.csv"
+    run_path = rd / fname
+
+    headers = _run_csv_headers()
+
+    # Serialise a single-row CSV
+    with run_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=headers)
+        writer.writeheader()
+        serialised = {k: ("" if row.get(k) is None else str(row.get(k))) for k in headers}
+        writer.writerow(serialised)
+
+    # Append to summary
+    summary = rd / "run_summary.csv"
+    if not summary.exists():
+        with summary.open("w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=headers)
+            w.writeheader()
+            w.writerow(serialised)
+    else:
+        with summary.open("a", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=headers)
+            w.writerow(serialised)
+
+    return run_path
 
 
 def load_logs_for_admin(

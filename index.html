@@ -18,7 +18,7 @@
         <h1>Reply Task Prototype</h1>
         <p class="sub">
           Logs trials + typing behaviour.  
-          Sentiment runs via Flask (TextBlob) + rule-based style labels.
+          Analysis runs via the server-side formality model + rule-based style labels.
         </p>
       </div>
 
@@ -58,8 +58,7 @@
         <label class="field">
           <span class="label">Model</span>
           <select id="model">
-            <option>TextBlob</option>
-            <option>SVM (TODO)</option>
+            <option>Formality model (server)</option>
           </select>
         </label>
 

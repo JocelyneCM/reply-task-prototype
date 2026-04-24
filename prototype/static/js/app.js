@@ -135,6 +135,8 @@ function initParticipantUI() {
     correctionApplied: false,
   };
 
+  // Tracks a small in-memory conversation run: first user reply -> LLM reply -> final user reply
+  let currentRun = null;
   let currentMedium = "SMS";
   let mediaRecorder = null;
   let recordedChunks = [];
@@ -775,8 +777,125 @@ function initParticipantUI() {
       showToast("Could not save — check connection.");
       throw e;
     }
+
+    // If we don't yet have a run, this is the user's initial reply.
+    if (!currentRun) {
+      currentRun = {
+        participant_id: body.participant_id,
+        medium: body.medium,
+        input_method: body.input_method,
+        prompt_text: body.prompt_text,
+        reply_text: body.reply_text,
+        llm_reply_text: "",
+        final_text: "",
+      };
+
+      // Request an LLM-generated reply and display it.
+      (async () => {
+        try {
+          const gen = await fetchJSON("/api/generate_reply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              participant_id: currentRun.participant_id,
+              medium: currentRun.medium,
+              prompt_text: currentRun.prompt_text,
+              user_reply: currentRun.reply_text,
+              prompt_style: body.prompt_style || "",
+              prompt_tone: body.prompt_tone || "",
+              prompt_seriousness: body.prompt_seriousness || "",
+            }),
+          });
+          const llmText = gen.reply || "";
+          currentRun.llm_reply_text = llmText;
+
+          // Display LLM reply in the thread and log it as an LLM reply.
+          const thread = currentRun.medium === "SMS" ? els.smsThread : els.messengerThread;
+          const kind = currentRun.medium === "SMS" ? "sms" : "msg";
+          appendIncoming(thread, llmText, kind);
+
+          // Log the LLM-generated reply as a trial row.
+          try {
+            await fetchJSON("/api/log_reply", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                participant_id: currentRun.participant_id,
+                medium: currentRun.medium,
+                input_method: "LLM",
+                prompt_text: currentRun.prompt_text,
+                reply_text: llmText,
+                response_time_seconds: 0,
+                keypress_count: 0,
+                backspace_count: 0,
+                paste_used: false,
+                correction_applied: false,
+                prompt_style: body.prompt_style || "",
+                prompt_tone: body.prompt_tone || "",
+                prompt_seriousness: body.prompt_seriousness || "",
+              }),
+            });
+          } catch (e) {
+            console.warn("Failed to log LLM reply", e);
+          }
+        } catch (e) {
+          // If LLM generation fails, fall back to the lightweight auto-reply.
+          const thread = currentRun.medium === "SMS" ? els.smsThread : els.messengerThread;
+          const kind = currentRun.medium === "SMS" ? "sms" : "msg";
+          appendIncoming(thread, buildAutoReply(currentRun.reply_text), kind);
+        }
+      })();
+
+      // Keep trial state so the next user reply can be treated as final.
+      resetTrialState();
+      return;
+    }
+
+    // If we already have an LLM reply stored, treat this as the final reply.
+    if (currentRun && currentRun.llm_reply_text && !currentRun.final_text) {
+      currentRun.final_text = body.reply_text;
+
+      // Emit a per-run CSV via the server and then rotate prompts.
+      try {
+        const runPayload = {
+          participant_id: currentRun.participant_id,
+          medium: currentRun.medium,
+          input_method: currentRun.input_method,
+          prompt_text: currentRun.prompt_text,
+          reply_text: currentRun.reply_text,
+          llm_reply_text: currentRun.llm_reply_text,
+          final_text: currentRun.final_text,
+          response_time_seconds: body.response_time_seconds || 0,
+          keypress_count: body.keypress_count || 0,
+          backspace_count: body.backspace_count || 0,
+          paste_used: body.paste_used || false,
+          correction_applied: body.correction_applied || false,
+          prompt_style: body.prompt_style || "",
+          prompt_tone: body.prompt_tone || "",
+          prompt_seriousness: body.prompt_seriousness || "",
+        };
+        const r = await fetchJSON("/api/log_run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(runPayload),
+        });
+        if (r && r.ok) {
+          showToast("Run exported");
+        }
+      } catch (e) {
+        console.error(e);
+        showToast("Run export failed");
+      }
+
+      // Clear run state and rotate prompts for the next task.
+      currentRun = null;
+      resetTrialState();
+      assignRandomTextPrompts();
+      return;
+    }
+
+    // Fallback: rotate prompts after normal reply logging.
     resetTrialState();
-    // Rotate prompts for the next task while preserving this trial's prompt.
     assignRandomTextPrompts();
   }
 
@@ -805,10 +924,7 @@ function initParticipantUI() {
       return;
     }
 
-    const typingEl = showTypingRow(thread, kind);
-    await new Promise((r) => setTimeout(r, 700 + Math.random() * 600));
-    typingEl.remove();
-    appendIncoming(thread, buildAutoReply(text), kind);
+    // Incoming reply will be provided by submitReply (LLM or fallback).
   }
 
   if (els.sendSMSBtn)
