@@ -60,13 +60,7 @@ except Exception:
     TextBlob = None
     TEXTBLOB_OK = False
 
-try:
-    from nltk.sentiment import SentimentIntensityAnalyzer
-    SIA = SentimentIntensityAnalyzer()
-    VADER_OK = True
-except Exception:
-    SIA = None
-    VADER_OK = False
+# VADER has been removed (deprecated). Sentiment via TextBlob remains.
 
 try:
     import torch
@@ -142,7 +136,6 @@ FIELDNAMES = [
     # Sentiment
     "reply_tb_polarity",
     "reply_tb_subjectivity",
-    "reply_vader_compound",
     # Formality
     "prompt_formality_label",
     "prompt_formality_confidence",
@@ -169,11 +162,6 @@ def analyze_textblob(text: str):
     b = TextBlob(text)
     return float(b.sentiment.polarity), float(b.sentiment.subjectivity)
 
-
-def analyze_vader(text: str):
-    if not SIA or not text:
-        return None
-    return float(SIA.polarity_scores(text).get("compound", 0.0))
 
 
 def classify_formality_single(text: str):
@@ -242,7 +230,6 @@ def index():
 def health():
     return jsonify({
         "ok": True,
-        "vader_ok": VADER_OK,
         "formality_ok": FORMALITY_OK,
         "llama_ok": LLAMA_OK,
     })
@@ -257,7 +244,6 @@ def analyze():
     final_text = (data.get("final_text") or "").strip()
 
     tb_pol, tb_subj = analyze_textblob(reply) if reply else (0.0, 0.0)
-    vader_comp = analyze_vader(reply) if reply else None
 
     prompt_form = classify_formality_single(prompt) if prompt else {"label": None, "confidence": None}
     reply_form = classify_formality_single(reply) if reply else {"label": None, "confidence": None}
@@ -270,9 +256,7 @@ def analyze():
 
     return jsonify({
         "reply_tb_polarity": tb_pol,
-        "reply_tb_subjectivity": tb_subj,
-        "reply_vader_compound": vader_comp,
-        "vader_ok": VADER_OK,
+        "reply_tb_subjectivity": tb_sub,
         "formality_ok": FORMALITY_OK,
         "prompt_formality_label": prompt_form["label"],
         "prompt_formality_confidence": prompt_form["confidence"],

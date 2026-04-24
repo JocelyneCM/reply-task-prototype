@@ -7,7 +7,7 @@ Flask backend for the reply‑writing research prototype.
 Responsibilities:
 * Serve separate participant and admin UIs.
 * Accept text and audio replies from participants.
-* Run NLP analysis (TextBlob, VADER, BERT sentiment, rule‑based style).
+ * Run NLP analysis (formality model, BERT sentiment, rule‑based style).
 * Transcribe audio replies with Whisper (if available).
 * Log all trials into CSV files under data/logs and data/participants.
 * Expose JSON APIs used by the admin dashboard for filtering and CSV download.
@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional
 
 import csv
 import json
+import os
 from collections import Counter, defaultdict
 
 from flask import (
@@ -37,21 +38,22 @@ from flask import (
     request,
     send_file,
 )
-
-from utils.logging_utils import (
+# Use package-relative imports when running as `python -m prototype.server`.
+# This keeps imports deterministic when the package is imported by tests.
+from .utils.logging_utils import (
     ensure_base_directories,
     get_global_log_path,
     log_trial_row,
+    log_run_row,
     load_logs_for_admin,
     list_participants_with_data,
 )
-from utils.analysis_utils import (
+from .utils.analysis_utils import (
     analyze_full_text,
     classify_style,
     BERT_AVAILABLE,
-    VADER_AVAILABLE,
 )
-from utils.audio_utils import (
+from .utils.audio_utils import (
     AUDIO_DIR,
     transcribe_audio_file,
     WHISPER_AVAILABLE,
@@ -313,7 +315,6 @@ def api_health() -> Response:
     """
     payload = {
         "ok": True,
-        "vader_ok": VADER_AVAILABLE,
         "bert_ok": BERT_AVAILABLE,
         "whisper_ok": WHISPER_AVAILABLE,
         "ffmpeg_ok": FFMPEG_AVAILABLE,
@@ -333,9 +334,8 @@ def api_config() -> Response:
     config = {
         "media_types": ["SMS", "Messenger", "Email", "Voice"],
         "default_medium": "SMS",
-        "sentiment_models": {
-            "textblob": True,
-            "vader": VADER_AVAILABLE,
+        "analysis_models": {
+            "formality_model": True,
             "bert": BERT_AVAILABLE,
         },
     }
@@ -546,7 +546,7 @@ def api_log_reply() -> Response:
     The backend:
         * Optionally runs Whisper on the audio (if transcript was not already
           sent by the front‑end).
-        * Runs TextBlob, VADER and BERT sentiment models on the final text.
+        * Runs the formality model and BERT sentiment models on the final text.
         * Classifies style (formal / informal / neutral) using rule‑based
           heuristics on the reply text.
         * Logs a single row into data/logs/sentiment_log_web.csv and a
@@ -630,9 +630,8 @@ def api_log_reply() -> Response:
         "transcript_status": (payload.get("transcript_status") or "").strip(),
         "transcript_source": (payload.get("transcript_source") or "").strip()
         or ("upload_api" if client_transcript else ("api_log_reply_fallback" if transcript else "")),
-        "textblob_polarity": analysis["textblob_polarity"],
-        "textblob_subjectivity": analysis["textblob_subjectivity"],
-        "vader_compound": analysis["vader_compound"],
+        "formality_label": analysis.get("formality_label", ""),
+        "formality_confidence": analysis.get("formality_confidence", 0.0),
         "bert_label": bert_normalized,
         "bert_raw": bert_raw,
         "bert_confidence": analysis["bert_confidence"],
@@ -650,17 +649,351 @@ def api_log_reply() -> Response:
     if not final_text_for_analysis:
         row["reply_analysis_status"] = "unavailable_missing_text_or_transcript"
         row["reply_style"] = ""
-        row["textblob_polarity"] = ""
-        row["textblob_subjectivity"] = ""
-        row["vader_compound"] = ""
+        row["formality_label"] = ""
+        row["formality_confidence"] = ""
         row["bert_label"] = "ok"
         row["bert_raw"] = "unavailable"
         row["bert_confidence"] = ""
 
     # Persist to global + per‑participant CSV files.
+    # Compute whether user's reply roughly matches prompt formality.
+    try:
+        prompt_analysis = analyze_full_text(prompt_text)
+        reply_analysis = analyze_full_text(final_text_for_analysis)
+        p_label = (prompt_analysis.get("formality_label") or "").lower()
+        r_label = (reply_analysis.get("formality_label") or "").lower()
+
+        def _formality_match(a: str, b: str) -> bool:
+            if not a or not b:
+                return False
+            if a == b:
+                return True
+            if a == "neutral" or b == "neutral":
+                return True
+            return False
+
+        row["formality_match_prompt_reply"] = "yes" if _formality_match(p_label, r_label) else "no"
+    except Exception:
+        row["formality_match_prompt_reply"] = ""
+
     log_trial_row(BASE_DIR, row)
 
     return jsonify({"ok": True, "analysis": analysis, "style_label": style_label})
+
+
+@app.post("/api/analyze_formality")
+def api_analyze_formality() -> Response:
+    """Analyze multiple pieces of text for formality and BERT sentiment.
+
+    Expected JSON keys (all optional): `prompt_text`, `reply_text`, `llm_reply_text`, `final_text`.
+    Returns individual analyses and simple formality-match flags.
+    """
+    try:
+        payload: Dict[str, Any] = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid JSON body."}), 400
+
+    keys = ["prompt_text", "reply_text", "llm_reply_text", "final_text"]
+    analyses: Dict[str, Dict[str, Any]] = {}
+    for k in keys:
+        t = (payload.get(k) or "")
+        analyses[k] = analyze_full_text(t)
+
+    def _match(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+        al = (a.get("formality_label") or "").lower()
+        bl = (b.get("formality_label") or "").lower()
+        if not al or not bl:
+            return False
+        if al == bl:
+            return True
+        if al == "neutral" or bl == "neutral":
+            return True
+        return False
+
+    matches = {
+        "prompt_reply": _match(analyses["prompt_text"], analyses["reply_text"]),
+        "reply_llm": _match(analyses["reply_text"], analyses["llm_reply_text"]),
+        "llm_final": _match(analyses["llm_reply_text"], analyses["final_text"]),
+    }
+
+    conversation_ok = all(v for v in matches.values() if isinstance(v, bool))
+
+    return jsonify({"ok": True, "analyses": analyses, "matches": matches, "conversation_formality_ok": conversation_ok})
+
+
+@app.post("/api/generate_reply")
+def api_generate_reply() -> Response:
+    """Generate a reply using a configured LLM API key.
+
+    Payload: { prompt_text, user_reply, target_formality (optional) }
+    If an OpenAI key is available (env or keys.json), calls the Chat Completions API.
+    Otherwise returns a simple fallback reply.
+    """
+    try:
+        payload: Dict[str, Any] = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid JSON body."}), 400
+
+    prompt_text = (payload.get("prompt_text") or "")
+    user_reply = (payload.get("user_reply") or "")
+    target_formality = (payload.get("target_formality") or "")
+    # Optional LLM settings
+    try:
+        temperature = float(payload.get("temperature", 0.6))
+    except Exception:
+        temperature = 0.6
+    try:
+        max_tokens = int(payload.get("max_tokens", 256))
+    except Exception:
+        max_tokens = 256
+
+    # Locate keys.json (repo root) and environment overrides.
+    key_path_candidates = [BASE_DIR.parent / "keys.json", BASE_DIR / "keys.json"]
+    api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_KEY")
+    if not api_key:
+        for p in key_path_candidates:
+            try:
+                if p.exists():
+                    j = json.loads(p.read_text())
+                    # use OPENAI key
+                    api_key = j.get("openai_api_key") or api_key
+                    break
+            except Exception:
+                continue
+
+    # Optional participant logging parameters
+    participant_id = (payload.get("participant_id") or "").strip()
+    medium = (payload.get("medium") or "LLM").strip()
+
+    # Attempt OpenAI Chat completion if we have a key.
+    if api_key:
+        try:
+            import requests
+
+            system = "You are a helpful assistant. Match the requested formality where possible."
+            user_content = f"Prompt: {prompt_text}\nUser reply: {user_reply}\nGenerate a single reply that continues the conversation."
+            if target_formality:
+                user_content += f"\nDesired formality: {target_formality}"
+
+            body = {
+                "model": "gpt-3.5-turbo",
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user_content},
+                ],
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            }
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+            r = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=body, timeout=30)
+            r.raise_for_status()
+            data = r.json()
+            reply_text = data["choices"][0]["message"]["content"].strip()
+
+            # Analyze generated reply for formality and sentiment
+            try:
+                llm_analysis = analyze_full_text(reply_text)
+            except Exception:
+                llm_analysis = {"formality_label": "", "formality_confidence": 0.0, "bert_label": "neutral", "bert_confidence": 0.0}
+
+            def _formality_match(target: str, label: str) -> bool:
+                ta = (target or "").strip().lower()
+                la = (label or "").strip().lower()
+                if not ta or not la:
+                    return False
+                if ta == la:
+                    return True
+                if ta == "neutral" or la == "neutral":
+                    return True
+                return False
+
+            matches_target = _formality_match(target_formality, llm_analysis.get("formality_label", ""))
+
+            # Optionally log the generated reply as a trial row when a participant_id is provided.
+            if participant_id:
+                try:
+                    row = {
+                        "timestamp": datetime.now().isoformat(timespec="seconds"),
+                        "participant_id": participant_id,
+                        "medium": medium,
+                        "input_method": "LLM",
+                        "prompt_text": prompt_text,
+                        "reply_text": reply_text,
+                        "transcript": "",
+                        "response_time_seconds": 0,
+                        "keypress_count": 0,
+                        "backspace_count": 0,
+                        "paste_used": "no",
+                        "correction_applied": "no",
+                        "prompt_style": payload.get("prompt_style") or classify_style(prompt_text),
+                        "prompt_tone": payload.get("prompt_tone") or "",
+                        "prompt_seriousness": payload.get("prompt_seriousness") or "",
+                        "prompt_formality": payload.get("target_formality") or "",
+                        "reply_style": classify_style(reply_text),
+                        "reply_analysis_status": "ok",
+                        "reply_analysis_basis": "llm_reply",
+                        "transcript_status": "",
+                        "transcript_source": "",
+                        "formality_label": llm_analysis.get("formality_label", ""),
+                        "formality_confidence": llm_analysis.get("formality_confidence", 0.0),
+                        "bert_label": llm_analysis.get("bert_label", ""),
+                        "bert_raw": llm_analysis.get("bert_label", ""),
+                        "bert_confidence": llm_analysis.get("bert_confidence", 0.0),
+                        "audio_filename": "",
+                    }
+                    log_trial_row(BASE_DIR, row)
+                except Exception:
+                    app.logger.exception("Failed to log LLM-generated reply for %s", participant_id)
+
+            return jsonify({
+                "ok": True,
+                "reply": reply_text,
+                "analysis": llm_analysis,
+                "matches_target_formality": matches_target,
+                "meta": {"provider": "openai", "model": data.get("model")},
+            })
+        except Exception as exc:  # pragma: no cover - best-effort
+            app.logger.exception("LLM call failed: %s", exc)
+
+    # Fallback heuristic reply if no LLM is configured or call fails.
+    # Fallback heuristic reply if no LLM is configured or call fails.
+    fallback = f"Thanks — I can help with that. Can you clarify what you mean by: '{user_reply[:120]}'?"
+    try:
+        fallback_analysis = analyze_full_text(fallback)
+    except Exception:
+        fallback_analysis = {"formality_label": "", "formality_confidence": 0.0, "bert_label": "neutral", "bert_confidence": 0.0}
+
+    # Log fallback reply if participant_id provided.
+    if participant_id:
+        try:
+            row = {
+                "timestamp": datetime.now().isoformat(timespec="seconds"),
+                "participant_id": participant_id,
+                "medium": medium,
+                "input_method": "LLM",
+                "prompt_text": prompt_text,
+                "reply_text": fallback,
+                "transcript": "",
+                "response_time_seconds": 0,
+                "keypress_count": 0,
+                "backspace_count": 0,
+                "paste_used": "no",
+                "correction_applied": "no",
+                "prompt_style": payload.get("prompt_style") or classify_style(prompt_text),
+                "prompt_tone": payload.get("prompt_tone") or "",
+                "prompt_seriousness": payload.get("prompt_seriousness") or "",
+                "prompt_formality": payload.get("target_formality") or "",
+                "reply_style": classify_style(fallback),
+                "reply_analysis_status": "ok",
+                "reply_analysis_basis": "llm_reply",
+                "transcript_status": "",
+                "transcript_source": "",
+                "formality_label": fallback_analysis.get("formality_label", ""),
+                "formality_confidence": fallback_analysis.get("formality_confidence", 0.0),
+                "bert_label": fallback_analysis.get("bert_label", ""),
+                "bert_raw": fallback_analysis.get("bert_label", ""),
+                "bert_confidence": fallback_analysis.get("bert_confidence", 0.0),
+                "audio_filename": "",
+            }
+            log_trial_row(BASE_DIR, row)
+        except Exception:
+            app.logger.exception("Failed to log fallback LLM reply for %s", participant_id)
+
+    return jsonify({
+        "ok": True,
+        "reply": fallback,
+        "analysis": fallback_analysis,
+        "matches_target_formality": (target_formality == "" or fallback_analysis.get("formality_label", "") == target_formality),
+        "meta": {"provider": "fallback"},
+    })
+
+
+
+@app.post("/api/log_run")
+def api_log_run() -> Response:
+    """Accept a full conversation run and write a single per-run CSV.
+
+    Expected JSON keys:
+        - participant_id, medium, input_method
+        - prompt_text, reply_text, llm_reply_text, final_text
+        - response_time_seconds, keypress_count, backspace_count,
+          paste_used, correction_applied, prompt_tone, prompt_seriousness,
+          prompt_formality, notes
+    """
+    try:
+        payload: Dict[str, Any] = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid JSON body."}), 400
+
+    participant_id = (payload.get("participant_id") or "UNKNOWN").strip()
+    medium = (payload.get("medium") or "SMS").strip()
+    input_method = (payload.get("input_method") or "Keyboard").strip()
+
+    prompt_text = (payload.get("prompt_text") or "").strip()
+    reply_text = (payload.get("reply_text") or "").strip()
+    llm_reply_text = (payload.get("llm_reply_text") or "").strip()
+    final_text = (payload.get("final_text") or "").strip()
+
+    response_time_seconds = float(payload.get("response_time_seconds") or 0.0)
+    keypress_count = int(payload.get("keypress_count") or 0)
+    backspace_count = int(payload.get("backspace_count") or 0)
+    paste_used = bool(payload.get("paste_used") or False)
+    correction_applied = bool(payload.get("correction_applied") or False)
+
+    # Analyze each text for formality / BERT.
+    try:
+        prompt_analysis = analyze_full_text(prompt_text)
+    except Exception:
+        prompt_analysis = {"formality_label": "", "formality_confidence": 0.0, "bert_label": "", "bert_confidence": 0.0}
+    try:
+        reply_analysis = analyze_full_text(reply_text)
+    except Exception:
+        reply_analysis = {"formality_label": "", "formality_confidence": 0.0, "bert_label": "", "bert_confidence": 0.0}
+    try:
+        llm_analysis = analyze_full_text(llm_reply_text)
+    except Exception:
+        llm_analysis = {"formality_label": "", "formality_confidence": 0.0, "bert_label": "", "bert_confidence": 0.0}
+    try:
+        final_analysis = analyze_full_text(final_text)
+    except Exception:
+        final_analysis = {"formality_label": "", "formality_confidence": 0.0, "bert_label": "", "bert_confidence": 0.0}
+
+    # Build the per-run CSV row.
+    run_row: Dict[str, Any] = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "participant_id": participant_id,
+        "medium": medium,
+        "input_method": input_method,
+        "prompt_text": prompt_text,
+        "reply_text": reply_text,
+        "llm_reply_text": llm_reply_text,
+        "final_text": final_text,
+        "prompt_formality_label": prompt_analysis.get("formality_label", ""),
+        "prompt_formality_confidence": prompt_analysis.get("formality_confidence", 0.0),
+        "reply_formality_label": reply_analysis.get("formality_label", ""),
+        "reply_formality_confidence": reply_analysis.get("formality_confidence", 0.0),
+        "llm_reply_formality_label": llm_analysis.get("formality_label", ""),
+        "llm_reply_formality_confidence": llm_analysis.get("formality_confidence", 0.0),
+        "final_formality_label": final_analysis.get("formality_label", ""),
+        "final_formality_confidence": final_analysis.get("formality_confidence", 0.0),
+        "response_time_seconds": response_time_seconds,
+        "keypress_count": keypress_count,
+        "backspace_count": backspace_count,
+        "paste_used": "yes" if paste_used else "no",
+        "correction_applied": "yes" if correction_applied else "no",
+        "prompt_style": payload.get("prompt_style") or derive_prompt_metadata(prompt_text).get("prompt_formality") or "",
+        "prompt_tone": payload.get("prompt_tone") or "",
+        "prompt_seriousness": payload.get("prompt_seriousness") or "",
+        "notes": payload.get("notes") or "",
+    }
+
+    try:
+        path = log_run_row(BASE_DIR, run_row)
+    except Exception:
+        app.logger.exception("Failed to write run CSV")
+        return jsonify({"ok": False, "error": "Failed to write run CSV"}), 500
+
+    return jsonify({"ok": True, "run_csv": str(path.relative_to(BASE_DIR))})
 
 
 # ---------------------------------------------------------------------------
@@ -838,9 +1171,8 @@ def api_download_csv() -> Response:
             "reply_analysis_basis",
             "transcript_status",
             "transcript_source",
-            "textblob_polarity",
-            "textblob_subjectivity",
-            "vader_compound",
+            "formality_label",
+            "formality_confidence",
             "bert_label",
             "bert_raw",
             "bert_confidence",
@@ -907,6 +1239,33 @@ def api_admin_delete_trial() -> Response:
     if removed_global:
         remove_one(participant_path)
     return jsonify({"ok": removed_global, "deleted": removed_global})
+
+
+@app.post("/api/admin/trial_detail")
+def api_admin_trial_detail() -> Response:
+    """
+    Return an HTML snippet rendering a single trial row for admin detail view.
+
+    Expects a JSON object mirroring a single CSV row (same keys used in /api/logs rows).
+    """
+    try:
+        payload: Dict[str, Any] = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid JSON body."}), 400
+
+    row = payload if isinstance(payload, dict) else {}
+    # Normalize audio URL so template can render a playable src.
+    audio_filename = (row.get("audio_filename") or "").strip()
+    audio_url = ""
+    if audio_filename:
+        if audio_filename.startswith("http") or audio_filename.startswith("/"):
+            audio_url = audio_filename
+        else:
+            audio_url = f"/static/audio/{audio_filename}"
+    row["_audio_url"] = audio_url
+
+    # Render a small Jinja template fragment so HTML generation happens server-side.
+    return render_template("trial_detail_snippet.html", row=row)
 
 
 @app.post("/api/admin/delete_participants")

@@ -143,7 +143,7 @@ let rows = [];
 // Current correction suggestion
 let currentSuggestion = "";
 
-// Conversation history for Llama
+// Conversation history for LLM (OpenAI)
 let conversationHistory = [];
 
 // Store the most recent sent reply for each medium
@@ -646,10 +646,10 @@ function classifyStyle(text) {
   return { label, formalScore, informalScore };
 }
 
-// Build a small follow-up auto reply using Llama
+// Build a small follow-up auto reply using the server-side OpenAI endpoint
 async function buildAutoReply(replyText) {
   try {
-    const res = await fetch("/generate-reply", {
+    const res = await fetch("/api/generate_reply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ conversation: conversationHistory }),
@@ -825,7 +825,7 @@ async function checkServer() {
 
     const data = await res.json();
     if (els.serverPill) {
-      els.serverPill.textContent = data.vader_ok ? "OK (VADER ready)" : "OK (no VADER)";
+      els.serverPill.textContent = data.formality_ok ? "OK (formality ready)" : "OK";
       els.serverPill.classList.remove("subtle");
     }
     return true;
@@ -884,7 +884,7 @@ els.analyzeBtn.addEventListener("click", async () => {
   const responseTime = secondsBetween(startMs, endMs);
 
   if (els.model && els.model.value === "SVM (TODO)") {
-    alert("SVM is not implemented yet. For now this logs TextBlob/VADER via Flask.");
+    alert("SVM is not implemented yet. For now this logs TextBlob via Flask.");
   }
 
   let analysis;
@@ -900,7 +900,6 @@ els.analyzeBtn.addEventListener("click", async () => {
 
   const tbPol = Number(analysis.reply_tb_polarity ?? 0);
   const tbSub = Number(analysis.reply_tb_subjectivity ?? 0);
-  const vaderComp = analysis.reply_vader_compound;
 
   const pfLabel = analysis.prompt_formality_label ?? null;
   const pfConf = analysis.prompt_formality_confidence ?? null;
@@ -919,7 +918,6 @@ els.analyzeBtn.addEventListener("click", async () => {
     <div><strong>Prompt formality:</strong> ${pfLabel ? `${pfLabel} (${(Number(pfConf) * 100).toFixed(1)}%)` : "not available"}</div>
     <div><strong>Formality match:</strong> ${mismatch === null ? "N/A" : (mismatch ? "✓ Match" : "✗ Mismatch")}</div>
     <div><strong>TextBlob:</strong> polarity=${tbPol.toFixed(3)}, subjectivity=${tbSub.toFixed(3)}</div>
-    <div><strong>VADER:</strong> ${vaderComp !== null && vaderComp !== undefined && vaderComp !== "" ? Number(vaderComp).toFixed(3) : "not available"}</div>
   `;
 
   if (els.resultText) els.resultText.innerHTML = resultHTML;
@@ -947,7 +945,7 @@ els.analyzeBtn.addEventListener("click", async () => {
 
     reply_tb_polarity: tbPol,
     reply_tb_subjectivity: tbSub,
-    reply_vader_compound: vaderComp ?? "",
+    // VADER removed
     prompt_formality_label: pfLabel ?? "",
     prompt_formality_confidence: pfConf ?? "",
     reply_formality_label: rfLabel ?? "",

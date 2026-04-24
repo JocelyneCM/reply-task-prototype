@@ -10,7 +10,8 @@ __pycache__/
 static/audio/
 
 # Data logs
-*.csv
+#*.csv
+# Removed because I want us to share data, might get reenabled
 
 # Mac
 .DS_Store
