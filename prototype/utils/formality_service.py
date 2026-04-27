@@ -5,13 +5,15 @@ HTML and predict formality labels and confidences.
 """
 from typing import List, Dict, Any
 import os
+import importlib.util
 
-try:
-    from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
-    import torch
-except Exception:
-    # Defer import errors until runtime; server will report if missing.
-    pipeline = None
+# Keep startup fast: do not import transformers/torch at module import time.
+pipeline = None
+AutoTokenizer = None
+AutoModelForSequenceClassification = None
+torch = None
+TRANSFORMERS_AVAILABLE = importlib.util.find_spec("transformers") is not None
+TORCH_AVAILABLE = importlib.util.find_spec("torch") is not None
 
 try:
     from bs4 import BeautifulSoup
@@ -24,6 +26,25 @@ _pipeline = None
 _device = None
 
 
+def _ensure_ml_imports():
+    """Lazily import heavy ML libraries only when needed."""
+    global pipeline, AutoTokenizer, AutoModelForSequenceClassification, torch
+    if pipeline is not None and torch is not None:
+        return
+    if not TRANSFORMERS_AVAILABLE or not TORCH_AVAILABLE:
+        raise RuntimeError("transformers/torch are required for formality inference.")
+    try:
+        from transformers import pipeline as _pipeline_fn, AutoTokenizer as _AutoTokenizer, AutoModelForSequenceClassification as _AutoModel
+        import torch as _torch
+
+        pipeline = _pipeline_fn
+        AutoTokenizer = _AutoTokenizer
+        AutoModelForSequenceClassification = _AutoModel
+        torch = _torch
+    except Exception as e:
+        raise RuntimeError(f"Could not import transformers/torch: {e}")
+
+
 def _ensure_bs4():
     if BeautifulSoup is None:
         raise RuntimeError("bs4 (beautifulsoup4) is required for HTML sanitization. Install via pip.")
@@ -32,6 +53,7 @@ def _ensure_bs4():
 def _get_device():
     global _device
     if _device is None:
+        _ensure_ml_imports()
         try:
             _device = 0 if torch.cuda.is_available() else -1
         except Exception:
@@ -56,8 +78,7 @@ def load_model(model_dir: str = None) -> None:
         else:
             raise FileNotFoundError(f"Formality model directory not found: {model_dir}")
 
-    if pipeline is None:
-        raise RuntimeError("transformers is required to load the formality model. Install via pip.")
+    _ensure_ml_imports()
 
     # Use the HF text-classification pipeline which handles tokenizer+model
     device = _get_device()

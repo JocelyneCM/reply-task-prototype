@@ -84,13 +84,6 @@
               <span class="pex-nav-desc">Inbox &amp; reply</span>
             </button>
           </li>
-          <li>
-            <button type="button" class="pex-nav-btn" data-medium="Voice">
-              <span class="pex-nav-icon" aria-hidden="true">🎙️</span>
-              <span class="pex-nav-label">Voice</span>
-              <span class="pex-nav-desc">Voice notes</span>
-            </button>
-          </li>
         </ul>
         <p class="pex-drawer-footnote">
           Same conversation — different apps people use every day.
@@ -99,6 +92,17 @@
 
       <main class="pex-main">
         <input type="hidden" id="participantId" value="" />
+        <section class="pex-study-condition" aria-label="Study condition">
+          <label for="studyInputMethod" class="pex-study-condition-label">Study condition</label>
+          <select id="studyInputMethod" class="pex-study-condition-select">
+            <option value="Typing">Typing</option>
+            <option value="Swipe typing">Swipe typing</option>
+            <option value="Voice-to-text">Voice-to-text</option>
+          </select>
+        </section>
+        <p class="pex-study-condition-hint" id="studyInputInstruction">
+          Type your reply normally.
+        </p>
 
         <!-- ——— SMS (iMessage-inspired) ——— -->
         <section
@@ -125,6 +129,9 @@
             <div class="pex-corrections" id="suggestionSMS"></div>
             <footer class="pex-composer pex-composer--sms">
               <label class="pex-sr-only" for="replySMS">Your message</label>
+              <button type="button" class="pex-voice-inline-btn" id="recordTextVoiceSMSBtn">
+                Mic
+              </button>
               <textarea
                 id="replySMS"
                 class="pex-input pex-input--rounded"
@@ -168,6 +175,9 @@
             <div class="pex-corrections" id="suggestionMsg"></div>
             <footer class="pex-composer pex-composer--msg">
               <label class="pex-sr-only" for="replyMsg">Your message</label>
+              <button type="button" class="pex-voice-inline-btn" id="recordTextVoiceMsgBtn">
+                Mic
+              </button>
               <textarea
                 id="replyMsg"
                 class="pex-input pex-input--msg"
@@ -282,6 +292,9 @@
                 placeholder="Write your reply…"
               ></textarea>
               <div class="pex-mail-compose-footer">
+                <button type="button" class="pex-voice-inline-btn" id="recordTextVoiceEmailBtn">
+                  Mic
+                </button>
                 <button type="button" class="pex-btn-primary" id="sendEmailBtn">
                   Send
                 </button>

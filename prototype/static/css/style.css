@@ -1008,6 +1008,63 @@ body.pex-drawer-open{
   overflow:hidden;
 }
 
+.pex-study-condition{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 12px;
+  border-bottom:1px solid var(--line);
+  background:color-mix(in srgb, var(--card) 88%, transparent);
+  flex-shrink:0;
+}
+
+.pex-study-condition-label{
+  font-size:12px;
+  color:var(--muted);
+  font-weight:600;
+  letter-spacing:.02em;
+  margin:0;
+  flex-shrink:0;
+}
+
+.pex-study-condition-select{
+  max-width:220px;
+  width:auto;
+  min-width:150px;
+  border:1px solid var(--line);
+  background:var(--surface);
+  color:var(--text);
+  border-radius:10px;
+  padding:7px 30px 7px 10px;
+  font-size:13px;
+  line-height:1.2;
+}
+
+.pex-study-condition-hint{
+  margin:0;
+  padding:0 12px 10px;
+  border-bottom:1px solid var(--line);
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.35;
+}
+
+.pex-voice-inline-btn{
+  border:1px solid var(--line);
+  background:var(--surface);
+  color:var(--text);
+  border-radius:999px;
+  padding:8px 10px;
+  font-size:12px;
+  line-height:1;
+  white-space:nowrap;
+}
+
+.pex-voice-inline-btn.is-recording{
+  border-color:var(--accent);
+  color:var(--accent);
+}
+
 .pex-mode{
   flex:1;
   display:flex;

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Relay — Research console</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
 
   <body data-role="admin" data-theme="dark">
@@ -198,8 +198,16 @@
                     <option>SMS</option>
                     <option>Messenger</option>
                     <option>Email</option>
-                    <option>Voice</option>
                   </select>
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="includeGeneratedFilter">
+                    Generated rows
+                  </label>
+                  <label class="small" style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <input id="includeGeneratedFilter" type="checkbox" />
+                    Show system/generated (LLM) rows
+                  </label>
                 </div>
               </div>
             </div>
@@ -239,6 +247,7 @@
                           <th>Time</th>
                           <th>ID</th>
                           <th>Medium</th>
+                          <th>Input method</th>
                           <th>Preview</th>
                           <th>BERT</th>
                           <th>Response (s)</th>

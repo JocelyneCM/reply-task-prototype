@@ -16,25 +16,40 @@ from __future__ import annotations
 
 from pathlib import Path
 import shutil
+import importlib.util
 
 WHISPER_ERROR: str = ""
 FFMPEG_AVAILABLE: bool = bool(shutil.which("ffmpeg"))
+WHISPER_AVAILABLE: bool = importlib.util.find_spec("whisper") is not None
+whisper = None  # type: ignore
+_whisper_model = None
 
-try:
-    import whisper  # type: ignore
 
-    _whisper_model = whisper.load_model("base")
-    WHISPER_AVAILABLE: bool = True
-except Exception:  # pragma: no cover - environment dependent
-    whisper = None  # type: ignore
-    _whisper_model = None
-    WHISPER_AVAILABLE = False
+def _ensure_whisper_model() -> bool:
+    """
+    Lazily import Whisper and load the model only when transcription is requested.
+    """
+    global whisper, _whisper_model, WHISPER_AVAILABLE, WHISPER_ERROR
+    if _whisper_model is not None:
+        return True
+    if not WHISPER_AVAILABLE:
+        return False
     try:
-        import traceback
+        import whisper as _whisper  # type: ignore
 
-        WHISPER_ERROR = traceback.format_exc(limit=1).strip()
-    except Exception:
-        WHISPER_ERROR = "Whisper import/model load failed."
+        whisper = _whisper
+        _whisper_model = whisper.load_model("base")
+        return True
+    except Exception:  # pragma: no cover - environment dependent
+        _whisper_model = None
+        WHISPER_AVAILABLE = False
+        try:
+            import traceback
+
+            WHISPER_ERROR = traceback.format_exc(limit=1).strip()
+        except Exception:
+            WHISPER_ERROR = "Whisper import/model load failed."
+        return False
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -50,7 +65,7 @@ def transcribe_audio_file(path: Path) -> str:
     If Whisper is not available, an empty string is returned. Callers should
     check WHISPER_AVAILABLE if they need to distinguish this case.
     """
-    if not WHISPER_AVAILABLE or _whisper_model is None:
+    if not _ensure_whisper_model():
         return ""
     if not path.exists():
         return ""

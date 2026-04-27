@@ -5,6 +5,15 @@
     <dt>Participant</dt><dd>{{ (row.participant_id or "") }}</dd>
     <dt>Medium</dt><dd>{{ row.medium or "" }}</dd>
     <dt>Input</dt><dd>{{ row.input_method or "" }}</dd>
+    <dt>LLM provider</dt><dd>{{ row.llm_provider or "" }}</dd>
+    <dt>Row type</dt>
+    <dd>
+      {% if row.input_method == "LLM" %}
+        system/generated reply
+      {% else %}
+        participant response
+      {% endif %}
+    </dd>
   </dl>
 </div>
 <div class="pex-admin-detail-block">

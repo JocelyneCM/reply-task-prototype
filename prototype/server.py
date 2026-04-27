@@ -38,28 +38,50 @@ from flask import (
     request,
     send_file,
 )
-# Use package-relative imports when running as `python -m prototype.server`.
-# This keeps imports deterministic when the package is imported by tests.
-from .utils.logging_utils import (
-    ensure_base_directories,
-    get_global_log_path,
-    log_trial_row,
-    log_run_row,
-    load_logs_for_admin,
-    list_participants_with_data,
-)
-from .utils.analysis_utils import (
-    analyze_full_text,
-    classify_style,
-    BERT_AVAILABLE,
-)
-from .utils.audio_utils import (
-    AUDIO_DIR,
-    transcribe_audio_file,
-    WHISPER_AVAILABLE,
-    FFMPEG_AVAILABLE,
-    WHISPER_ERROR,
-)
+# Use package-relative imports for module runs (`python -m prototype.server`).
+# Keep a direct-script fallback only when __package__ is empty.
+if __package__:
+    from .utils.logging_utils import (
+        ensure_base_directories,
+        get_global_log_path,
+        log_trial_row,
+        log_run_row,
+        load_logs_for_admin,
+        list_participants_with_data,
+    )
+    from .utils.analysis_utils import (
+        analyze_full_text,
+        classify_style,
+        BERT_AVAILABLE,
+    )
+    from .utils.audio_utils import (
+        AUDIO_DIR,
+        transcribe_audio_file,
+        WHISPER_AVAILABLE,
+        FFMPEG_AVAILABLE,
+        WHISPER_ERROR,
+    )
+else:
+    from utils.logging_utils import (  # type: ignore
+        ensure_base_directories,
+        get_global_log_path,
+        log_trial_row,
+        log_run_row,
+        load_logs_for_admin,
+        list_participants_with_data,
+    )
+    from utils.analysis_utils import (  # type: ignore
+        analyze_full_text,
+        classify_style,
+        BERT_AVAILABLE,
+    )
+    from utils.audio_utils import (  # type: ignore
+        AUDIO_DIR,
+        transcribe_audio_file,
+        WHISPER_AVAILABLE,
+        FFMPEG_AVAILABLE,
+        WHISPER_ERROR,
+    )
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -98,6 +120,23 @@ TEXT_PROMPT_LIBRARY: List[Dict[str, str]] = [
 ]
 NEXT_TEXT_PROMPT_ID: Optional[str] = None
 NEXT_TEXT_PROMPT_CUSTOM: Optional[Dict[str, str]] = None
+
+
+def has_openai_key_configured() -> bool:
+    """Return True when an OpenAI API key is configured via env or keys.json."""
+    env_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_KEY")
+    if env_key:
+        return True
+    key_path_candidates = [BASE_DIR.parent / "keys.json", BASE_DIR / "keys.json"]
+    for p in key_path_candidates:
+        try:
+            if p.exists():
+                j = json.loads(p.read_text())
+                if j.get("openai_api_key"):
+                    return True
+        except Exception:
+            continue
+    return False
 
 
 def _pick_prompt_by_id(prompt_id: str) -> Optional[Dict[str, str]]:
@@ -206,6 +245,32 @@ def normalize_bert_label(raw_label: str) -> str:
             return "neutral"
         return "positive"
     return "ok"
+
+
+def normalize_input_method(raw_input_method: str, medium: str = "") -> str:
+    """
+    Keep one stable set of input-method labels for study logging.
+    """
+    value = (raw_input_method or "").strip().lower()
+    medium_norm = (medium or "").strip().lower()
+
+    if value in {"typing", "keyboard"}:
+        normalized = "Typing"
+    elif value in {"swipe", "swipe typing", "swipetyping"}:
+        normalized = "Swipe typing"
+    elif value in {"voice", "speech", "speech-to-text", "speech to text", "voice-to-text"}:
+        normalized = "Voice-to-text"
+    elif value == "llm":
+        normalized = "LLM"
+    elif not value:
+        normalized = "Typing"
+    else:
+        normalized = raw_input_method.strip()
+
+    # If voice medium is still used, keep rows under voice-to-text for consistency.
+    if medium_norm == "voice" and normalized != "LLM":
+        return "Voice-to-text"
+    return normalized
 
 
 def collect_voice_prompts() -> List[Dict[str, str]]:
@@ -319,6 +384,7 @@ def api_health() -> Response:
         "whisper_ok": WHISPER_AVAILABLE,
         "ffmpeg_ok": FFMPEG_AVAILABLE,
         "whisper_error": WHISPER_ERROR,
+        "openai_configured": has_openai_key_configured(),
     }
     return jsonify(payload)
 
@@ -332,8 +398,9 @@ def api_config() -> Response:
     (e.g., per‑study settings loaded from a JSON file).
     """
     config = {
-        "media_types": ["SMS", "Messenger", "Email", "Voice"],
+        "media_types": ["SMS", "Messenger", "Email"],
         "default_medium": "SMS",
+        "allow_voice_medium": False,
         "analysis_models": {
             "formality_model": True,
             "bert": BERT_AVAILABLE,
@@ -559,7 +626,10 @@ def api_log_reply() -> Response:
 
     participant_id: str = (payload.get("participant_id") or "UNKNOWN").strip()
     medium: str = (payload.get("medium") or "SMS").strip()
-    input_method: str = (payload.get("input_method") or "Keyboard").strip()
+    input_method: str = normalize_input_method(
+        str(payload.get("input_method") or ""),
+        medium,
+    )
     prompt_text: str = (payload.get("prompt_text") or "").strip()
     reply_text: str = (payload.get("reply_text") or "").strip()
     audio_filename: str = (payload.get("audio_filename") or "").strip()
@@ -601,16 +671,27 @@ def api_log_reply() -> Response:
     # Add style classification. The rule‑based classifier always runs.
     style_label = classify_style(final_text_for_analysis)
 
+    words_per_minute = 0.0
+    if response_time_seconds > 0 and final_text_for_analysis.strip():
+        words = len(final_text_for_analysis.strip().split())
+        words_per_minute = (words / response_time_seconds) * 60.0
+
     # Build log row strictly following the requested schema.
     row = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "participant_id": participant_id,
         "medium": medium,
         "input_method": input_method,
+        "row_role": "system_generated" if input_method == "LLM" else "participant_reply",
+        "llm_provider": (payload.get("llm_provider") or "").strip(),
         "prompt_text": prompt_text,
         "reply_text": reply_text,
+        "participant_reply_text": reply_text if input_method != "LLM" else "",
+        "llm_reply_text": reply_text if input_method == "LLM" else "",
+        "final_reply_text": "",
         "transcript": transcript,
         "response_time_seconds": response_time_seconds,
+        "words_per_minute": round(words_per_minute, 2) if words_per_minute else "",
         "keypress_count": keypress_count,
         "backspace_count": backspace_count,
         "paste_used": "yes" if paste_used else "no",
@@ -761,17 +842,25 @@ def api_generate_reply() -> Response:
             except Exception:
                 continue
 
-    # Optional participant logging parameters
-    participant_id = (payload.get("participant_id") or "").strip()
-    medium = (payload.get("medium") or "LLM").strip()
-
     # Attempt OpenAI Chat completion if we have a key.
     if api_key:
         try:
             import requests
 
-            system = "You are a helpful assistant. Match the requested formality where possible."
-            user_content = f"Prompt: {prompt_text}\nUser reply: {user_reply}\nGenerate a single reply that continues the conversation."
+            inferred_prompt_style = classify_style(prompt_text)
+            desired_style = (target_formality or inferred_prompt_style or "neutral").strip().lower()
+            system = (
+                "You are roleplaying the other person in a short study conversation. "
+                "Write exactly one concise follow-up reply (1-2 sentences). "
+                "Preserve the intended tone/formality of the original prompt. "
+                "Guide the conversation toward a natural ending."
+            )
+            user_content = (
+                f"Original prompt: {prompt_text}\n"
+                f"Participant reply: {user_reply}\n"
+                f"Desired style: {desired_style}\n"
+                "Generate the next reply only."
+            )
             if target_formality:
                 user_content += f"\nDesired formality: {target_formality}"
 
@@ -809,42 +898,6 @@ def api_generate_reply() -> Response:
 
             matches_target = _formality_match(target_formality, llm_analysis.get("formality_label", ""))
 
-            # Optionally log the generated reply as a trial row when a participant_id is provided.
-            if participant_id:
-                try:
-                    row = {
-                        "timestamp": datetime.now().isoformat(timespec="seconds"),
-                        "participant_id": participant_id,
-                        "medium": medium,
-                        "input_method": "LLM",
-                        "prompt_text": prompt_text,
-                        "reply_text": reply_text,
-                        "transcript": "",
-                        "response_time_seconds": 0,
-                        "keypress_count": 0,
-                        "backspace_count": 0,
-                        "paste_used": "no",
-                        "correction_applied": "no",
-                        "prompt_style": payload.get("prompt_style") or classify_style(prompt_text),
-                        "prompt_tone": payload.get("prompt_tone") or "",
-                        "prompt_seriousness": payload.get("prompt_seriousness") or "",
-                        "prompt_formality": payload.get("target_formality") or "",
-                        "reply_style": classify_style(reply_text),
-                        "reply_analysis_status": "ok",
-                        "reply_analysis_basis": "llm_reply",
-                        "transcript_status": "",
-                        "transcript_source": "",
-                        "formality_label": llm_analysis.get("formality_label", ""),
-                        "formality_confidence": llm_analysis.get("formality_confidence", 0.0),
-                        "bert_label": llm_analysis.get("bert_label", ""),
-                        "bert_raw": llm_analysis.get("bert_label", ""),
-                        "bert_confidence": llm_analysis.get("bert_confidence", 0.0),
-                        "audio_filename": "",
-                    }
-                    log_trial_row(BASE_DIR, row)
-                except Exception:
-                    app.logger.exception("Failed to log LLM-generated reply for %s", participant_id)
-
             return jsonify({
                 "ok": True,
                 "reply": reply_text,
@@ -857,47 +910,26 @@ def api_generate_reply() -> Response:
 
     # Fallback heuristic reply if no LLM is configured or call fails.
     # Fallback heuristic reply if no LLM is configured or call fails.
-    fallback = f"Thanks — I can help with that. Can you clarify what you mean by: '{user_reply[:120]}'?"
+    inferred_prompt_style = classify_style(prompt_text)
+    desired_style = (target_formality or inferred_prompt_style or "neutral").strip().lower()
+    if desired_style == "formal":
+        fallback = (
+            "Thank you for the clarification. That sounds reasonable; "
+            "could you share one final detail so we can close this?"
+        )
+    elif desired_style == "informal":
+        fallback = (
+            "Got it, thanks. That helps a lot - can you add one quick final detail "
+            "so we can wrap this up?"
+        )
+    else:
+        fallback = (
+            "Thanks, that helps. Could you add one final short detail so we can finish?"
+        )
     try:
         fallback_analysis = analyze_full_text(fallback)
     except Exception:
         fallback_analysis = {"formality_label": "", "formality_confidence": 0.0, "bert_label": "neutral", "bert_confidence": 0.0}
-
-    # Log fallback reply if participant_id provided.
-    if participant_id:
-        try:
-            row = {
-                "timestamp": datetime.now().isoformat(timespec="seconds"),
-                "participant_id": participant_id,
-                "medium": medium,
-                "input_method": "LLM",
-                "prompt_text": prompt_text,
-                "reply_text": fallback,
-                "transcript": "",
-                "response_time_seconds": 0,
-                "keypress_count": 0,
-                "backspace_count": 0,
-                "paste_used": "no",
-                "correction_applied": "no",
-                "prompt_style": payload.get("prompt_style") or classify_style(prompt_text),
-                "prompt_tone": payload.get("prompt_tone") or "",
-                "prompt_seriousness": payload.get("prompt_seriousness") or "",
-                "prompt_formality": payload.get("target_formality") or "",
-                "reply_style": classify_style(fallback),
-                "reply_analysis_status": "ok",
-                "reply_analysis_basis": "llm_reply",
-                "transcript_status": "",
-                "transcript_source": "",
-                "formality_label": fallback_analysis.get("formality_label", ""),
-                "formality_confidence": fallback_analysis.get("formality_confidence", 0.0),
-                "bert_label": fallback_analysis.get("bert_label", ""),
-                "bert_raw": fallback_analysis.get("bert_label", ""),
-                "bert_confidence": fallback_analysis.get("bert_confidence", 0.0),
-                "audio_filename": "",
-            }
-            log_trial_row(BASE_DIR, row)
-        except Exception:
-            app.logger.exception("Failed to log fallback LLM reply for %s", participant_id)
 
     return jsonify({
         "ok": True,
@@ -927,7 +959,10 @@ def api_log_run() -> Response:
 
     participant_id = (payload.get("participant_id") or "UNKNOWN").strip()
     medium = (payload.get("medium") or "SMS").strip()
-    input_method = (payload.get("input_method") or "Keyboard").strip()
+    input_method = normalize_input_method(
+        str(payload.get("input_method") or ""),
+        medium,
+    )
 
     prompt_text = (payload.get("prompt_text") or "").strip()
     reply_text = (payload.get("reply_text") or "").strip()
@@ -1077,7 +1112,9 @@ def api_admin_summary() -> Response:
     Reads the same global CSV as /api/logs but returns counts only so the UI
     can render dashboards without transferring every row twice unnecessarily.
     """
-    rows = load_logs_for_admin(BASE_DIR, None, None, None)
+    rows_all = load_logs_for_admin(BASE_DIR, None, None, None)
+    # Study KPIs default to participant response rows.
+    rows = [r for r in rows_all if (r.get("input_method") or "").strip() != "LLM"]
     by_pid: Dict[str, List[Dict[str, str]]] = defaultdict(list)
     for row in rows:
         pid = (row.get("participant_id") or "UNKNOWN").strip() or "UNKNOWN"
@@ -1154,10 +1191,16 @@ def api_download_csv() -> Response:
             "participant_id",
             "medium",
             "input_method",
+            "row_role",
+            "llm_provider",
             "prompt_text",
             "reply_text",
+            "participant_reply_text",
+            "llm_reply_text",
+            "final_reply_text",
             "transcript",
             "response_time_seconds",
+            "words_per_minute",
             "keypress_count",
             "backspace_count",
             "paste_used",

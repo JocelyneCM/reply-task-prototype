@@ -29,6 +29,9 @@ function buildTrialDetailHtml(row) {
   const analysisBasis = (row.reply_analysis_basis || "").trim();
   const transcriptStatus = (row.transcript_status || "").trim();
   const transcriptSource = (row.transcript_source || "").trim();
+  const rowType = row.input_method === "LLM"
+    ? "system/generated reply"
+    : "participant response";
 
   const transcriptDisplay = trans || (row.medium === "Voice" ? "No transcript stored." : "");
   const analysisAvailabilityNote =
@@ -58,6 +61,8 @@ function buildTrialDetailHtml(row) {
         <dt>Participant</dt><dd>${escapeHtml(displayParticipantId(row.participant_id || ""))}</dd>
         <dt>Medium</dt><dd>${escapeHtml(row.medium || "")}</dd>
         <dt>Input</dt><dd>${escapeHtml(row.input_method || "")}</dd>
+        <dt>LLM provider</dt><dd>${escapeHtml(row.llm_provider || "")}</dd>
+        <dt>Row type</dt><dd>${escapeHtml(rowType)}</dd>
       </dl>
     </div>
     <div class="pex-admin-detail-block">

@@ -39,6 +39,17 @@ async function fetchJSON(url, options) {
   return res.json();
 }
 
+async function fetchJSONWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const merged = { ...(options || {}), signal: controller.signal };
+    return await fetchJSON(url, merged);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function formatTime(d) {
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
@@ -75,6 +86,9 @@ function initParticipantUI() {
     themeToggleBtn: document.getElementById("themeToggleBtn"),
     toast: document.getElementById("pexToast"),
     participantId: document.getElementById("participantId"),
+    studyCondition: document.querySelector(".pex-study-condition"),
+    studyInputMethod: document.getElementById("studyInputMethod"),
+    studyInputInstruction: document.getElementById("studyInputInstruction"),
     layoutSMS: document.getElementById("layoutSMS"),
     layoutMessenger: document.getElementById("layoutMessenger"),
     layoutEmail: document.getElementById("layoutEmail"),
@@ -85,6 +99,8 @@ function initParticipantUI() {
     promptMsg: document.getElementById("promptMsg"),
     replySMS: document.getElementById("replySMS"),
     replyMsg: document.getElementById("replyMsg"),
+    recordTextVoiceSMSBtn: document.getElementById("recordTextVoiceSMSBtn"),
+    recordTextVoiceMsgBtn: document.getElementById("recordTextVoiceMsgBtn"),
     sendSMSBtn: document.getElementById("sendSMSBtn"),
     sendMsgBtn: document.getElementById("sendMsgBtn"),
     typingIndicator: document.getElementById("typingIndicator"),
@@ -106,6 +122,7 @@ function initParticipantUI() {
     emailSubjectPreview: document.getElementById("emailSubjectPreview"),
     promptEmail: document.getElementById("promptEmail"),
     replyEmail: document.getElementById("replyEmail"),
+    recordTextVoiceEmailBtn: document.getElementById("recordTextVoiceEmailBtn"),
     sendEmailBtn: document.getElementById("sendEmailBtn"),
     voiceThread: document.getElementById("voiceThread"),
     promptAudio: document.getElementById("promptAudio"),
@@ -138,6 +155,7 @@ function initParticipantUI() {
   // Tracks a small in-memory conversation run: first user reply -> LLM reply -> final user reply
   let currentRun = null;
   let currentMedium = "SMS";
+  let lastTextMedium = "SMS";
   let mediaRecorder = null;
   let recordedChunks = [];
   let recordedFilename = "";
@@ -161,6 +179,24 @@ function initParticipantUI() {
    * discarded or left Voice mode while recording). Mic is still released normally.
    */
   let voiceAbortCurrentTake = false;
+  /** Per-medium timestamp for when the current prompt became visible. */
+  const promptShownAtMsByMedium = {
+    SMS: nowMs(),
+    Messenger: nowMs(),
+    Email: nowMs(),
+    Voice: nowMs(),
+  };
+  /** Draft audio uploads for text mediums when input method is Voice. */
+  const textVoiceDrafts = {
+    SMS: { audioFilename: "", transcript: "", transcriptStatus: "" },
+    Messenger: { audioFilename: "", transcript: "", transcriptStatus: "" },
+    Email: { audioFilename: "", transcript: "", transcriptStatus: "" },
+  };
+  let textVoiceRecorder = null;
+  let textVoiceStream = null;
+  let textVoiceChunks = [];
+  let textVoiceBusy = false;
+  let textVoiceRecordingMedium = "";
 
   /** Voice prompt files from server (VoiceFiles/, audio/mp3/, static/audio/prompts/). */
   let voicePromptList = [];
@@ -229,6 +265,20 @@ function initParticipantUI() {
     showToast._t = setTimeout(() => els.toast.classList.add("hidden"), 2600);
   }
 
+  function syncStudyInstruction() {
+    if (!els.studyInputInstruction) return;
+    const selected = (els.studyInputMethod?.value || "Typing").trim();
+    if (selected === "Swipe typing") {
+      els.studyInputInstruction.textContent = "Use swipe typing on your keyboard.";
+      return;
+    }
+    if (selected === "Voice-to-text") {
+      els.studyInputInstruction.textContent = "Use microphone dictation, then send the transcript.";
+      return;
+    }
+    els.studyInputInstruction.textContent = "Type your reply normally.";
+  }
+
   function pickRandom(list) {
     if (!Array.isArray(list) || !list.length) return null;
     return list[Math.floor(Math.random() * list.length)];
@@ -289,6 +339,10 @@ function initParticipantUI() {
       prompt_id: scenario.id || "",
       prompt_source: scenario.source || "local",
     };
+    const stamp = nowMs();
+    promptShownAtMsByMedium.SMS = stamp;
+    promptShownAtMsByMedium.Messenger = stamp;
+    promptShownAtMsByMedium.Email = stamp;
   }
 
   async function assignRandomTextPrompts() {
@@ -383,6 +437,7 @@ function initParticipantUI() {
     audio.load();
     if (els.promptTime) els.promptTime.textContent = "0:00";
     if (els.promptDuration) els.promptDuration.textContent = "…";
+    promptShownAtMsByMedium.Voice = nowMs();
   }
 
   /** Invalidate draft playback + clear duration label (new take / discard). */
@@ -512,6 +567,7 @@ function initParticipantUI() {
     els.mailBackRead.addEventListener("click", () => setEmailStep("read"));
 
   function showMode(medium) {
+    if (medium === "Voice") return;
     const previousMedium = currentMedium;
     if (previousMedium === "Voice" && medium !== "Voice") {
       if (mediaRecorder && mediaRecorder.state === "recording") {
@@ -526,6 +582,7 @@ function initParticipantUI() {
     }
 
     currentMedium = medium;
+    if (medium !== "Voice") lastTextMedium = medium;
     document.body.dataset.medium = medium;
     els.layoutSMS?.classList.toggle("hidden", medium !== "SMS");
     els.layoutMessenger?.classList.toggle("hidden", medium !== "Messenger");
@@ -542,6 +599,7 @@ function initParticipantUI() {
 
     if (medium === "Email") setEmailStep("list");
     if (medium === "Voice") assignVoicePrompt();
+    if (els.studyInputMethod) syncStudyInstruction();
     closeDrawer();
     resetTrialState();
   }
@@ -549,6 +607,13 @@ function initParticipantUI() {
   els.navBtns.forEach((btn) => {
     btn.addEventListener("click", () => showMode(btn.dataset.medium));
   });
+
+  if (els.studyInputMethod) {
+    els.studyInputMethod.addEventListener("change", () => {
+      const selected = (els.studyInputMethod.value || "").trim();
+      syncStudyInstruction();
+    });
+  }
 
   function attachTypingTracking(textarea) {
     if (!textarea) return;
@@ -726,6 +791,166 @@ function initParticipantUI() {
     return "";
   }
 
+  function getSelectedInputMethod() {
+    const selected = (els.studyInputMethod?.value || "").trim();
+    if (selected === "Typing") return "Typing";
+    if (selected === "Swipe typing") return "Swipe typing";
+    if (selected === "Voice-to-text") return "Voice-to-text";
+    return "Typing";
+  }
+
+  function textReplyBoxForMedium(medium) {
+    if (medium === "SMS") return els.replySMS;
+    if (medium === "Messenger") return els.replyMsg;
+    if (medium === "Email") return els.replyEmail;
+    return null;
+  }
+
+  function textVoiceButtonForMedium(medium) {
+    if (medium === "SMS") return els.recordTextVoiceSMSBtn;
+    if (medium === "Messenger") return els.recordTextVoiceMsgBtn;
+    if (medium === "Email") return els.recordTextVoiceEmailBtn;
+    return null;
+  }
+
+  function refreshTextVoiceButtons() {
+    ["SMS", "Messenger", "Email"].forEach((medium) => {
+      const btn = textVoiceButtonForMedium(medium);
+      if (!btn) return;
+      const isRecording =
+        textVoiceRecorder &&
+        textVoiceRecorder.state === "recording" &&
+        textVoiceRecordingMedium === medium;
+      btn.classList.toggle("is-recording", !!isRecording);
+      btn.textContent = isRecording ? "Stop" : "Mic";
+    });
+  }
+
+  function clearTextVoiceDraft(medium) {
+    if (!textVoiceDrafts[medium]) return;
+    textVoiceDrafts[medium] = {
+      audioFilename: "",
+      transcript: "",
+      transcriptStatus: "",
+    };
+  }
+
+  function syncTextVoiceReplyFromDraft(medium) {
+    const draft = textVoiceDrafts[medium];
+    const box = textReplyBoxForMedium(medium);
+    if (!draft || !box) return;
+    if (draft.transcript) {
+      box.value = draft.transcript;
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+
+  function stopTextVoiceStream() {
+    if (!textVoiceStream) return;
+    try {
+      textVoiceStream.getTracks().forEach((t) => t.stop());
+    } catch {
+      /* ignore */
+    } finally {
+      textVoiceStream = null;
+    }
+  }
+
+  async function toggleTextVoiceRecording(medium) {
+    if (textVoiceBusy) {
+      showToast("Please wait for upload/transcription.");
+      return;
+    }
+    if (
+      textVoiceRecorder &&
+      textVoiceRecorder.state === "recording" &&
+      textVoiceRecordingMedium === medium
+    ) {
+      textVoiceRecorder.stop();
+      return;
+    }
+    if (textVoiceRecorder && textVoiceRecorder.state === "recording") {
+      showToast("Stop the current recording first.");
+      return;
+    }
+
+    let stream = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (e) {
+      console.error(e);
+      showToast("Could not access microphone.");
+      return;
+    }
+
+    promptShownAtMsByMedium[medium] = promptShownAtMsByMedium[medium] || nowMs();
+    textVoiceChunks = [];
+    textVoiceStream = stream;
+    textVoiceRecordingMedium = medium;
+    const mime = pickRecorderMime();
+    textVoiceRecorder = mime
+      ? new MediaRecorder(stream, { mimeType: mime })
+      : new MediaRecorder(stream);
+
+    textVoiceRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) textVoiceChunks.push(e.data);
+    };
+    textVoiceRecorder.onstop = async () => {
+      textVoiceBusy = true;
+      refreshTextVoiceButtons();
+      try {
+        stopTextVoiceStream();
+        const blob = new Blob(textVoiceChunks, {
+          type: textVoiceRecorder?.mimeType || "audio/webm",
+        });
+        textVoiceChunks = [];
+        if (blob.size < 200) {
+          showToast("Recording too short. Try again.");
+          clearTextVoiceDraft(medium);
+          return;
+        }
+        const form = new FormData();
+        const ext = blob.type.includes("webm")
+          ? "webm"
+          : blob.type.includes("mp4")
+            ? "m4a"
+            : "dat";
+        form.append("file", blob, `reply.${ext}`);
+
+        const res = await fetchJSONWithTimeout(
+          "/api/upload_audio",
+          { method: "POST", body: form },
+          20000
+        );
+        textVoiceDrafts[medium] = {
+          audioFilename: res.audio_filename || "",
+          transcript: (res.transcript || "").trim(),
+          transcriptStatus: res.transcript_status || "",
+        };
+        syncTextVoiceReplyFromDraft(medium);
+        if (textVoiceDrafts[medium].transcript) {
+          showToast("Voice transcript ready. Tap send.");
+        } else {
+          showToast("Voice uploaded. Transcript unavailable.");
+        }
+      } catch (e) {
+        console.error(e);
+        clearTextVoiceDraft(medium);
+        if (e?.name === "AbortError") {
+          showToast("Voice upload timed out.");
+        } else {
+          showToast("Voice upload failed.");
+        }
+      } finally {
+        textVoiceBusy = false;
+        textVoiceRecordingMedium = "";
+        refreshTextVoiceButtons();
+      }
+    };
+    textVoiceRecorder.start(120);
+    refreshTextVoiceButtons();
+  }
+
   async function submitReply(extra = {}) {
     const pid = els.participantId?.value?.trim() || fallbackParticipantId();
     if (els.participantId) els.participantId.value = pid;
@@ -743,15 +968,21 @@ function initParticipantUI() {
     const responseTimeSeconds =
       trial.startedAtMs == null ? 0 : secondsBetween(trial.startedAtMs, endTime);
 
+    const selectedInputMethod = getSelectedInputMethod();
+    const promptShownAtMs =
+      extra.promptShownAtMs ?? promptShownAtMsByMedium[currentMedium] ?? null;
+    const startedAtMs =
+      trial.startedAtMs ?? (selectedInputMethod === "Voice-to-text" ? promptShownAtMs : null);
     const body = {
       participant_id: pid,
       medium: currentMedium === "Voice" ? "Voice" : currentMedium,
-      input_method: currentMedium === "Voice" ? "Speech" : "Keyboard",
+      input_method: selectedInputMethod,
       prompt_text: promptText,
       reply_text: replyText,
       audio_filename: extra.audioFilename || "",
       transcript: extra.transcript != null ? extra.transcript : pendingVoiceTranscript,
-      response_time_seconds: responseTimeSeconds,
+      response_time_seconds:
+        startedAtMs == null ? responseTimeSeconds : secondsBetween(startedAtMs, endTime),
       keypress_count: trial.keypressCount,
       backspace_count: trial.backspaceCount,
       paste_used: trial.pasteUsed,
@@ -772,6 +1003,12 @@ function initParticipantUI() {
         body: JSON.stringify(body),
       });
       showToast("Sent");
+      if (els.studyCondition) {
+        els.studyCondition.classList.add("hidden");
+      }
+      if (els.studyInputInstruction) {
+        els.studyInputInstruction.classList.add("hidden");
+      }
     } catch (e) {
       console.error(e);
       showToast("Could not save — check connection.");
@@ -790,10 +1027,12 @@ function initParticipantUI() {
         final_text: "",
       };
 
-      // Request an LLM-generated reply and display it.
+      // Request an LLM-generated reply and display it for chat mediums.
       (async () => {
+        const isChatMedium =
+          currentRun.medium === "SMS" || currentRun.medium === "Messenger";
         try {
-          const gen = await fetchJSON("/api/generate_reply", {
+          const gen = await fetchJSONWithTimeout("/api/generate_reply", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -801,18 +1040,25 @@ function initParticipantUI() {
               medium: currentRun.medium,
               prompt_text: currentRun.prompt_text,
               user_reply: currentRun.reply_text,
+              target_formality: body.prompt_formality || "",
               prompt_style: body.prompt_style || "",
               prompt_tone: body.prompt_tone || "",
               prompt_seriousness: body.prompt_seriousness || "",
             }),
-          });
-          const llmText = gen.reply || "";
+          }, 8000);
+          console.log("[generate_reply] provider:", gen?.meta?.provider || "unknown");
+          const llmText = (gen.reply || "").trim();
+          if (!llmText) {
+            throw new Error("Generated reply was empty.");
+          }
           currentRun.llm_reply_text = llmText;
 
-          // Display LLM reply in the thread and log it as an LLM reply.
-          const thread = currentRun.medium === "SMS" ? els.smsThread : els.messengerThread;
-          const kind = currentRun.medium === "SMS" ? "sms" : "msg";
-          appendIncoming(thread, llmText, kind);
+          // Display LLM reply in chat threads; for non-chat modes keep logging only.
+          if (isChatMedium) {
+            const thread = currentRun.medium === "SMS" ? els.smsThread : els.messengerThread;
+            const kind = currentRun.medium === "SMS" ? "sms" : "msg";
+            appendIncoming(thread, llmText, kind);
+          }
 
           // Log the LLM-generated reply as a trial row.
           try {
@@ -825,6 +1071,7 @@ function initParticipantUI() {
                 input_method: "LLM",
                 prompt_text: currentRun.prompt_text,
                 reply_text: llmText,
+                llm_provider: String(gen?.meta?.provider || ""),
                 response_time_seconds: 0,
                 keypress_count: 0,
                 backspace_count: 0,
@@ -839,10 +1086,19 @@ function initParticipantUI() {
             console.warn("Failed to log LLM reply", e);
           }
         } catch (e) {
-          // If LLM generation fails, fall back to the lightweight auto-reply.
-          const thread = currentRun.medium === "SMS" ? els.smsThread : els.messengerThread;
-          const kind = currentRun.medium === "SMS" ? "sms" : "msg";
-          appendIncoming(thread, buildAutoReply(currentRun.reply_text), kind);
+          console.error("generate_reply failed", e);
+          const msg = e?.name === "AbortError"
+            ? "Generated reply timed out; showing fallback."
+            : "Generated reply failed; showing fallback.";
+          showToast(msg);
+          // If LLM generation fails, show a local fallback reply for chat mediums.
+          if (isChatMedium) {
+            const thread = currentRun.medium === "SMS" ? els.smsThread : els.messengerThread;
+            const kind = currentRun.medium === "SMS" ? "sms" : "msg";
+            appendIncoming(thread, buildAutoReply(currentRun.reply_text), kind);
+          } else {
+            showToast("Reply sent");
+          }
         }
       })();
 
@@ -904,9 +1160,25 @@ function initParticipantUI() {
     const thread = medium === "SMS" ? els.smsThread : els.messengerThread;
     const ta = medium === "SMS" ? els.replySMS : els.replyMsg;
     const wrap = medium === "SMS" ? els.suggestionSMS : els.suggestionMsg;
-    const text = ta?.value?.trim() || "";
+    const selectedInputMethod = getSelectedInputMethod();
+    const useVoiceInText = selectedInputMethod === "Voice-to-text";
+    const draft = textVoiceDrafts[medium];
+    let text = ta?.value?.trim() || "";
     const promptText = getPromptText();
-    if (!text || !thread || !ta) return;
+    if (!thread || !ta) return;
+    if (useVoiceInText) {
+      if (!draft?.audioFilename) {
+        showToast("Record voice first, then send.");
+        return;
+      }
+      text = (draft.transcript || "").trim();
+      if (!text) {
+        showToast("No transcript available. Please re-record.");
+        return;
+      }
+    } else if (!text) {
+      return;
+    }
     if (trial.startedAtMs == null) trial.startedAtMs = nowMs();
     trial.lastInputAtMs = nowMs();
 
@@ -919,7 +1191,14 @@ function initParticipantUI() {
     try {
       lastTranscriptStatus = "";
       lastTranscriptSource = "";
-      await submitReply({ replyText: text, promptText });
+      await submitReply({
+        replyText: text,
+        promptText,
+        audioFilename: useVoiceInText ? draft.audioFilename : "",
+        transcript: useVoiceInText ? draft.transcript : "",
+        promptShownAtMs: promptShownAtMsByMedium[medium],
+      });
+      if (useVoiceInText) clearTextVoiceDraft(medium);
     } catch {
       return;
     }
@@ -935,8 +1214,21 @@ function initParticipantUI() {
   if (els.sendEmailBtn) {
     els.sendEmailBtn.addEventListener("click", async () => {
       currentMedium = "Email";
-      const text = els.replyEmail?.value?.trim() || "";
-      if (!text) {
+      const selectedInputMethod = getSelectedInputMethod();
+      const useVoiceInText = selectedInputMethod === "Voice-to-text";
+      const draft = textVoiceDrafts.Email;
+      let text = els.replyEmail?.value?.trim() || "";
+      if (useVoiceInText) {
+        if (!draft?.audioFilename) {
+          showToast("Record voice first, then send.");
+          return;
+        }
+        text = (draft.transcript || "").trim();
+        if (!text) {
+          showToast("No transcript available. Please re-record.");
+          return;
+        }
+      } else if (!text) {
         showToast("Write a reply first.");
         return;
       }
@@ -947,7 +1239,14 @@ function initParticipantUI() {
       try {
         lastTranscriptStatus = "";
         lastTranscriptSource = "";
-        await submitReply({ replyText: emailText, promptText });
+        await submitReply({
+          replyText: emailText,
+          promptText,
+          audioFilename: useVoiceInText ? draft.audioFilename : "",
+          transcript: useVoiceInText ? draft.transcript : "",
+          promptShownAtMs: promptShownAtMsByMedium.Email,
+        });
+        if (useVoiceInText) clearTextVoiceDraft("Email");
       } catch {
         return;
       }
@@ -1202,10 +1501,10 @@ function initParticipantUI() {
           form.append("file", blob, `reply.${ext}`);
           els.voiceStatus.textContent = "Uploading…";
           try {
-            const res = await fetchJSON("/api/upload_audio", {
+            const res = await fetchJSONWithTimeout("/api/upload_audio", {
               method: "POST",
               body: form,
-            });
+            }, 20000);
             if (epochAtStop !== playbackEpoch) return;
             recordedFilename = res.audio_filename || "";
             pendingVoiceTranscript = (res.transcript || "").trim();
@@ -1235,8 +1534,13 @@ function initParticipantUI() {
               "Ready to send, or discard to re-record.";
           } catch (e) {
             console.error(e);
-            els.voiceStatus.textContent = "Upload failed. Try again.";
-            showToast("Upload failed");
+            if (e?.name === "AbortError") {
+              els.voiceStatus.textContent = "Upload/transcription timed out. You can re-record.";
+              showToast("Voice upload timed out.");
+            } else {
+              els.voiceStatus.textContent = "Upload failed. Try again.";
+              showToast("Voice upload failed.");
+            }
           }
         } finally {
           voicePipelineBusy = false;
@@ -1339,6 +1643,7 @@ function initParticipantUI() {
         await submitReply({
           audioFilename: recordedFilename,
           transcript: pendingVoiceTranscript,
+          promptShownAtMs: promptShownAtMsByMedium.Voice,
         });
       } catch {
         card.remove();
@@ -1358,7 +1663,25 @@ function initParticipantUI() {
     });
   }
 
+  if (els.recordTextVoiceSMSBtn) {
+    els.recordTextVoiceSMSBtn.addEventListener("click", () =>
+      toggleTextVoiceRecording("SMS")
+    );
+  }
+  if (els.recordTextVoiceMsgBtn) {
+    els.recordTextVoiceMsgBtn.addEventListener("click", () =>
+      toggleTextVoiceRecording("Messenger")
+    );
+  }
+  if (els.recordTextVoiceEmailBtn) {
+    els.recordTextVoiceEmailBtn.addEventListener("click", () =>
+      toggleTextVoiceRecording("Email")
+    );
+  }
+
   showMode("SMS");
+  refreshTextVoiceButtons();
+  syncStudyInstruction();
   assignRandomTextPrompts();
   ensureParticipantIdInitialized();
 }
@@ -1398,6 +1721,7 @@ function initAdminUI() {
     exportParticipantSelect: document.getElementById("exportParticipantSelect"),
     dateFilter: document.getElementById("dateFilter"),
     mediumFilter: document.getElementById("mediumFilter"),
+    includeGeneratedFilter: document.getElementById("includeGeneratedFilter"),
     downloadAllBtn: document.getElementById("downloadAllBtn"),
     downloadParticipantBtn: document.getElementById("downloadParticipantBtn"),
     resultsTableBody: document.getElementById("resultsTableBody"),
@@ -1583,13 +1907,16 @@ function initAdminUI() {
     .then((h) => {
       if (!els.serverPill) return;
       if (h.whisper_ok) {
-        els.serverPill.textContent = "API OK · transcription enabled";
+        els.serverPill.textContent = h.openai_configured
+          ? "API OK · OpenAI configured"
+          : "API OK · OpenAI missing (fallback)";
         if (els.transcriptionRuntime)
           els.transcriptionRuntime.textContent =
             "Reply audio transcription enabled (Whisper). Prompt audio transcription is not enabled.";
       } else {
         const why = h.ffmpeg_ok === false ? "ffmpeg missing" : "whisper unavailable";
-        els.serverPill.textContent = `API OK · transcription limited (${why})`;
+        const llm = h.openai_configured ? "OpenAI configured" : "OpenAI missing (fallback)";
+        els.serverPill.textContent = `API OK · ${llm} · transcription limited (${why})`;
         if (els.transcriptionRuntime) {
           const err = (h.whisper_error || "").toString();
           els.transcriptionRuntime.textContent =
@@ -1748,6 +2075,10 @@ function initAdminUI() {
   }
 
   function renderOverviewCharts(mediumBreakdown, bertBreakdown) {
+    if (typeof Chart === "undefined") {
+      console.warn("Chart.js not available; skipping admin charts.");
+      return;
+    }
     const ctxM = document.getElementById("overviewMediumChart");
     const ctxB = document.getElementById("overviewBertChart");
     if (!ctxM || !ctxB) return;
@@ -1826,9 +2157,30 @@ function initAdminUI() {
           });
         }
         renderParticipantStats(data.participant_stats || []);
+        populateMediumFilter(
+          Object.keys(data.medium_breakdown || {})
+        );
         renderOverviewCharts(data.medium_breakdown || {}, data.bert_breakdown || {});
       })
       .catch(() => {});
+  }
+
+  function populateMediumFilter(values) {
+    if (!els.mediumFilter) return;
+    const current = (els.mediumFilter.value || "").trim();
+    const base = ["SMS", "Messenger", "Email"];
+    const fromData = Array.from(new Set((values || []).map((v) => String(v || "").trim()).filter(Boolean)));
+    const mediums = Array.from(new Set([...base, ...fromData]));
+    els.mediumFilter.innerHTML = '<option value="">All</option>';
+    mediums.forEach((m) => {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      els.mediumFilter.appendChild(opt);
+    });
+    if (current && mediums.includes(current)) {
+      els.mediumFilter.value = current;
+    }
   }
 
   function loadPromptPool() {
@@ -1894,10 +2246,15 @@ function initAdminUI() {
     if (els.mediumFilter?.value) params.set("medium", els.mediumFilter.value);
     if (els.dateFilter?.value) params.set("date", els.dateFilter.value);
 
+    const showGeneratedRows = !!els.includeGeneratedFilter?.checked;
     fetchJSON("/api/logs?" + params.toString())
       .then((data) => {
-        const rows = data.rows || [];
+        const rowsAll = data.rows || [];
+        const rows = showGeneratedRows
+          ? rowsAll
+          : rowsAll.filter((r) => (r.input_method || "").trim() !== "LLM");
         buildParticipantAliases(rows);
+        populateMediumFilter(rows.map((r) => r.medium));
         renderTable(rows);
         renderCharts(rows);
       })
@@ -1923,6 +2280,9 @@ function initAdminUI() {
   }
   if (els.mediumFilter) els.mediumFilter.addEventListener("change", loadLogs);
   if (els.dateFilter) els.dateFilter.addEventListener("change", loadLogs);
+  if (els.includeGeneratedFilter) {
+    els.includeGeneratedFilter.addEventListener("change", loadLogs);
+  }
 
   if (els.exportParticipantSelect) {
     els.exportParticipantSelect.addEventListener("change", () => {
@@ -2185,12 +2545,16 @@ function initAdminUI() {
       const tr = document.createElement("tr");
       tr.dataset.rowIndex = String(idx);
       tr.tabIndex = 0;
+      const isGenerated = (row.input_method || "").trim() === "LLM";
+      if (isGenerated) tr.classList.add("is-generated-row");
       const preview = (row.reply_text || row.transcript || "").toString();
+      const previewWithRole = isGenerated ? `[SYSTEM] ${preview}` : preview;
       tr.innerHTML = `
         <td>${escapeHtml((row.timestamp || "").slice(0, 19))}</td>
         <td>${escapeHtml(displayParticipantId(row.participant_id || ""))}</td>
         <td>${escapeHtml(row.medium || "")}</td>
-        <td>${escapeHtml(preview.slice(0, 72))}${preview.length > 72 ? "…" : ""}</td>
+        <td>${escapeHtml(row.input_method || "")}</td>
+        <td>${escapeHtml(previewWithRole.slice(0, 72))}${previewWithRole.length > 72 ? "…" : ""}</td>
         <td>${escapeHtml(normalizeBertLabel(row.bert_label || ""))}</td>
         <td>${escapeHtml(String(row.response_time_seconds ?? ""))}</td>
         <td>${escapeHtml(row.reply_style || "")}</td>
@@ -2207,6 +2571,10 @@ function initAdminUI() {
   }
 
   function renderCharts(rows) {
+    if (typeof Chart === "undefined") {
+      console.warn("Chart.js not available; skipping admin charts.");
+      return;
+    }
     const ctxSentiment = document.getElementById("sentimentChart");
     const ctxResponse = document.getElementById("responseTimeChart");
     const ctxStyle = document.getElementById("styleChart");
