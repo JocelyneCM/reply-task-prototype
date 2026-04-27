@@ -50,7 +50,6 @@ from .utils.logging_utils import (
 )
 from .utils.analysis_utils import (
     analyze_full_text,
-    classify_style,
     BERT_AVAILABLE,
 )
 from .utils.audio_utils import (
@@ -151,7 +150,12 @@ def derive_prompt_metadata(prompt_text: str) -> Dict[str, str]:
     text = (prompt_text or "").strip()
     lower = text.lower()
 
-    formality = classify_style(text)
+    # Determine formality using the trained model (preferred).
+    formality = ""
+    try:
+        formality = analyze_full_text(text).get("formality_label", "") if text else ""
+    except Exception:
+        formality = ""
     tone = "neutral"
     seriousness = "medium"
 
@@ -598,8 +602,14 @@ def api_log_reply() -> Response:
     bert_raw = str(analysis.get("bert_label", "") or "")
     bert_normalized = normalize_bert_label(bert_raw)
 
-    # Add style classification. The rule‑based classifier always runs.
-    style_label = classify_style(final_text_for_analysis)
+    # Use the trained formality model for reply style/formality.
+    style_label = analysis.get("formality_label", "")
+
+    # Also analyze the prompt text so we can record prompt formality/style.
+    try:
+        prompt_analysis = analyze_full_text(prompt_text) if prompt_text else {"formality_label": ""}
+    except Exception:
+        prompt_analysis = {"formality_label": ""}
 
     # Build log row strictly following the requested schema.
     row = {
@@ -616,7 +626,7 @@ def api_log_reply() -> Response:
         "paste_used": "yes" if paste_used else "no",
         "correction_applied": "yes" if correction_applied else "no",
         # Keep prompt metadata explicit for admin prompt interpretation.
-        "prompt_style": payload.get("prompt_style") or classify_style(prompt_text),
+        "prompt_style": payload.get("prompt_style") or prompt_analysis.get("formality_label", ""),
         "prompt_tone": (payload.get("prompt_tone") or "").strip(),
         "prompt_seriousness": (payload.get("prompt_seriousness") or "").strip(),
         "prompt_formality": (payload.get("prompt_formality") or "").strip(),
@@ -812,6 +822,10 @@ def api_generate_reply() -> Response:
             # Optionally log the generated reply as a trial row when a participant_id is provided.
             if participant_id:
                 try:
+                    try:
+                        prompt_analysis = analyze_full_text(prompt_text) if prompt_text else {"formality_label": ""}
+                    except Exception:
+                        prompt_analysis = {"formality_label": ""}
                     row = {
                         "timestamp": datetime.now().isoformat(timespec="seconds"),
                         "participant_id": participant_id,
@@ -825,11 +839,11 @@ def api_generate_reply() -> Response:
                         "backspace_count": 0,
                         "paste_used": "no",
                         "correction_applied": "no",
-                        "prompt_style": payload.get("prompt_style") or classify_style(prompt_text),
+                        "prompt_style": payload.get("prompt_style") or prompt_analysis.get("formality_label", ""),
                         "prompt_tone": payload.get("prompt_tone") or "",
                         "prompt_seriousness": payload.get("prompt_seriousness") or "",
                         "prompt_formality": payload.get("target_formality") or "",
-                        "reply_style": classify_style(reply_text),
+                        "reply_style": llm_analysis.get("formality_label", ""),
                         "reply_analysis_status": "ok",
                         "reply_analysis_basis": "llm_reply",
                         "transcript_status": "",
@@ -866,6 +880,10 @@ def api_generate_reply() -> Response:
     # Log fallback reply if participant_id provided.
     if participant_id:
         try:
+            try:
+                prompt_analysis = analyze_full_text(prompt_text) if prompt_text else {"formality_label": ""}
+            except Exception:
+                prompt_analysis = {"formality_label": ""}
             row = {
                 "timestamp": datetime.now().isoformat(timespec="seconds"),
                 "participant_id": participant_id,
@@ -879,11 +897,11 @@ def api_generate_reply() -> Response:
                 "backspace_count": 0,
                 "paste_used": "no",
                 "correction_applied": "no",
-                "prompt_style": payload.get("prompt_style") or classify_style(prompt_text),
+                "prompt_style": payload.get("prompt_style") or prompt_analysis.get("formality_label", ""),
                 "prompt_tone": payload.get("prompt_tone") or "",
                 "prompt_seriousness": payload.get("prompt_seriousness") or "",
                 "prompt_formality": payload.get("target_formality") or "",
-                "reply_style": classify_style(fallback),
+                "reply_style": fallback_analysis.get("formality_label", ""),
                 "reply_analysis_status": "ok",
                 "reply_analysis_basis": "llm_reply",
                 "transcript_status": "",

@@ -29,6 +29,7 @@ SAMPLE_SENTENCES: List[str] = [
     "I would appreciate it if you could review the document and provide feedback.",
     "wassup homie",
     "I'd like that file before end of day.",
+    "asda we are here"
 ]
 
 
