@@ -4,6 +4,8 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trai
 import torch
 import numpy as np
 
+# hello test
+
 # Load the parquet file
 print("Loading dataset...")
 df = pd.read_parquet("GYAFC/Train/UkrToEn/train-00000-of-00001_en.parquet")
