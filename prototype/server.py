@@ -29,6 +29,9 @@ import json
 import os
 from collections import Counter, defaultdict
 
+# Project root for file paths
+BASE_DIR = Path(__file__).resolve().parent
+
 from flask import (
     Flask,
     Response,
@@ -59,204 +62,6 @@ from .utils.audio_utils import (
     FFMPEG_AVAILABLE,
     WHISPER_ERROR,
 )
-
-
-BASE_DIR = Path(__file__).resolve().parent
-ensure_base_directories(BASE_DIR)
-
-# Voice prompt files for participant UI (flat folders only; no subpaths).
-VOICE_PROMPT_SUFFIXES = frozenset({".mp3", ".wav", ".m4a", ".ogg", ".webm"})
-
-# Demo-safe prompt library for participant text media + researcher control.
-# This is intentionally in-memory (non-persistent) for meeting stability.
-TEXT_PROMPT_LIBRARY: List[Dict[str, str]] = [
-    {
-        "id": "prompt_001",
-        "sms": "Hi! Can you help me with something today?",
-        "messenger": "Hey! Can you help me with something today?",
-        "email_from": "someone@example.com",
-        "email_subject": "Quick question",
-        "email_body": "Hi! Can you help me with something today?",
-    },
-    {
-        "id": "prompt_002",
-        "sms": "Can you quickly review this plan before 5?",
-        "messenger": "Could you glance at this plan before 5?",
-        "email_from": "teammate@example.com",
-        "email_subject": "Quick plan review",
-        "email_body": "Hi! Could you review this plan and share feedback before 5 PM?",
-    },
-    {
-        "id": "prompt_003",
-        "sms": "Are you free to help me prep for tomorrow?",
-        "messenger": "Any chance you can help me prep for tomorrow?",
-        "email_from": "colleague@example.com",
-        "email_subject": "Preparation help",
-        "email_body": "Hello, are you available to help me prepare for tomorrow's meeting?",
-    },
-]
-NEXT_TEXT_PROMPT_ID: Optional[str] = None
-NEXT_TEXT_PROMPT_CUSTOM: Optional[Dict[str, str]] = None
-
-
-def _pick_prompt_by_id(prompt_id: str) -> Optional[Dict[str, str]]:
-    for p in TEXT_PROMPT_LIBRARY:
-        if p.get("id") == prompt_id:
-            return p
-    return None
-
-
-def _pick_text_prompt_bundle(consume_override: bool) -> Dict[str, str]:
-    """Return one text prompt bundle. Can consume one one-shot admin override."""
-    global NEXT_TEXT_PROMPT_ID, NEXT_TEXT_PROMPT_CUSTOM
-    prompt: Optional[Dict[str, str]] = None
-    source = "random"
-    if NEXT_TEXT_PROMPT_CUSTOM:
-        prompt = dict(NEXT_TEXT_PROMPT_CUSTOM)
-        source = "admin_custom_next"
-        if consume_override:
-            NEXT_TEXT_PROMPT_CUSTOM = None
-    elif NEXT_TEXT_PROMPT_ID:
-        prompt = _pick_prompt_by_id(NEXT_TEXT_PROMPT_ID)
-        if prompt is not None:
-            source = "admin_selected_next"
-        if consume_override:
-            NEXT_TEXT_PROMPT_ID = None
-    if prompt is None:
-        # Stable fallback if random fails for any reason.
-        import random
-
-        prompt = random.choice(TEXT_PROMPT_LIBRARY) if TEXT_PROMPT_LIBRARY else None
-    if not prompt:
-        return {
-            "id": "prompt_default",
-            "sms": "Hi! Can you help me with something today?",
-            "messenger": "Hey! Can you help me with something today?",
-            "email_from": "someone@example.com",
-            "email_subject": "Quick question",
-            "email_body": "Hi! Can you help me with something today?",
-            "source": source,
-        }
-    out = dict(prompt)
-    out["source"] = source
-    return out
-
-
-def derive_prompt_metadata(prompt_text: str) -> Dict[str, str]:
-    """
-    Simple prompt tags for admin review.
-    This is rule-based so we can swap in a model later.
-    """
-    text = (prompt_text or "").strip()
-    lower = text.lower()
-
-    # Determine formality using the trained model (preferred).
-    formality = ""
-    try:
-        formality = analyze_full_text(text).get("formality_label", "") if text else ""
-    except Exception:
-        formality = ""
-    tone = "neutral"
-    seriousness = "medium"
-
-    if any(k in lower for k in ["urgent", "asap", "immediately", "before 5", "deadline"]):
-        tone = "urgent"
-        seriousness = "high"
-    elif any(k in lower for k in ["sorry", "apolog", "regret"]):
-        tone = "apologetic"
-    elif any(k in lower for k in ["dear", "regards", "sincerely"]):
-        tone = "professional"
-    elif any(k in lower for k in ["hello", "hi", "hey", "thank", "please"]):
-        tone = "friendly"
-    elif any(k in lower for k in ["meeting", "review", "prepare", "plan"]):
-        tone = "serious"
-        seriousness = "high"
-
-    if any(k in lower for k in ["quick", "small", "tiny", "short"]) and seriousness != "high":
-        seriousness = "low"
-    elif len(text.split()) > 18 and seriousness != "high":
-        seriousness = "high"
-
-    return {
-        "prompt_tone": tone,
-        "prompt_seriousness": seriousness,
-        "prompt_formality": formality,
-    }
-
-
-def normalize_bert_label(raw_label: str) -> str:
-    """
-    Keep one stable BERT label set for admin display.
-    """
-    s = (raw_label or "").strip().lower()
-    if not s:
-        return "ok"
-    if "unavailable" in s or s == "ok":
-        return "ok"
-    if "positive" in s:
-        return "positive"
-    if "negative" in s:
-        return "negative"
-    if "neutral" in s:
-        return "neutral"
-    import re
-
-    m = re.search(r"([1-5])\s*star", s)
-    if m:
-        n = int(m.group(1))
-        if n <= 2:
-            return "negative"
-        if n == 3:
-            return "neutral"
-        return "positive"
-    return "ok"
-
-
-def collect_voice_prompts() -> List[Dict[str, str]]:
-    """
-    Discover prompt audio for the voice task. Order: VoiceFiles → audio/mp3 → static/audio/prompts.
-    Each entry: { "url": str, "filename": str }.
-    """
-    items: List[Dict[str, str]] = []
-    seen_urls: set = set()
-
-    def add_folder(folder: Path, url_prefix: str) -> None:
-        if not folder.is_dir():
-            return
-        for path in sorted(folder.iterdir()):
-            if not path.is_file():
-                continue
-            if path.suffix.lower() not in VOICE_PROMPT_SUFFIXES:
-                continue
-            url = f"{url_prefix}{path.name}"
-            if url in seen_urls:
-                continue
-            seen_urls.add(url)
-            items.append({"url": url, "filename": path.name})
-
-    add_folder(BASE_DIR / "VoiceFiles", "/voice-prompt/VoiceFiles/")
-    add_folder(BASE_DIR / "audio" / "mp3", "/voice-prompt/audio_mp3/")
-    add_folder(BASE_DIR / "static" / "audio" / "prompts", "/static/audio/prompts/")
-    return items
-
-
-def _send_voice_prompt_file(root: Path, filename: str) -> Response:
-    """Serve one file from root; basename only (no path traversal)."""
-    root_resolved = root.resolve()
-    if not root_resolved.is_dir():
-        abort(404)
-    # Reject any path separators or traversal in the URL segment.
-    if filename != Path(filename).name or ".." in filename:
-        abort(404)
-    target = (root_resolved / filename).resolve()
-    if target.parent != root_resolved:
-        abort(404)
-    if not target.is_file():
-        abort(404)
-    if target.suffix.lower() not in VOICE_PROMPT_SUFFIXES:
-        abort(404)
-    return send_file(target)
-
 
 app = Flask(
     __name__,
@@ -757,19 +562,10 @@ def api_generate_reply() -> Response:
     except Exception:
         max_tokens = 256
 
-    # Locate keys.json (repo root) and environment overrides.
-    key_path_candidates = [BASE_DIR.parent / "keys.json", BASE_DIR / "keys.json"]
+    # Use only environment-provided API keys for reproducibility.
     api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_KEY")
     if not api_key:
-        for p in key_path_candidates:
-            try:
-                if p.exists():
-                    j = json.loads(p.read_text())
-                    # use OPENAI key
-                    api_key = j.get("openai_api_key") or api_key
-                    break
-            except Exception:
-                continue
+        return jsonify({"ok": False, "error": "LLM provider not configured."}), 503
 
     # Optional participant logging parameters
     participant_id = (payload.get("participant_id") or "").strip()
@@ -868,62 +664,7 @@ def api_generate_reply() -> Response:
             })
         except Exception as exc:  # pragma: no cover - best-effort
             app.logger.exception("LLM call failed: %s", exc)
-
-    # Fallback heuristic reply if no LLM is configured or call fails.
-    # Fallback heuristic reply if no LLM is configured or call fails.
-    fallback = f"Thanks — I can help with that. Can you clarify what you mean by: '{user_reply[:120]}'?"
-    try:
-        fallback_analysis = analyze_full_text(fallback)
-    except Exception:
-        fallback_analysis = {"formality_label": "", "formality_confidence": 0.0, "bert_label": "neutral", "bert_confidence": 0.0}
-
-    # Log fallback reply if participant_id provided.
-    if participant_id:
-        try:
-            try:
-                prompt_analysis = analyze_full_text(prompt_text) if prompt_text else {"formality_label": ""}
-            except Exception:
-                prompt_analysis = {"formality_label": ""}
-            row = {
-                "timestamp": datetime.now().isoformat(timespec="seconds"),
-                "participant_id": participant_id,
-                "medium": medium,
-                "input_method": "LLM",
-                "prompt_text": prompt_text,
-                "reply_text": fallback,
-                "transcript": "",
-                "response_time_seconds": 0,
-                "keypress_count": 0,
-                "backspace_count": 0,
-                "paste_used": "no",
-                "correction_applied": "no",
-                "prompt_style": payload.get("prompt_style") or prompt_analysis.get("formality_label", ""),
-                "prompt_tone": payload.get("prompt_tone") or "",
-                "prompt_seriousness": payload.get("prompt_seriousness") or "",
-                "prompt_formality": payload.get("target_formality") or "",
-                "reply_style": fallback_analysis.get("formality_label", ""),
-                "reply_analysis_status": "ok",
-                "reply_analysis_basis": "llm_reply",
-                "transcript_status": "",
-                "transcript_source": "",
-                "formality_label": fallback_analysis.get("formality_label", ""),
-                "formality_confidence": fallback_analysis.get("formality_confidence", 0.0),
-                "bert_label": fallback_analysis.get("bert_label", ""),
-                "bert_raw": fallback_analysis.get("bert_label", ""),
-                "bert_confidence": fallback_analysis.get("bert_confidence", 0.0),
-                "audio_filename": "",
-            }
-            log_trial_row(BASE_DIR, row)
-        except Exception:
-            app.logger.exception("Failed to log fallback LLM reply for %s", participant_id)
-
-    return jsonify({
-        "ok": True,
-        "reply": fallback,
-        "analysis": fallback_analysis,
-        "matches_target_formality": (target_formality == "" or fallback_analysis.get("formality_label", "") == target_formality),
-        "meta": {"provider": "fallback"},
-    })
+            return jsonify({"ok": False, "error": "LLM call failed", "details": str(exc)}), 502
 
 
 

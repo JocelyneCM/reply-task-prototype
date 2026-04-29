@@ -23,10 +23,11 @@ def test_generate_reply_fallback_and_log(client, tmp_path):
     # Call generate_reply without API key; pass a participant_id so it should log.
     payload = {"prompt_text": "Hello", "user_reply": "Hi", "participant_id": "TEST_PID"}
     r = client.post("/api/generate_reply", json=payload)
-    assert r.status_code == 200
+    # No API key configured → explicit error (no fallback allowed)
+    assert r.status_code == 503
     data = r.get_json()
-    assert data["ok"] is True
-    assert "reply" in data
+    assert data["ok"] is False
+    assert "error" in data
 
 
 def test_generate_reply_mocked(monkeypatch, client):

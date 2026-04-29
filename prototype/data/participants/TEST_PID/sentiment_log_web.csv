@@ -6,3 +6,4 @@ timestamp,participant_id,medium,input_method,prompt_text,reply_text,transcript,r
 ""Hi there! How are you doing today?""",,0,0,0,no,no,neutral,,,,informal,ok,llm_reply,,,,0.0,,neutral,neutral,0.0,
 2026-04-24T09:46:09,TEST_PID,LLM,LLM,Hello,Hello! How are you doing today?,,0,0,0,no,no,neutral,,,,informal,ok,llm_reply,,,,0.0,,neutral,neutral,0.0,
 2026-04-24T10:56:25,TEST_PID,LLM,LLM,Hello,Hello! How are you today?,,0,0,0,no,no,neutral,,,,informal,ok,llm_reply,,,LABEL_1,0.9915909767150879,,5 stars,5 stars,0.6184409856796265,
+2026-04-29T10:07:33,TEST_PID,LLM,LLM,Hello,Hello! How are you today?,,0,0,0,no,no,,,,,,ok,llm_reply,,,,0.0,,neutral,neutral,0.0,

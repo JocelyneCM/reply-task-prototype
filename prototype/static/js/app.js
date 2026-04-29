@@ -839,10 +839,13 @@ function initParticipantUI() {
             console.warn("Failed to log LLM reply", e);
           }
         } catch (e) {
-          // If LLM generation fails, fall back to the lightweight auto-reply.
+          // If LLM generation fails, show an error rather than using a local fallback.
+          console.error("LLM generation failed", e);
+          showToast("LLM generation failed — no reply generated.");
+          // Optionally add a visible error note in the conversation thread.
           const thread = currentRun.medium === "SMS" ? els.smsThread : els.messengerThread;
           const kind = currentRun.medium === "SMS" ? "sms" : "msg";
-          appendIncoming(thread, buildAutoReply(currentRun.reply_text), kind);
+          appendIncoming(thread, "LLM error: failed to generate reply.", kind);
         }
       })();
 
