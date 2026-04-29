@@ -16,15 +16,7 @@ from datetime import datetime
 from pathlib import Path
 import csv
 
-# Optional imports (fail gracefully)
-try:
-    from textblob import TextBlob
-    TEXTBLOB_OK = True
-except Exception as e:
-    TextBlob = None
-    TEXTBLOB_OK = False
-
-# VADER has been removed (deprecated). Sentiment via TextBlob remains.
+# TextBlob and VADER removed — sentiment analysis is not used.
 
 try:
     import torch
@@ -97,9 +89,7 @@ FIELDNAMES = [
     "paste_used",
     "correction_manual",
     "notes",
-    # Sentiment
-    "reply_tb_polarity",
-    "reply_tb_subjectivity",
+    # (TextBlob/VADER removed - no sentiment columns)
     # Formality
     "prompt_formality_label",
     "prompt_formality_confidence",
@@ -118,15 +108,6 @@ def ensure_csv():
         with CSV_PATH.open("w", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=FIELDNAMES)
             w.writeheader()
-
-
-def analyze_textblob(text: str):
-    if not TEXTBLOB_OK or not text:
-        return 0.0, 0.0
-    b = TextBlob(text)
-    return float(b.sentiment.polarity), float(b.sentiment.subjectivity)
-
-
 
 def classify_formality_single(text: str):
     """Classify a single text string and return {label, confidence} or {None, None} if unavailable."""
@@ -206,9 +187,6 @@ def analyze():
     reply = (data.get("reply_text") or "").strip()
     llm_reply = (data.get("llm_reply_text") or "").strip()
     final_text = (data.get("final_text") or "").strip()
-
-    tb_pol, tb_subj = analyze_textblob(reply) if reply else (0.0, 0.0)
-
     prompt_form = classify_formality_single(prompt) if prompt else {"label": None, "confidence": None}
     reply_form = classify_formality_single(reply) if reply else {"label": None, "confidence": None}
     llm_form = classify_formality_single(llm_reply) if llm_reply else {"label": None, "confidence": None}
@@ -219,8 +197,6 @@ def analyze():
         formality_mismatch = prompt_form["label"] != reply_form["label"]
 
     return jsonify({
-        "reply_tb_polarity": tb_pol,
-        "reply_tb_subjectivity": tb_sub,
         "formality_ok": FORMALITY_OK,
         "prompt_formality_label": prompt_form["label"],
         "prompt_formality_confidence": prompt_form["confidence"],

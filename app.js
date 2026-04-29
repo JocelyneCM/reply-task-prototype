@@ -884,7 +884,7 @@ els.analyzeBtn.addEventListener("click", async () => {
   const responseTime = secondsBetween(startMs, endMs);
 
   if (els.model && els.model.value === "SVM (TODO)") {
-    alert("SVM is not implemented yet. For now this logs TextBlob via Flask.");
+    alert("SVM is not implemented yet.");
   }
 
   let analysis;
@@ -898,8 +898,7 @@ els.analyzeBtn.addEventListener("click", async () => {
   const replyStyle = classifyStyle(replyText);
   const promptStyle = classifyStyle(promptText);
 
-  const tbPol = Number(analysis.reply_tb_polarity ?? 0);
-  const tbSub = Number(analysis.reply_tb_subjectivity ?? 0);
+  // TextBlob/VADER removed; formality analysis only
 
   const pfLabel = analysis.prompt_formality_label ?? null;
   const pfConf = analysis.prompt_formality_confidence ?? null;
@@ -917,7 +916,7 @@ els.analyzeBtn.addEventListener("click", async () => {
     <div><strong>Reply formality:</strong> ${rfLabel ? `${rfLabel} (${(Number(rfConf) * 100).toFixed(1)}%)` : "not available"}</div>
     <div><strong>Prompt formality:</strong> ${pfLabel ? `${pfLabel} (${(Number(pfConf) * 100).toFixed(1)}%)` : "not available"}</div>
     <div><strong>Formality match:</strong> ${mismatch === null ? "N/A" : (mismatch ? "✓ Match" : "✗ Mismatch")}</div>
-    <div><strong>TextBlob:</strong> polarity=${tbPol.toFixed(3)}, subjectivity=${tbSub.toFixed(3)}</div>
+    <!-- TextBlob removed -->
   `;
 
   if (els.resultText) els.resultText.innerHTML = resultHTML;
@@ -943,9 +942,7 @@ els.analyzeBtn.addEventListener("click", async () => {
     correction_manual: els.manualCorrection.checked ? "yes" : "no",
     notes: (els.notes && els.notes.value ? els.notes.value.trim() : ""),
 
-    reply_tb_polarity: tbPol,
-    reply_tb_subjectivity: tbSub,
-    // VADER removed
+    // TextBlob/VADER removed
     prompt_formality_label: pfLabel ?? "",
     prompt_formality_confidence: pfConf ?? "",
     reply_formality_label: rfLabel ?? "",
