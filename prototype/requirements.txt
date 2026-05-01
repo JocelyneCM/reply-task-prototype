@@ -10,4 +10,5 @@ soundfile>=0.12.1
 pytest>=7.0.0
 safetensors>=0.4.1
 requests>=2.31.0
+accelerate>=0.26.0
 

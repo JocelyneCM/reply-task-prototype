@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 import torch
 from datasets import Dataset
 from transformers import (
@@ -17,15 +18,26 @@ MODEL_NAME = "roberta-base"
 MAX_LENGTH = 128
 
 DOMAINS = {
-    "entertainment_music": "GYAFC_Corpus/Entertainment_Music",
-    "family_relationships": "GYAFC_Corpus/Family_Relationships",
+    "entertainment_music": "GYAFC/Entertainment_Music",
+    "family_relationships": "GYAFC/Family_Relationships",
 }
 
 def load_split(domain_path: str, split: str) -> pd.DataFrame:
     """Load formal and informal files for a given domain and split (train/test/tune)."""
     records = []
+    if not os.path.isdir(domain_path):
+        raise FileNotFoundError(
+            f"Domain path not found: {domain_path}. Make sure the `GYAFC` folder exists and `DOMAINS` points to it."
+        )
+
     for label, label_id in [("formal", 1), ("informal", 0)]:
-        path = f"{domain_path}/{split}/{label}"
+        path = os.path.join(domain_path, split, label)
+        if not os.path.isfile(path):
+            parent = os.path.dirname(path)
+            available = os.listdir(parent) if os.path.isdir(parent) else []
+            raise FileNotFoundError(
+                f"Expected file not found: {path}\nAvailable in {parent}: {available}"
+            )
         with open(path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -90,7 +102,8 @@ training_args = TrainingArguments(
     load_best_model_at_end=True,
     metric_for_best_model="f1",
     logging_steps=50,
-    fp16=True,
+    # Enable mixed precision only if CUDA is available
+    fp16=torch.cuda.is_available(),
 )
 
 trainer = Trainer(
