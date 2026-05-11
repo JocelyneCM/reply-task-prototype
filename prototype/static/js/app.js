@@ -159,6 +159,18 @@ function initParticipantUI() {
     replyMP3: document.getElementById("replyMP3"),
   };
 
+  /**
+   * Writing-behaviour metrics collected per reply.
+   *
+   * Interpretation varies by input method:
+   *   Typing        — keypressCount / backspaceCount are literal keyboard events.
+   *   Swipe typing  — the browser may fire synthetic keydown events for each
+   *                   inserted character; counts are approximate interaction/
+   *                   editing events, NOT physical key presses or swipe gestures.
+   *   Voice-to-text — keypressCount stays 0 unless the participant manually edits
+   *                   the transcript. response_time_seconds is the main comparable
+   *                   metric across all three methods (prompt-shown → Send).
+   */
   const trial = {
     startedAtMs: null,
     lastInputAtMs: null,
@@ -1061,15 +1073,26 @@ function initParticipantUI() {
       ...currentPromptMeta,
       ...derivePromptMetaFromText(promptText),
     };
-    const endTime = trial.lastInputAtMs ?? nowMs();
-    const responseTimeSeconds =
-      trial.startedAtMs == null ? 0 : secondsBetween(trial.startedAtMs, endTime);
-
     const selectedInputMethod = getSelectedInputMethod();
+    const isVoice =
+      selectedInputMethod === "Voice-to-text" || currentMedium === "Voice";
+
+    // For voice input, end time = now (Send press). For typing/swipe, end time =
+    // last interaction event (keydown/paste/input), falling back to now.
+    const endTime = isVoice ? nowMs() : (trial.lastInputAtMs ?? nowMs());
+
     const promptShownAtMs =
       extra.promptShownAtMs ?? promptShownAtMsByMedium[currentMedium] ?? null;
+
+    // Start time: for typing/swipe it's the first keydown. For voice-to-text
+    // (text mediums) or Voice mode, fall back to when the prompt was shown so
+    // response_time covers the full prompt-shown → Send interval.
     const startedAtMs =
-      trial.startedAtMs ?? (selectedInputMethod === "Voice-to-text" ? promptShownAtMs : null);
+      trial.startedAtMs ?? (isVoice ? promptShownAtMs : null);
+
+    const responseTimeSeconds =
+      startedAtMs == null ? 0 : secondsBetween(startedAtMs, endTime);
+
     const body = {
       participant_id: pid,
       medium: currentMedium === "Voice" ? "Voice" : currentMedium,
@@ -1078,8 +1101,7 @@ function initParticipantUI() {
       reply_text: replyText,
       audio_filename: extra.audioFilename || "",
       transcript: extra.transcript != null ? extra.transcript : pendingVoiceTranscript,
-      response_time_seconds:
-        startedAtMs == null ? responseTimeSeconds : secondsBetween(startedAtMs, endTime),
+      response_time_seconds: responseTimeSeconds,
       keypress_count: trial.keypressCount,
       backspace_count: trial.backspaceCount,
       paste_used: trial.pasteUsed,
@@ -1400,7 +1422,9 @@ function initParticipantUI() {
     } else if (!text) {
       return;
     }
-    if (trial.startedAtMs == null) trial.startedAtMs = nowMs();
+    // For typing/swipe, ensure we have a start time even if no keydown fired.
+    // For voice-to-text, leave startedAtMs null so submitReply uses promptShownAtMs.
+    if (!useVoiceInText && trial.startedAtMs == null) trial.startedAtMs = nowMs();
     trial.lastInputAtMs = nowMs();
 
     const kind = medium === "SMS" ? "sms" : "msg";
@@ -1453,7 +1477,7 @@ function initParticipantUI() {
         showToast("Write a reply first.");
         return;
       }
-      if (trial.startedAtMs == null) trial.startedAtMs = nowMs();
+      if (!useVoiceInText && trial.startedAtMs == null) trial.startedAtMs = nowMs();
       trial.lastInputAtMs = nowMs();
       const emailText = text;
       const promptText = getPromptText();
@@ -1848,8 +1872,8 @@ function initParticipantUI() {
         showToast("Nothing to send.");
         return;
       }
-      if (trial.startedAtMs == null) trial.startedAtMs = nowMs();
-      trial.lastInputAtMs = nowMs();
+      // Do NOT set trial.startedAtMs here — submitReply falls back to
+      // promptShownAtMs.Voice so response_time = prompt-shown → Send.
 
       /** Keep thread playback alive after draft cleanup. */
       let threadAudioUrl = "";

@@ -466,6 +466,16 @@
               </ul>
             </div>
             <div class="pex-admin-card" style="margin-top:16px">
+              <h2 class="pex-admin-card-title">Writing behaviour metrics by input method</h2>
+              <ul class="pex-admin-about-list">
+                <li><strong>response_time_seconds</strong> — the main comparable timing metric across all input methods. Measured from prompt display (or first keydown for typing) until Send is pressed.</li>
+                <li><strong>Typing</strong> — keystrokes and backspaces are literal keyboard events (keydown). Timing starts at the first key press.</li>
+                <li><strong>Swipe typing</strong> — the browser may report synthetic keydown events for each inserted character. Keystroke and backspace counts are approximate interaction/editing events, not exact physical key presses or swipe gestures.</li>
+                <li><strong>Voice-to-text</strong> — keystrokes are 0 unless the participant manually edits the transcript after dictation. Timing runs from prompt display to Send press, covering the full dictation and review interval.</li>
+                <li><strong>words_per_minute</strong> — computed server-side from word count and response_time_seconds. Comparable across methods only if response_time is interpreted correctly.</li>
+              </ul>
+            </div>
+            <div class="pex-admin-card" style="margin-top:16px">
               <h2 class="pex-admin-card-title">Transcription</h2>
               <p class="pex-admin-card-desc" id="adminTranscriptionRuntime">Checking…</p>
             </div>

@@ -37,8 +37,8 @@
   <dl class="pex-admin-detail-meta">
     <dt>Response time (s)</dt><dd>{{ row.response_time_seconds or "" }}</dd>
     <dt>Words per minute</dt><dd>{{ row.words_per_minute or "" }}</dd>
-    <dt>Keystrokes</dt><dd>{{ row.keypress_count or "" }}</dd>
-    <dt>Backspaces</dt><dd>{{ row.backspace_count or "" }}</dd>
+    <dt>Keystrokes</dt><dd>{{ row.keypress_count or "" }}{% if (row.input_method or "") == "Swipe typing" %} <span class="small" style="color:var(--muted)">(approx.)</span>{% elif (row.input_method or "") == "Voice-to-text" %} <span class="small" style="color:var(--muted)">(edits only)</span>{% endif %}</dd>
+    <dt>Backspaces</dt><dd>{{ row.backspace_count or "" }}{% if (row.input_method or "") == "Swipe typing" %} <span class="small" style="color:var(--muted)">(approx.)</span>{% elif (row.input_method or "") == "Voice-to-text" %} <span class="small" style="color:var(--muted)">(edits only)</span>{% endif %}</dd>
     <dt>Paste</dt><dd>{{ row.paste_used or "" }}</dd>
     <dt>Correction</dt><dd>{{ row.correction_applied or "" }}</dd>
   </dl>

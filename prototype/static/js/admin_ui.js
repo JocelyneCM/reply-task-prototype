@@ -78,8 +78,16 @@ function buildTrialDetailHtml(row) {
       <dl class="pex-admin-detail-meta">
         <dt>Response time (s)</dt><dd>${escapeHtml(String(row.response_time_seconds ?? ""))}</dd>
         <dt>Words per minute</dt><dd>${escapeHtml(String(row.words_per_minute ?? ""))}</dd>
-        <dt>Keystrokes</dt><dd>${escapeHtml(String(row.keypress_count ?? ""))}</dd>
-        <dt>Backspaces</dt><dd>${escapeHtml(String(row.backspace_count ?? ""))}</dd>
+        <dt>Keystrokes</dt><dd>${escapeHtml(String(row.keypress_count ?? ""))}${
+          imethod === "Swipe typing" ? ' <span class="small" style="color:var(--muted)">(approx.)</span>'
+          : imethod === "Voice-to-text" ? ' <span class="small" style="color:var(--muted)">(edits only)</span>'
+          : ""
+        }</dd>
+        <dt>Backspaces</dt><dd>${escapeHtml(String(row.backspace_count ?? ""))}${
+          imethod === "Swipe typing" ? ' <span class="small" style="color:var(--muted)">(approx.)</span>'
+          : imethod === "Voice-to-text" ? ' <span class="small" style="color:var(--muted)">(edits only)</span>'
+          : ""
+        }</dd>
         <dt>Paste</dt><dd>${escapeHtml(row.paste_used || "")}</dd>
         <dt>Correction</dt><dd>${escapeHtml(row.correction_applied || "")}</dd>
       </dl>
