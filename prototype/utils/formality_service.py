@@ -126,7 +126,40 @@ def predict_formality(text: str, top_k: int = 1) -> Dict[str, Any]:
         top = out[0]
     else:
         top = out
-    return {"label": top.get("label"), "score": float(top.get("score", 0.0)), "raw": out}
+    # Normalize label names: prefer model.config.id2label mapping if present;
+    # otherwise map common HF pipeline labels like "LABEL_0" → trained names.
+    raw_label = top.get("label") if isinstance(top, dict) else None
+    label_norm = raw_label or ""
+
+    # Try to obtain id2label from the loaded model/pipeline
+    id2label = None
+    try:
+        if _model is not None:
+            id2label = getattr(_model.config, "id2label", None)
+        elif _pipeline is not None and hasattr(_pipeline, "model"):
+            id2label = getattr(_pipeline.model.config, "id2label", None)
+    except Exception:
+        id2label = None
+
+    if isinstance(label_norm, str) and label_norm.startswith("LABEL_"):
+        # LABEL_N format — map using id2label when available, else fallback
+        import re
+
+        m = re.match(r"LABEL_(\d+)", label_norm)
+        if m:
+            idx = int(m.group(1))
+            mapped = None
+            if id2label and isinstance(id2label, dict):
+                mapped = id2label.get(idx) or id2label.get(str(idx))
+            if not mapped:
+                # Fallback mapping used during training: 0=formal,1=informal
+                mapped = {0: "formal", 1: "informal"}.get(idx, label_norm)
+            label_norm = mapped
+
+    # Ensure label is a plain string
+    label_norm = (label_norm or "").strip()
+
+    return {"label": label_norm, "score": float(top.get("score", 0.0)), "raw": out}
 
 
 def predict_batch(texts: List[str]) -> List[Dict[str, Any]]:
@@ -140,5 +173,32 @@ def predict_batch(texts: List[str]) -> List[Dict[str, Any]]:
             top = o[0]
         else:
             top = o
-        results.append({"label": top.get("label"), "score": float(top.get("score", 0.0)), "raw": o})
+        raw_label = top.get("label") if isinstance(top, dict) else None
+        label_norm = raw_label or ""
+
+        # Try to get id2label mapping
+        id2label = None
+        try:
+            if _model is not None:
+                id2label = getattr(_model.config, "id2label", None)
+            elif _pipeline is not None and hasattr(_pipeline, "model"):
+                id2label = getattr(_pipeline.model.config, "id2label", None)
+        except Exception:
+            id2label = None
+
+        if isinstance(label_norm, str) and label_norm.startswith("LABEL_"):
+            import re
+
+            m = re.match(r"LABEL_(\d+)", label_norm)
+            if m:
+                idx = int(m.group(1))
+                mapped = None
+                if id2label and isinstance(id2label, dict):
+                    mapped = id2label.get(idx) or id2label.get(str(idx))
+                if not mapped:
+                    mapped = {0: "formal", 1: "informal"}.get(idx, label_norm)
+                label_norm = mapped
+
+        label_norm = (label_norm or "").strip()
+        results.append({"label": label_norm, "score": float(top.get("score", 0.0)), "raw": o})
     return results

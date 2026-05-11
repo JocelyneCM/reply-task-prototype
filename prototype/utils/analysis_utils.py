@@ -20,9 +20,13 @@ import importlib.util
 
 try:
     # Use the formality service wrapper implemented separately.
-    from .formality_service import predict_formality
+    # Also import the loader so we can ensure the locally-trained HF model
+    # (the `formality_model/` folder in the repo) is loaded before
+    # predictions are requested.
+    from .formality_service import predict_formality, load_model as _load_formality_model
 except Exception:
     predict_formality = None
+    _load_formality_model = None
 
 _bert_pipeline = None
 # Keep startup fast: only check if transformers is installed.
@@ -83,82 +87,32 @@ def analyze_bert(text: str) -> Dict[str, float or str]:
 
 def classify_style(text: str) -> str:
     """
-    Simple rule‑based style classifier.
+    Style classifier backed by the trained formality model.
 
-    Returns:
-        "formal", "informal" or "neutral".
-
-    The heuristics are intentionally transparent and interpretable for
-    research use; they rely on simple pattern checks that can be extended
-    later if desired.
+    Returns one of: "formal", "informal" or "neutral". If the
+    formality model is unavailable we return "neutral" as a safe default.
     """
     if not text:
         return "neutral"
+    if predict_formality is None:
+        return "neutral"
 
-    t = text.strip()
-    lower = t.lower()
-
-    # Simple cues for formality
-    formal_markers = [
-        "dear ",
-        "sincerely",
-        "regards",
-        "kind regards",
-        "best regards",
-        "to whom it may concern",
-        "i am writing",
-        "thank you for your consideration",
-    ]
-    informal_markers = [
-        "hey ",
-        "hi ",
-        "yo ",
-        "lol",
-        "omg",
-        "btw",
-        "gonna",
-        "wanna",
-        "kinda",
-        "sorta",
-        "haha",
-        "😂",
-        "😅",
-        "😊",
-        "❤️",
-        "thx",
-        "u ",
-        "you guys",
-    ]
-
-    # Contractions are a weak cue of informality in English.
-    contractions = ["n't", " I'm", " you're", " we're", " they've", " can't", "won't"]
-
-    # Count markers
-    formal_score = 0
-    informal_score = 0
-
-    for marker in formal_markers:
-        if marker in lower:
-            formal_score += 2
-    for marker in informal_markers:
-        if marker in lower:
-            informal_score += 2
-    for c in contractions:
-        if c.lower() in lower:
-            informal_score += 1
-
-    # Punctuation cues
-    if "!!" in t or "??" in t or "!" in t[-3:]:
-        informal_score += 1
-    if t.endswith(".") and len(t.split()) > 10:
-        formal_score += 1
-
-    if formal_score >= informal_score + 2:
-        return "formal"
-    if informal_score >= formal_score + 2:
-        return "informal"
-
-    return "neutral"
+    # Ensure the local model is loaded if possible, then predict.
+    try:
+        if _load_formality_model is not None:
+            try:
+                _load_formality_model()
+            except Exception:
+                pass
+        res = predict_formality(text)
+        label = (res.get("label") or "").strip()
+        # Normalize common HF label formats (e.g., LABEL_0) to readable names.
+        if label.startswith("LABEL_"):
+            mapping = {"formal": "formal", "informal": "informal"}
+            return mapping.get(label, label)
+        return label or "neutral"
+    except Exception:
+        return "neutral"
 
 
 def analyze_full_text(text: str) -> Dict[str, float or str]:
@@ -166,11 +120,23 @@ def analyze_full_text(text: str) -> Dict[str, float or str]:
     Convenience helper that returns formality (from the formality model)
     and BERT sentiment metadata for a given text.
     """
-    # Formality via the trained model (preferred).
+    # Formality via the trained model (preferred). Ensure the local
+    # `formality_model/` is loaded (if available) before calling the
+    # prediction helper so that the model you trained is actually used.
     formality_label = ""
     formality_conf = 0.0
     if predict_formality is not None:
         try:
+            # Attempt to eagerly load the locally-trained model. If loading
+            # fails (e.g., missing dependencies) we still attempt prediction
+            # which may lazily load or raise an error that we catch below.
+            if _load_formality_model is not None:
+                try:
+                    _load_formality_model()
+                except Exception:
+                    # Don't fail hard here; prediction will handle errors.
+                    pass
+
             res = predict_formality(text)
             formality_label = res.get("label") or ""
             formality_conf = float(res.get("score", 0.0))

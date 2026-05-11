@@ -201,7 +201,12 @@ def derive_prompt_metadata(prompt_text: str) -> Dict[str, str]:
     text = (prompt_text or "").strip()
     lower = text.lower()
 
-    formality = classify_style(text)
+    # Determine formality using the trained model (preferred).
+    formality = ""
+    try:
+        formality = analyze_full_text(text).get("formality_label", "") if text else ""
+    except Exception:
+        formality = ""
     tone = "neutral"
     seriousness = "medium"
 
@@ -679,8 +684,14 @@ def api_log_reply() -> Response:
     bert_raw = str(analysis.get("bert_label", "") or "")
     bert_normalized = normalize_bert_label(bert_raw)
 
-    # Add style classification. The rule‑based classifier always runs.
-    style_label = classify_style(final_text_for_analysis)
+    # Use the trained formality model for reply style/formality.
+    style_label = analysis.get("formality_label", "")
+
+    # Also analyze the prompt text so we can record prompt formality/style.
+    try:
+        prompt_analysis = analyze_full_text(prompt_text) if prompt_text else {"formality_label": ""}
+    except Exception:
+        prompt_analysis = {"formality_label": ""}
 
     words_per_minute = 0.0
     if response_time_seconds > 0 and final_text_for_analysis.strip():
@@ -708,7 +719,7 @@ def api_log_reply() -> Response:
         "paste_used": "yes" if paste_used else "no",
         "correction_applied": "yes" if correction_applied else "no",
         # Keep prompt metadata explicit for admin prompt interpretation.
-        "prompt_style": payload.get("prompt_style") or classify_style(prompt_text),
+        "prompt_style": payload.get("prompt_style") or prompt_analysis.get("formality_label", ""),
         "prompt_tone": (payload.get("prompt_tone") or "").strip(),
         "prompt_seriousness": (payload.get("prompt_seriousness") or "").strip(),
         "prompt_formality": (payload.get("prompt_formality") or "").strip(),
