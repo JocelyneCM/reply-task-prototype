@@ -4,7 +4,7 @@ This project supports two ways to provide an OpenAI API key for local developmen
 
 1) Environment variable (recommended)
 
-   export OPENAI_API_KEY="sk-..."
+   export OPENAI_API_KEY="sk-...your-key-here..."
 2) Local keys.json (dev only)
 
    Create a file at the repository root named `keys.json` with this structure:

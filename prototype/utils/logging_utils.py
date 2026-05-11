@@ -59,10 +59,16 @@ def _csv_headers() -> List[str]:
         "participant_id",
         "medium",
         "input_method",
+        "row_role",
+        "llm_provider",
         "prompt_text",
         "reply_text",
+        "participant_reply_text",
+        "llm_reply_text",
+        "final_reply_text",
         "transcript",
         "response_time_seconds",
+        "words_per_minute",
         "keypress_count",
         "backspace_count",
         "paste_used",
@@ -280,4 +286,3 @@ def load_logs_for_admin(
             rows.append(row)
 
     return rows
-

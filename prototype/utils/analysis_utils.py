@@ -16,6 +16,7 @@ In that case we return safe neutral defaults.
 from __future__ import annotations
 
 from typing import Dict
+import importlib.util
 
 try:
     # Use the formality service wrapper implemented separately.
@@ -27,17 +28,29 @@ except Exception:
     predict_formality = None
     _load_formality_model = None
 
-try:
-    from transformers import pipeline  # type: ignore
+_bert_pipeline = None
+# Keep startup fast: only check if transformers is installed.
+BERT_AVAILABLE: bool = importlib.util.find_spec("transformers") is not None
 
-    # Use a common sentiment model and reuse it once loaded.
-    _bert_pipeline = pipeline(
-        "sentiment-analysis", model="nlptown/bert-base-multilingual-uncased-sentiment"
-    )
-    BERT_AVAILABLE: bool = True
-except Exception:  # pragma: no cover - environment‑dependent
-    _bert_pipeline = None
-    BERT_AVAILABLE = False
+
+def _ensure_bert_pipeline() -> None:
+    """
+    Lazily load the Transformers sentiment pipeline on first use.
+    """
+    global _bert_pipeline, BERT_AVAILABLE
+    if _bert_pipeline is not None:
+        return
+    if not BERT_AVAILABLE:
+        return
+    try:
+        from transformers import pipeline  # type: ignore
+
+        _bert_pipeline = pipeline(
+            "sentiment-analysis", model="nlptown/bert-base-multilingual-uncased-sentiment"
+        )
+    except Exception:  # pragma: no cover - environment‑dependent
+        _bert_pipeline = None
+        BERT_AVAILABLE = False
 
 
 def analyze_bert(text: str) -> Dict[str, float or str]:
@@ -52,7 +65,11 @@ def analyze_bert(text: str) -> Dict[str, float or str]:
 
     If BERT is unavailable, the label "neutral" with confidence 0.0 is used.
     """
-    if not text or not BERT_AVAILABLE or _bert_pipeline is None:
+    if not text or not BERT_AVAILABLE:
+        return {"label": "neutral", "confidence": 0.0}
+
+    _ensure_bert_pipeline()
+    if _bert_pipeline is None:
         return {"label": "neutral", "confidence": 0.0}
 
     try:

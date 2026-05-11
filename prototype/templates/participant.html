@@ -84,13 +84,6 @@
               <span class="pex-nav-desc">Inbox &amp; reply</span>
             </button>
           </li>
-          <li>
-            <button type="button" class="pex-nav-btn" data-medium="Voice">
-              <span class="pex-nav-icon" aria-hidden="true">🎙️</span>
-              <span class="pex-nav-label">Voice</span>
-              <span class="pex-nav-desc">Voice notes</span>
-            </button>
-          </li>
         </ul>
         <p class="pex-drawer-footnote">
           Same conversation — different apps people use every day.
@@ -99,6 +92,17 @@
 
       <main class="pex-main">
         <input type="hidden" id="participantId" value="" />
+        <section class="pex-study-condition" aria-label="Study condition">
+          <label for="studyInputMethod" class="pex-study-condition-label">Study condition</label>
+          <select id="studyInputMethod" class="pex-study-condition-select">
+            <option value="Typing">Typing</option>
+            <option value="Swipe typing">Swipe typing</option>
+            <option value="Voice-to-text">Voice-to-text</option>
+          </select>
+        </section>
+        <p class="pex-study-condition-hint" id="studyInputInstruction">
+          Type your reply normally.
+        </p>
 
         <!-- ——— SMS (iMessage-inspired) ——— -->
         <section
@@ -125,6 +129,9 @@
             <div class="pex-corrections" id="suggestionSMS"></div>
             <footer class="pex-composer pex-composer--sms">
               <label class="pex-sr-only" for="replySMS">Your message</label>
+              <button type="button" class="pex-voice-inline-btn" id="recordTextVoiceSMSBtn">
+                Mic
+              </button>
               <textarea
                 id="replySMS"
                 class="pex-input pex-input--rounded"
@@ -168,6 +175,9 @@
             <div class="pex-corrections" id="suggestionMsg"></div>
             <footer class="pex-composer pex-composer--msg">
               <label class="pex-sr-only" for="replyMsg">Your message</label>
+              <button type="button" class="pex-voice-inline-btn" id="recordTextVoiceMsgBtn">
+                Mic
+              </button>
               <textarea
                 id="replyMsg"
                 class="pex-input pex-input--msg"
@@ -204,7 +214,10 @@
                     <span class="pex-mail-row-from" id="emailFromPreview"
                       >Someone</span
                     >
-                    <span class="pex-mail-row-time">9:41 AM</span>
+                    <span class="pex-mail-row-time-group">
+                      <span class="pex-mail-row-time" id="pexMailRowTime">9:41 AM</span>
+                      <span id="pexMailUnreadBadge" class="pex-mail-unread-badge hidden" aria-hidden="true">1</span>
+                    </span>
                   </div>
                   <div class="pex-mail-row-subject" id="emailSubjectPreview">
                     Quick question
@@ -229,19 +242,87 @@
                 </button>
               </div>
               <article class="pex-mail-read">
-                <h2 class="pex-mail-read-subject" id="emailSubject">
-                  Quick question
-                </h2>
+                <h2 class="pex-mail-read-subject" id="emailSubject">Quick question</h2>
                 <div class="pex-mail-read-meta">
                   <span class="pex-mail-read-from"
                     ><strong id="emailFrom">someone@example.com</strong></span
                   >
-                  <span class="pex-mail-read-to" id="emailTo"
-                    >to you@study.local</span
-                  >
+                  <span class="pex-mail-read-to" id="emailTo">to you@study.local</span>
                 </div>
-                <div class="pex-mail-read-body" id="promptEmail">
-                  Hi! Can you help me with something today?
+                <div class="pex-mail-thread-stack" id="pexMailThreadStack" aria-label="Email thread">
+                  <article class="pex-mail-card pex-mail-card--peer">
+                    <header class="pex-mail-card-hdr">
+                      <span class="pex-mail-card-from"><strong>Alex</strong></span>
+                      <time class="pex-mail-card-time" id="emailTimeOriginal"></time>
+                    </header>
+                    <p class="pex-mail-card-line">
+                      <span class="pex-mail-card-k">From</span>
+                      <span id="emailCardFrom">someone@example.com</span>
+                    </p>
+                    <p class="pex-mail-card-line">
+                      <span class="pex-mail-card-k">To</span>
+                      <span id="emailCardTo">you@study.local</span>
+                    </p>
+                    <p class="pex-mail-card-line">
+                      <span class="pex-mail-card-k">Subject</span>
+                      <span id="emailCardSubject">Quick question</span>
+                    </p>
+                    <div class="pex-mail-card-body" id="promptEmail">
+                      Hi! Can you help me with something today?
+                    </div>
+                  </article>
+                  <div id="pexMailExchange" class="pex-mail-thread-followups hidden" aria-live="polite">
+                    <hr class="pex-mail-sep" />
+                    <article class="pex-mail-card pex-mail-card--self">
+                      <header class="pex-mail-card-hdr">
+                        <span class="pex-mail-card-from"><strong>You</strong></span>
+                        <time class="pex-mail-card-time" id="emailTimeYou"></time>
+                      </header>
+                      <p class="pex-mail-card-line">
+                        <span class="pex-mail-card-k">To</span>
+                        <span id="emailCardToYou">someone@example.com</span>
+                      </p>
+                      <p class="pex-mail-card-line">
+                        <span class="pex-mail-card-k">Subject</span>
+                        <span id="emailCardSubjYou">Re: Quick question</span>
+                      </p>
+                      <div class="pex-mail-card-body" id="pexMailYourReply"></div>
+                    </article>
+                    <hr class="pex-mail-sep" />
+                    <article class="pex-mail-card pex-mail-card--peer">
+                      <header class="pex-mail-card-hdr">
+                        <span class="pex-mail-card-from"><strong>Alex</strong></span>
+                        <time class="pex-mail-card-time" id="emailTimeAlex"></time>
+                      </header>
+                      <p class="pex-mail-card-line">
+                        <span class="pex-mail-card-k">To</span>
+                        <span id="emailCardToAlex">you@study.local</span>
+                      </p>
+                      <p class="pex-mail-card-line">
+                        <span class="pex-mail-card-k">Subject</span>
+                        <span id="emailCardSubjAlex">Re: Quick question</span>
+                      </p>
+                      <div class="pex-mail-card-body" id="pexMailAlexReply"></div>
+                    </article>
+                    <div id="pexMailFinalWrap" class="hidden">
+                      <hr class="pex-mail-sep" />
+                      <article class="pex-mail-card pex-mail-card--self">
+                        <header class="pex-mail-card-hdr">
+                          <span class="pex-mail-card-from"><strong>You</strong></span>
+                          <time class="pex-mail-card-time" id="emailTimeFinal"></time>
+                        </header>
+                        <p class="pex-mail-card-line">
+                          <span class="pex-mail-card-k">To</span>
+                          <span id="emailCardToFinal">someone@example.com</span>
+                        </p>
+                        <p class="pex-mail-card-line">
+                          <span class="pex-mail-card-k">Subject</span>
+                          <span id="emailCardSubjFinal">Re: Quick question</span>
+                        </p>
+                        <div class="pex-mail-card-body" id="pexMailFinalReply"></div>
+                      </article>
+                    </div>
+                  </div>
                 </div>
               </article>
               <div class="pex-mail-read-actions">
@@ -282,6 +363,9 @@
                 placeholder="Write your reply…"
               ></textarea>
               <div class="pex-mail-compose-footer">
+                <button type="button" class="pex-voice-inline-btn" id="recordTextVoiceEmailBtn">
+                  Mic
+                </button>
                 <button type="button" class="pex-btn-primary" id="sendEmailBtn">
                   Send
                 </button>

@@ -6,12 +6,14 @@ __pycache__/
 # Environment
 .env
 
-# Audio files
+# Secrets in this directory (see also repo-root .gitignore for keys.json / KEYS.js)
+keys.json
+
+# Audio uploads (participant reply blobs under static/audio/)
 static/audio/
 
-# Data logs
+# Data logs (`*.csv` sharing is intentional for some experiments; uncomment to ignore logs locally)
 #*.csv
-# Removed because I want us to share data, might get reenabled
 
 # Mac
 .DS_Store
