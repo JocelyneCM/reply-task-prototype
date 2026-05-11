@@ -19,6 +19,16 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;");
 }
 
+/** Readable formality model output for admin tables/charts (matches study export mapping). */
+function displayFormalityRegisterLabel(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "—";
+  const u = s.toUpperCase();
+  if (u === "LABEL_0") return "Informal register (class 0)";
+  if (u === "LABEL_1") return "Formal register (class 1)";
+  return s;
+}
+
 function createEl(tag, className) {
   const el = document.createElement(tag);
   if (className) el.className = className;
@@ -124,6 +134,12 @@ function initParticipantUI() {
     replyEmail: document.getElementById("replyEmail"),
     recordTextVoiceEmailBtn: document.getElementById("recordTextVoiceEmailBtn"),
     sendEmailBtn: document.getElementById("sendEmailBtn"),
+    mailExchange: document.getElementById("pexMailExchange"),
+    mailYourReply: document.getElementById("pexMailYourReply"),
+    mailAlexReply: document.getElementById("pexMailAlexReply"),
+    mailFinalWrap: document.getElementById("pexMailFinalWrap"),
+    mailFinalReply: document.getElementById("pexMailFinalReply"),
+    mailUnreadBadge: document.getElementById("pexMailUnreadBadge"),
     voiceThread: document.getElementById("voiceThread"),
     promptAudio: document.getElementById("promptAudio"),
     promptPlayBtn: document.getElementById("pexPromptPlayBtn"),
@@ -333,6 +349,13 @@ function initParticipantUI() {
         : "Re:";
     const emailTo = document.getElementById("emailToCompose");
     if (emailTo) emailTo.textContent = scenario.emailFrom || "someone@example.com";
+    syncMailPreview();
+    syncEmailThreadPeerCardFromDom();
+    const t0 = document.getElementById("emailTimeOriginal");
+    if (t0) {
+      delete t0.dataset.locked;
+      t0.textContent = formatMailCardTime();
+    }
     const baseText = String(scenario.emailBody || scenario.sms || "");
     currentPromptMeta = {
       ...derivePromptMetaFromText(baseText),
@@ -343,6 +366,60 @@ function initParticipantUI() {
     promptShownAtMsByMedium.SMS = stamp;
     promptShownAtMsByMedium.Messenger = stamp;
     promptShownAtMsByMedium.Email = stamp;
+    resetMailExchangeUi();
+    els.mailUnreadBadge?.classList.add("hidden");
+  }
+
+  function formatMailCardTime() {
+    try {
+      return new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  }
+
+  /** Sync first message card From/To/Subject lines from header fields. */
+  function syncEmailThreadPeerCardFromDom() {
+    const from = els.emailFrom?.textContent?.trim() || "someone@example.com";
+    const to = els.emailTo?.textContent?.replace(/^to\s+/i, "").trim() || "you@study.local";
+    const subj = els.emailSubject?.textContent?.trim() || "";
+    const cf = document.getElementById("emailCardFrom");
+    const ct = document.getElementById("emailCardTo");
+    const cs = document.getElementById("emailCardSubject");
+    if (cf) cf.textContent = from;
+    if (ct) ct.textContent = to;
+    if (cs) cs.textContent = subj || "—";
+    const t0 = document.getElementById("emailTimeOriginal");
+    if (t0 && !t0.dataset.locked) t0.textContent = formatMailCardTime();
+  }
+
+  function syncEmailFollowupMetaLines() {
+    const alexAddr = els.emailFrom?.textContent?.trim() || "someone@example.com";
+    const youLine = els.emailTo?.textContent?.replace(/^to\s+/i, "").trim() || "you@study.local";
+    const reSub =
+      document.getElementById("replyEmailSubject")?.textContent?.trim() || "Re:";
+    const set = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
+    set("emailCardToYou", alexAddr);
+    set("emailCardSubjYou", reSub);
+    set("emailCardToAlex", youLine);
+    set("emailCardSubjAlex", reSub);
+    set("emailCardToFinal", alexAddr);
+    set("emailCardSubjFinal", reSub);
+  }
+
+  function resetMailExchangeUi() {
+    if (els.mailYourReply) els.mailYourReply.textContent = "";
+    if (els.mailAlexReply) els.mailAlexReply.textContent = "";
+    if (els.mailFinalReply) els.mailFinalReply.textContent = "";
+    if (els.mailFinalWrap) els.mailFinalWrap.classList.add("hidden");
+    if (els.mailExchange) els.mailExchange.classList.add("hidden");
+    ["emailTimeYou", "emailTimeAlex", "emailTimeFinal"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = "";
+    });
   }
 
   async function assignRandomTextPrompts() {
@@ -558,7 +635,11 @@ function initParticipantUI() {
   }
 
   if (els.mailOpenBtn)
-    els.mailOpenBtn.addEventListener("click", () => setEmailStep("read"));
+    els.mailOpenBtn.addEventListener("click", () => {
+      els.mailUnreadBadge?.classList.add("hidden");
+      syncEmailThreadPeerCardFromDom();
+      setEmailStep("read");
+    });
   if (els.mailBackList)
     els.mailBackList.addEventListener("click", () => setEmailStep("list"));
   if (els.mailReplyBtn)
@@ -597,7 +678,13 @@ function initParticipantUI() {
       btn.classList.toggle("is-active", btn.dataset.medium === medium);
     });
 
-    if (medium === "Email") setEmailStep("list");
+    if (medium === "Email") {
+      if (currentRun && currentRun.medium === "Email") {
+        setEmailStep("read");
+      } else {
+        setEmailStep("list");
+      }
+    }
     if (medium === "Voice") assignVoicePrompt();
     if (els.studyInputMethod) syncStudyInstruction();
     closeDrawer();
@@ -956,6 +1043,16 @@ function initParticipantUI() {
     if (els.participantId) els.participantId.value = pid;
     setParticipantId(pid);
 
+    /** Block duplicate sends while the first-turn assistant reply is still loading (fixes Email/SMS race). */
+    if (
+      currentRun &&
+      currentRun.llm_reply_text === "" &&
+      currentRun.final_text === ""
+    ) {
+      showToast("Waiting for assistant reply…");
+      return;
+    }
+
     const replyText =
       extra.replyText != null ? String(extra.replyText).trim() : getReplyText();
     const promptText =
@@ -1002,7 +1099,9 @@ function initParticipantUI() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      showToast("Sent");
+      if (!(body.medium === "Email" && !currentRun)) {
+        showToast("Sent");
+      }
       if (els.studyCondition) {
         els.studyCondition.classList.add("hidden");
       }
@@ -1027,10 +1126,40 @@ function initParticipantUI() {
         final_text: "",
       };
 
-      // Request an LLM-generated reply and display it for chat mediums.
-      (async () => {
-        const isChatMedium =
-          currentRun.medium === "SMS" || currentRun.medium === "Messenger";
+      const isChatMedium =
+        currentRun.medium === "SMS" || currentRun.medium === "Messenger";
+      const isEmail = currentRun.medium === "Email";
+
+      const applyEmailExchangeAfterLlm = (llmTextForUi) => {
+        if (!isEmail || !els.mailExchange) return;
+        syncEmailFollowupMetaLines();
+        if (els.mailYourReply) els.mailYourReply.textContent = currentRun.reply_text;
+        if (els.mailAlexReply) els.mailAlexReply.textContent = llmTextForUi;
+        if (els.mailFinalWrap) els.mailFinalWrap.classList.add("hidden");
+        if (els.mailFinalReply) els.mailFinalReply.textContent = "";
+        const ty = document.getElementById("emailTimeYou");
+        const ta = document.getElementById("emailTimeAlex");
+        if (ty) ty.textContent = formatMailCardTime();
+        if (ta) ta.textContent = formatMailCardTime();
+        els.mailExchange.classList.remove("hidden");
+      };
+
+      const updateInboxSnippetAfterAlex = (llmTextForUi) => {
+        const snip = document.querySelector(".pex-mail-row-snippet");
+        if (!snip) return;
+        const t = String(llmTextForUi || "").trim();
+        const short = t.length > 80 ? `${t.slice(0, 80)}…` : t;
+        snip.textContent = short ? `Alex: ${short}` : snip.textContent;
+      };
+
+      const runAssistantAfterFirstLog = async () => {
+        let typingRowEl = null;
+        if (isChatMedium) {
+          const thread = currentRun.medium === "SMS" ? els.smsThread : els.messengerThread;
+          const kind = currentRun.medium === "SMS" ? "sms" : "msg";
+          typingRowEl = showTypingRow(thread, kind);
+        }
+        if (isEmail && els.sendEmailBtn) els.sendEmailBtn.disabled = true;
         try {
           const gen = await fetchJSONWithTimeout("/api/generate_reply", {
             method: "POST",
@@ -1046,21 +1175,29 @@ function initParticipantUI() {
               prompt_seriousness: body.prompt_seriousness || "",
             }),
           }, 8000);
-          console.log("[generate_reply] provider:", gen?.meta?.provider || "unknown");
+          const provider = String(gen?.meta?.provider || "");
+          console.log("[generate_reply] provider:", provider || "unknown");
+
+          if (provider === "fallback") {
+            showToast(
+              "Study notice: LLM fallback (not live OpenAI). Rows show llm_provider=fallback in CSV/admin."
+            );
+          }
+
           const llmText = (gen.reply || "").trim();
           if (!llmText) {
             throw new Error("Generated reply was empty.");
           }
           currentRun.llm_reply_text = llmText;
 
-          // Display LLM reply in chat threads; for non-chat modes keep logging only.
           if (isChatMedium) {
             const thread = currentRun.medium === "SMS" ? els.smsThread : els.messengerThread;
             const kind = currentRun.medium === "SMS" ? "sms" : "msg";
             appendIncoming(thread, llmText, kind);
           }
+          applyEmailExchangeAfterLlm(llmText);
+          if (isEmail) updateInboxSnippetAfterAlex(llmText);
 
-          // Log the LLM-generated reply as a trial row.
           try {
             await fetchJSON("/api/log_reply", {
               method: "POST",
@@ -1071,7 +1208,7 @@ function initParticipantUI() {
                 input_method: "LLM",
                 prompt_text: currentRun.prompt_text,
                 reply_text: llmText,
-                llm_provider: String(gen?.meta?.provider || ""),
+                llm_provider: provider,
                 response_time_seconds: 0,
                 keypress_count: 0,
                 backspace_count: 0,
@@ -1087,22 +1224,60 @@ function initParticipantUI() {
           }
         } catch (e) {
           console.error("generate_reply failed", e);
-          const msg = e?.name === "AbortError"
-            ? "Generated reply timed out; showing fallback."
-            : "Generated reply failed; showing fallback.";
-          showToast(msg);
-          // If LLM generation fails, show a local fallback reply for chat mediums.
+          const msg =
+            e?.name === "AbortError"
+              ? "Assistant reply timed out."
+              : "Assistant reply failed.";
+          showToast(
+            `${msg} Placeholder shown — not OpenAI (llm_provider=client_error in CSV).`
+          );
+          const placeholder = buildAutoReply(currentRun.reply_text);
+          currentRun.llm_reply_text = placeholder;
           if (isChatMedium) {
             const thread = currentRun.medium === "SMS" ? els.smsThread : els.messengerThread;
             const kind = currentRun.medium === "SMS" ? "sms" : "msg";
-            appendIncoming(thread, buildAutoReply(currentRun.reply_text), kind);
-          } else {
-            showToast("Reply sent");
+            appendIncoming(thread, placeholder, kind);
           }
+          applyEmailExchangeAfterLlm(placeholder);
+          if (isEmail) updateInboxSnippetAfterAlex(placeholder);
+          try {
+            await fetchJSON("/api/log_reply", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                participant_id: currentRun.participant_id,
+                medium: currentRun.medium,
+                input_method: "LLM",
+                prompt_text: currentRun.prompt_text,
+                reply_text: placeholder,
+                llm_provider: "client_error",
+                response_time_seconds: 0,
+                keypress_count: 0,
+                backspace_count: 0,
+                paste_used: false,
+                correction_applied: false,
+                prompt_style: body.prompt_style || "",
+                prompt_tone: body.prompt_tone || "",
+                prompt_seriousness: body.prompt_seriousness || "",
+              }),
+            });
+          } catch (logErr) {
+            console.warn("Failed to log placeholder LLM reply", logErr);
+          }
+        } finally {
+          if (typingRowEl && typingRowEl.parentNode) typingRowEl.remove();
+          if (isEmail && els.sendEmailBtn) els.sendEmailBtn.disabled = false;
         }
-      })();
+      };
 
-      // Keep trial state so the next user reply can be treated as final.
+      if (isEmail) {
+        void runAssistantAfterFirstLog().finally(() => {
+          resetTrialState();
+        });
+        return;
+      }
+
+      await runAssistantAfterFirstLog();
       resetTrialState();
       return;
     }
@@ -1110,6 +1285,21 @@ function initParticipantUI() {
     // If we already have an LLM reply stored, treat this as the final reply.
     if (currentRun && currentRun.llm_reply_text && !currentRun.final_text) {
       currentRun.final_text = body.reply_text;
+
+      const mailReadSnap =
+        currentRun.medium === "Email"
+          ? {
+              promptBody: els.promptEmail?.textContent ?? "",
+              subject: els.emailSubject?.textContent ?? "",
+              from: els.emailFrom?.textContent ?? "",
+              subjectPreview: els.emailSubjectPreview?.textContent ?? "",
+              fromPreview: els.emailFromPreview?.textContent ?? "",
+              inboxSnippet: document.querySelector(".pex-mail-row-snippet")?.textContent ?? "",
+              your: currentRun.reply_text,
+              alex: currentRun.llm_reply_text,
+              final: body.reply_text,
+            }
+          : null;
 
       // Emit a per-run CSV via the server and then rotate prompts.
       try {
@@ -1143,16 +1333,47 @@ function initParticipantUI() {
         showToast("Run export failed");
       }
 
-      // Clear run state and rotate prompts for the next task.
       currentRun = null;
       resetTrialState();
-      assignRandomTextPrompts();
+      await assignRandomTextPrompts();
+
+      if (mailReadSnap && els.promptEmail) {
+        els.promptEmail.textContent = mailReadSnap.promptBody;
+        if (els.emailSubject) els.emailSubject.textContent = mailReadSnap.subject;
+        if (els.emailFrom) els.emailFrom.textContent = mailReadSnap.from;
+        if (els.emailSubjectPreview)
+          els.emailSubjectPreview.textContent = mailReadSnap.subjectPreview;
+        if (els.emailFromPreview)
+          els.emailFromPreview.textContent = mailReadSnap.fromPreview;
+        const snip = document.querySelector(".pex-mail-row-snippet");
+        if (snip) snip.textContent = mailReadSnap.inboxSnippet;
+        const replySub = document.getElementById("replyEmailSubject");
+        if (replySub) {
+          replySub.textContent = mailReadSnap.subject
+            ? `Re: ${mailReadSnap.subject}`
+            : "Re:";
+        }
+        const emailTo = document.getElementById("emailToCompose");
+        if (emailTo) emailTo.textContent = mailReadSnap.from || "someone@example.com";
+        if (els.mailYourReply) els.mailYourReply.textContent = mailReadSnap.your;
+        if (els.mailAlexReply) els.mailAlexReply.textContent = mailReadSnap.alex;
+        if (els.mailFinalReply) els.mailFinalReply.textContent = mailReadSnap.final;
+        if (els.mailFinalWrap) els.mailFinalWrap.classList.remove("hidden");
+        if (els.mailExchange) els.mailExchange.classList.remove("hidden");
+        syncMailPreview();
+        syncEmailThreadPeerCardFromDom();
+        syncEmailFollowupMetaLines();
+        const tf = document.getElementById("emailTimeFinal");
+        if (tf) tf.textContent = formatMailCardTime();
+        setEmailStep("read");
+      }
+
       return;
     }
 
     // Fallback: rotate prompts after normal reply logging.
     resetTrialState();
-    assignRandomTextPrompts();
+    await assignRandomTextPrompts();
   }
 
   async function handleChatSend(medium) {
@@ -1252,8 +1473,26 @@ function initParticipantUI() {
       }
       els.replyEmail.value = "";
       els.suggestionEmail && (els.suggestionEmail.innerHTML = "");
-      setEmailStep("read");
-      showToast("Message sent");
+      const mailRun = currentRun;
+      if (mailRun?.medium === "Email" && !mailRun.final_text) {
+        const snip = document.querySelector(".pex-mail-row-snippet");
+        if (!mailRun.llm_reply_text) {
+          if (snip) snip.textContent = "Updating thread…";
+        } else {
+          const t = String(mailRun.llm_reply_text || "").trim();
+          const short = t.length > 80 ? `${t.slice(0, 80)}…` : t;
+          if (snip) snip.textContent = short ? `Alex: ${short}` : snip.textContent;
+        }
+        syncMailPreview();
+        els.mailUnreadBadge?.classList.remove("hidden");
+        setEmailStep("list");
+        showToast("Reply sent");
+      } else {
+        els.mailUnreadBadge?.classList.add("hidden");
+        setEmailStep("read");
+        syncMailPreview();
+        showToast("Message sent");
+      }
     });
   }
 
@@ -1694,7 +1933,7 @@ function initAdminUI() {
   const VIEW_COPY = {
     overview: {
       title: "Overview",
-      desc: "Snapshot of trials, mediums, and sentiment across the whole log.",
+      desc: "Participant trials, mediums, and average response time by input method.",
     },
     participants: {
       title: "Participants",
@@ -1702,15 +1941,19 @@ function initAdminUI() {
     },
     trials: {
       title: "Trials & charts",
-      desc: "Filter the log, explore charts, and open a trial for full detail.",
+      desc: "Filter the log, inspect rows, and open a trial for full detail.",
+    },
+    visualizations: {
+      title: "Visualizations",
+      desc: "Build charts from the log with filters — display only; storage unchanged.",
     },
     exports: {
       title: "Exports",
-      desc: "Download the same CSV files the server writes under data/logs and data/participants.",
+      desc: "Study-friendly CSV or full archive — on-disk logs are never modified by export.",
     },
     settings: {
       title: "About",
-      desc: "How the participant UI, APIs, and this console connect.",
+      desc: "What Relay records and where exports live.",
     },
   };
 
@@ -1751,13 +1994,24 @@ function initAdminUI() {
     uploadPromptAudioBtn: document.getElementById("adminUploadPromptAudioBtn"),
     promptAudioStatus: document.getElementById("adminPromptAudioStatus"),
     transcriptionRuntime: document.getElementById("adminTranscriptionRuntime"),
+    vizChartType: document.getElementById("vizChartType"),
+    vizParticipantFilter: document.getElementById("vizParticipantFilter"),
+    vizMediumFilter: document.getElementById("vizMediumFilter"),
+    vizInputMethodFilter: document.getElementById("vizInputMethodFilter"),
+    vizIncludeLlm: document.getElementById("vizIncludeLlm"),
+    vizApplyBtn: document.getElementById("vizApplyBtn"),
+    vizMetaPanel: document.getElementById("vizMetaPanel"),
+    studyExportAdvancedCols: document.getElementById("studyExportAdvancedCols"),
+    downloadStudyAllBtn: document.getElementById("downloadStudyAllBtn"),
+    downloadStudyParticipantBtn: document.getElementById("downloadStudyParticipantBtn"),
   };
 
-  let sentimentChart = null;
   let responseTimeChart = null;
   let styleChart = null;
+  let avgRtByInputChart = null;
   let overviewMediumChart = null;
-  let overviewBertChart = null;
+  let overviewAvgRtByInputChart = null;
+  let vizBuilderChart = null;
   /** Last rows rendered in the trial table (for detail selection). */
   let lastTrialRows = [];
   let participantAliasMap = {};
@@ -1854,6 +2108,11 @@ function initAdminUI() {
     return "ok";
   }
 
+  /**
+   * Build P001… aliases from the given participant id set only.
+   * Must use the full /api/participants list — never filtered trial rows —
+   * or the same display alias will point at different raw ids after filtering.
+   */
   function buildParticipantAliases(rows) {
     const ids = Array.from(
       new Set((rows || []).map((r) => (r.participant_id || "").trim()).filter(Boolean))
@@ -1948,6 +2207,7 @@ function initAdminUI() {
     btn.addEventListener("click", () => {
       const key = btn.dataset.adminView;
       if (key) showAdminView(key);
+      if (key === "visualizations") void runVisualizationUpdate();
     });
   });
 
@@ -1966,12 +2226,15 @@ function initAdminUI() {
       ids.forEach((id) => {
         const o = document.createElement("option");
         o.value = id;
-        o.textContent = `${participantAliasMap[id] || id} (${id})`;
+        const label = participantAliasMap[id] || id;
+        o.textContent = label;
+        o.title = id !== label ? `Logged ID: ${id}` : `Participant ID: ${id}`;
         select.appendChild(o);
       });
     }
     fillSelect(els.participantFilter, true, "All participants", "");
     fillSelect(els.exportParticipantSelect, false, "", "Choose…");
+    fillSelect(els.vizParticipantFilter, true, "All participants", "");
   }
 
   function loadParticipants() {
@@ -2022,7 +2285,10 @@ function initAdminUI() {
       tdSel.appendChild(cb);
 
       const tdId = document.createElement("td");
-      tdId.textContent = displayParticipantId(pid);
+      const disp = displayParticipantId(pid);
+      tdId.textContent = disp;
+      if (pid && pid !== disp) tdId.title = `Logged ID: ${pid}`;
+      else if (pid) tdId.title = `Participant ID: ${pid}`;
       const tdCount = document.createElement("td");
       tdCount.textContent = String(s.trial_count ?? "");
       const tdLast = document.createElement("td");
@@ -2074,31 +2340,23 @@ function initAdminUI() {
     }
   }
 
-  function renderOverviewCharts(mediumBreakdown, bertBreakdown) {
+  function renderOverviewCharts(mediumBreakdown, avgRtByInputMethod) {
     if (typeof Chart === "undefined") {
       console.warn("Chart.js not available; skipping admin charts.");
       return;
     }
     const ctxM = document.getElementById("overviewMediumChart");
-    const ctxB = document.getElementById("overviewBertChart");
-    if (!ctxM || !ctxB) return;
+    const ctxAvg = document.getElementById("overviewAvgRtByInputChart");
+    if (!ctxM || !ctxAvg) return;
 
     const accent = cssColor("--accent", "#6ea8fe");
-    const good = cssColor("--good", "#7ee787");
     const warn = cssColor("--warn", "#ffcc66");
 
     const mLabels = Object.keys(mediumBreakdown || {});
     const mValues = mLabels.map((k) => mediumBreakdown[k]);
-    const bertNorm = {};
-    Object.entries(bertBreakdown || {}).forEach(([k, v]) => {
-      const nk = normalizeBertLabel(k);
-      bertNorm[nk] = (bertNorm[nk] || 0) + Number(v || 0);
-    });
-    const bLabels = Object.keys(bertNorm);
-    const bValues = bLabels.map((k) => bertNorm[k]);
 
     if (overviewMediumChart) overviewMediumChart.destroy();
-    if (overviewBertChart) overviewBertChart.destroy();
+    if (overviewAvgRtByInputChart) overviewAvgRtByInputChart.destroy();
 
     const common = baseChartOptions();
 
@@ -2120,22 +2378,30 @@ function initAdminUI() {
       },
     });
 
-    overviewBertChart = new Chart(ctxB, {
-      type: "doughnut",
+    const inputKeys = ["Typing", "Swipe typing", "Voice-to-text"];
+    const avgVals = inputKeys.map((k) => {
+      const v = (avgRtByInputMethod || {})[k];
+      return typeof v === "number" && !Number.isNaN(v) ? v : 0;
+    });
+
+    overviewAvgRtByInputChart = new Chart(ctxAvg, {
+      type: "bar",
       data: {
-        labels: bLabels.length ? bLabels : ["—"],
+        labels: inputKeys,
         datasets: [
           {
-            data: bValues.length ? bValues : [1],
-            backgroundColor: [accent, good, warn, "#b197fc", "#89ddff"],
+            label: "Avg seconds",
+            data: avgVals,
+            backgroundColor: warn,
           },
         ],
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: "bottom", labels: { color: chartFontColor() } },
+        ...common,
+        plugins: { ...common.plugins, legend: { display: false } },
+        scales: {
+          ...common.scales,
+          y: { ...common.scales.y, beginAtZero: true },
         },
       },
     });
@@ -2160,7 +2426,10 @@ function initAdminUI() {
         populateMediumFilter(
           Object.keys(data.medium_breakdown || {})
         );
-        renderOverviewCharts(data.medium_breakdown || {}, data.bert_breakdown || {});
+        renderOverviewCharts(
+          data.medium_breakdown || {},
+          data.avg_rt_by_input_method || {}
+        );
       })
       .catch(() => {});
   }
@@ -2253,7 +2522,7 @@ function initAdminUI() {
         const rows = showGeneratedRows
           ? rowsAll
           : rowsAll.filter((r) => (r.input_method || "").trim() !== "LLM");
-        buildParticipantAliases(rows);
+        // Do not rebuild aliases from filtered rows — breaks P001↔raw id mapping.
         populateMediumFilter(rows.map((r) => r.medium));
         renderTable(rows);
         renderCharts(rows);
@@ -2291,9 +2560,18 @@ function initAdminUI() {
     });
   }
 
+  function csvExportIncludeQuery(card) {
+    const fs = document.querySelector(`fieldset[data-export-card="${card}"]`);
+    if (!fs) return "";
+    const r = fs.querySelector('input[type="radio"]:checked');
+    if (r && r.value === "include_llm") return "&include_generated=1";
+    return "";
+  }
+
   if (els.downloadAllBtn) {
     els.downloadAllBtn.addEventListener("click", () => {
-      window.location.href = "/api/download_csv?scope=all";
+      const inc = csvExportIncludeQuery("global");
+      window.location.href = "/api/download_csv?scope=all" + inc;
     });
   }
 
@@ -2304,9 +2582,11 @@ function initAdminUI() {
         alert("Choose a participant first.");
         return;
       }
+      const inc = csvExportIncludeQuery("participant");
       window.location.href =
         "/api/download_csv?scope=participant&participant_id=" +
-        encodeURIComponent(id);
+        encodeURIComponent(id) +
+        inc;
     });
   }
 
@@ -2326,14 +2606,43 @@ function initAdminUI() {
         });
     });
   }
+  function syncAdminCustomPromptPanes() {
+    const kind =
+      document.querySelector('input[name="adminCustomPromptKind"]:checked')
+        ?.value || "sms_msg";
+    document
+      .getElementById("adminCustomSmsFields")
+      ?.classList.toggle("hidden", kind !== "sms_msg");
+    document
+      .getElementById("adminCustomEmailFields")
+      ?.classList.toggle("hidden", kind !== "email");
+  }
+  document
+    .querySelectorAll('input[name="adminCustomPromptKind"]')
+    .forEach((r) => r.addEventListener("change", syncAdminCustomPromptPanes));
+  syncAdminCustomPromptPanes();
+
   if (els.saveCustomPromptBtn) {
     els.saveCustomPromptBtn.addEventListener("click", () => {
-      const sms = (els.customSmsPrompt?.value || "").trim();
-      const emailSubject = (els.customEmailSubject?.value || "").trim();
-      const emailBody = (els.customEmailBody?.value || "").trim();
-      if (!sms && !emailSubject && !emailBody) {
-        alert("Enter at least one custom prompt field.");
-        return;
+      const kind =
+        document.querySelector('input[name="adminCustomPromptKind"]:checked')
+          ?.value || "sms_msg";
+      let sms = (els.customSmsPrompt?.value || "").trim();
+      let emailSubject = (els.customEmailSubject?.value || "").trim();
+      let emailBody = (els.customEmailBody?.value || "").trim();
+      if (kind === "sms_msg") {
+        emailSubject = "";
+        emailBody = "";
+        if (!sms) {
+          alert("Enter SMS/Messenger prompt text.");
+          return;
+        }
+      } else {
+        sms = "";
+        if (!emailSubject && !emailBody) {
+          alert("Enter email subject and/or body.");
+          return;
+        }
       }
       if (!window.confirm("Save this custom prompt for the next exercise?")) return;
       fetchJSON("/api/prompt_pool/next", {
@@ -2442,7 +2751,10 @@ function initAdminUI() {
     fetch("/api/admin/trial_detail", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(row),
+      body: JSON.stringify({
+        ...row,
+        participant_display: displayParticipantId(row.participant_id || ""),
+      }),
     })
       .then((res) => {
         if (!res.ok) throw new Error("detail fetch failed");
@@ -2537,7 +2849,7 @@ function initAdminUI() {
     clearTrialDetailSelection();
     if (els.trialDetailInner) {
       els.trialDetailInner.innerHTML =
-        '<p class="pex-admin-detail-placeholder">Select a trial on the left to see full fields, sentiment scores, and audio.</p>';
+        '<p class="pex-admin-detail-placeholder">Select a row for details.</p>';
     }
 
     tbody.innerHTML = "";
@@ -2549,15 +2861,24 @@ function initAdminUI() {
       if (isGenerated) tr.classList.add("is-generated-row");
       const preview = (row.reply_text || row.transcript || "").toString();
       const previewWithRole = isGenerated ? `[SYSTEM] ${preview}` : preview;
+      const pidRaw = String(row.participant_id || "").trim();
+      const pidDisp = displayParticipantId(pidRaw);
+      const pidTitle =
+        pidRaw && pidRaw !== pidDisp
+          ? escapeHtml(`Logged ID: ${pidRaw}`)
+          : pidRaw
+            ? escapeHtml(`Participant ID: ${pidRaw}`)
+            : "";
       tr.innerHTML = `
         <td>${escapeHtml((row.timestamp || "").slice(0, 19))}</td>
-        <td>${escapeHtml(displayParticipantId(row.participant_id || ""))}</td>
+        <td title="${pidTitle}">${escapeHtml(pidDisp)}</td>
         <td>${escapeHtml(row.medium || "")}</td>
         <td>${escapeHtml(row.input_method || "")}</td>
         <td>${escapeHtml(previewWithRole.slice(0, 72))}${previewWithRole.length > 72 ? "…" : ""}</td>
-        <td>${escapeHtml(normalizeBertLabel(row.bert_label || ""))}</td>
         <td>${escapeHtml(String(row.response_time_seconds ?? ""))}</td>
-        <td>${escapeHtml(row.reply_style || "")}</td>
+        <td title="${escapeHtml((row.formality_label || "").trim() || "—")}">${escapeHtml(
+          displayFormalityRegisterLabel((row.formality_label || "").trim())
+        )}</td>
       `;
       tr.addEventListener("click", () => selectTrialRow(idx));
       tr.addEventListener("keydown", (e) => {
@@ -2575,26 +2896,28 @@ function initAdminUI() {
       console.warn("Chart.js not available; skipping admin charts.");
       return;
     }
-    const ctxSentiment = document.getElementById("sentimentChart");
     const ctxResponse = document.getElementById("responseTimeChart");
     const ctxStyle = document.getElementById("styleChart");
-    if (!ctxSentiment || !ctxResponse || !ctxStyle) return;
+    const ctxAvgRt = document.getElementById("avgRtByInputChart");
+    if (!ctxResponse || !ctxStyle || !ctxAvgRt) return;
 
-    const sentimentCounts = {};
     const styleCounts = {};
     const responseTimes = [];
 
     rows.forEach((row) => {
-      const label = normalizeBertLabel(row.bert_label || "neutral");
-      sentimentCounts[label] = (sentimentCounts[label] || 0) + 1;
-      const style = row.reply_style || "neutral";
+      const fLab = (row.formality_label || "").trim();
+      const style = fLab ? displayFormalityRegisterLabel(fLab) : "(no label)";
       styleCounts[style] = (styleCounts[style] || 0) + 1;
+    });
+
+    const rowsChrono = [...(rows || [])].sort((a, b) =>
+      String(a.timestamp || "").localeCompare(String(b.timestamp || ""))
+    );
+    rowsChrono.forEach((row) => {
       const rt = parseFloat(row.response_time_seconds || "0");
       if (!Number.isNaN(rt) && rt > 0) responseTimes.push(rt);
     });
 
-    const sentimentLabels = Object.keys(sentimentCounts);
-    const sentimentValues = sentimentLabels.map((k) => sentimentCounts[k]);
     const styleLabels = Object.keys(styleCounts);
     const styleValues = styleLabels.map((k) => styleCounts[k]);
     const rtLabels = responseTimes.map((_, i) => String(i + 1));
@@ -2603,29 +2926,27 @@ function initAdminUI() {
     const good = cssColor("--good", "#7ee787");
     const warn = cssColor("--warn", "#ffcc66");
 
-    if (sentimentChart) sentimentChart.destroy();
     if (responseTimeChart) responseTimeChart.destroy();
     if (styleChart) styleChart.destroy();
+    if (avgRtByInputChart) avgRtByInputChart.destroy();
 
     const base = baseChartOptions();
 
-    sentimentChart = new Chart(ctxSentiment, {
-      type: "bar",
-      data: {
-        labels: sentimentLabels.length ? sentimentLabels : ["—"],
-        datasets: [
-          {
-            label: "Count",
-            data: sentimentValues.length ? sentimentValues : [0],
-            backgroundColor: accent,
-          },
-        ],
-      },
-      options: {
-        ...base,
-        plugins: { ...base.plugins, legend: { display: false } },
-      },
+    const inputMethodKeys = ["Typing", "Swipe typing", "Voice-to-text"];
+    const rtSumByIm = Object.fromEntries(inputMethodKeys.map((k) => [k, 0]));
+    const rtCountByIm = Object.fromEntries(inputMethodKeys.map((k) => [k, 0]));
+    (rows || []).forEach((row) => {
+      if ((row.input_method || "").trim() === "LLM") return;
+      const im = (row.input_method || "").trim();
+      if (!inputMethodKeys.includes(im)) return;
+      const rt = parseFloat(row.response_time_seconds || "0");
+      if (Number.isNaN(rt) || rt <= 0) return;
+      rtSumByIm[im] += rt;
+      rtCountByIm[im] += 1;
     });
+    const avgRtValues = inputMethodKeys.map((k) =>
+      rtCountByIm[k] ? rtSumByIm[k] / rtCountByIm[k] : 0
+    );
 
     responseTimeChart = new Chart(ctxResponse, {
       type: "line",
@@ -2646,7 +2967,14 @@ function initAdminUI() {
         plugins: { ...base.plugins, legend: { display: false } },
         scales: {
           ...base.scales,
-          x: { ...base.scales.x, title: { display: true, text: "Trial #", color: chartMutedColor() } },
+          x: {
+            ...base.scales.x,
+            title: {
+              display: true,
+              text: "Trial # (oldest → newest in this view)",
+              color: chartMutedColor(),
+            },
+          },
         },
       },
     });
@@ -2669,6 +2997,397 @@ function initAdminUI() {
           legend: { position: "bottom", labels: { color: chartFontColor() } },
         },
       },
+    });
+
+    avgRtByInputChart = new Chart(ctxAvgRt, {
+      type: "bar",
+      data: {
+        labels: inputMethodKeys,
+        datasets: [
+          {
+            label: "Avg seconds",
+            data: avgRtValues,
+            backgroundColor: warn,
+          },
+        ],
+      },
+      options: {
+        ...base,
+        plugins: { ...base.plugins, legend: { display: false } },
+        scales: {
+          ...base.scales,
+          x: {
+            ...base.scales.x,
+            title: {
+              display: true,
+              text: "Input method (participant rows)",
+              color: chartMutedColor(),
+            },
+          },
+          y: {
+            ...base.scales.y,
+            title: {
+              display: true,
+              text: "Avg response time (s)",
+              color: chartMutedColor(),
+            },
+            beginAtZero: true,
+          },
+        },
+      },
+    });
+  }
+
+  function filterVisualizationRows(rowsAll, opts) {
+    const { participant, medium, inputMethod, includeLlm } = opts;
+    let rows = rowsAll || [];
+    if (!includeLlm) {
+      rows = rows.filter((r) => (r.input_method || "").trim() !== "LLM");
+    }
+    const pid = (participant || "").trim();
+    if (pid) {
+      const rawId = aliasToRawMap[pid] || pid;
+      rows = rows.filter((r) => (r.participant_id || "").trim() === rawId);
+    }
+    const med = (medium || "").trim();
+    if (med) rows = rows.filter((r) => (r.medium || "").trim() === med);
+    const im = (inputMethod || "").trim();
+    if (im) rows = rows.filter((r) => (r.input_method || "").trim() === im);
+    return rows;
+  }
+
+  const VIZ_HELP = {
+    medium: {
+      title: "Trials by medium",
+      body: "Row counts per interface (SMS, Messenger, Email, …) after filters. Participant replies only unless you include AI-generated rows.",
+    },
+    response_time: {
+      title: "Response time",
+      body: "Each point is one row’s response time in seconds, oldest to newest in the filtered set. Non-positive times are omitted.",
+    },
+    avg_rt_input: {
+      title: "Avg response time by input method",
+      body: "Mean seconds for Typing, Swipe typing, and Voice-to-text where response time is recorded and positive.",
+    },
+    formality: {
+      title: "Formality model",
+      body: "Distribution of register labels from the trained formality model (readable labels, not raw codes).",
+    },
+  };
+
+  async function runVisualizationUpdate() {
+    const canvas = document.getElementById("vizBuilderChart");
+    if (!canvas || typeof Chart === "undefined") {
+      console.warn("Chart.js or canvas missing; skipping visualization builder.");
+      return;
+    }
+    const rawPid = (els.vizParticipantFilter?.value || "").trim();
+    const params = new URLSearchParams();
+    if (rawPid) {
+      const idForApi = aliasToRawMap[rawPid] || rawPid;
+      params.set("participant_id", idForApi);
+    }
+    let rowsAll = [];
+    try {
+      const data = await fetchJSON("/api/logs?" + params.toString());
+      rowsAll = data.rows || [];
+    } catch {
+      rowsAll = [];
+    }
+    const includeLlm = !!els.vizIncludeLlm?.checked;
+    const medium = (els.vizMediumFilter?.value || "").trim();
+    const inputMethod = (els.vizInputMethodFilter?.value || "").trim();
+    const rows = filterVisualizationRows(rowsAll, {
+      participant: rawPid,
+      medium,
+      inputMethod,
+      includeLlm,
+    });
+
+    const chartType = (els.vizChartType?.value || "medium").trim();
+    const detailEl = document.querySelector('input[name="vizDetailLevel"]:checked');
+    const detailed = detailEl && detailEl.value === "detailed";
+
+    if (vizBuilderChart) vizBuilderChart.destroy();
+
+    const accent = cssColor("--accent", "#6ea8fe");
+    const good = cssColor("--good", "#7ee787");
+    const warn = cssColor("--warn", "#ffcc66");
+    const base = baseChartOptions();
+    const help = VIZ_HELP[chartType] || VIZ_HELP.medium;
+
+    if (els.vizMetaPanel) {
+      if (detailed) {
+        els.vizMetaPanel.classList.remove("hidden");
+        const dispPid = rawPid ? displayParticipantId(rawPid) || rawPid : "All";
+        const mf = medium || "All";
+        const imf = inputMethod || "All";
+        const gen = includeLlm ? "Include AI-generated rows" : "Participant replies only";
+        const nRt = rows.filter((r) => {
+          const x = parseFloat(r.response_time_seconds || "0");
+          return !Number.isNaN(x) && x > 0;
+        }).length;
+        els.vizMetaPanel.innerHTML = `
+          <div class="pex-admin-viz-meta-title">${escapeHtml(help.title)}</div>
+          <p class="pex-admin-viz-meta-text">${escapeHtml(help.body)}</p>
+          <ul class="pex-admin-viz-meta-list">
+            <li><strong>Rows in chart:</strong> ${rows.length}</li>
+            <li><strong>With response time &gt; 0:</strong> ${nRt}</li>
+            <li><strong>Participant:</strong> ${escapeHtml(dispPid)}</li>
+            <li><strong>Medium:</strong> ${escapeHtml(mf)}</li>
+            <li><strong>Input method:</strong> ${escapeHtml(imf)}</li>
+            <li><strong>Rows setting:</strong> ${escapeHtml(gen)}</li>
+          </ul>`;
+      } else {
+        els.vizMetaPanel.classList.add("hidden");
+        els.vizMetaPanel.innerHTML = "";
+      }
+    }
+
+    if (chartType === "medium") {
+      const counts = {};
+      rows.forEach((r) => {
+        const m = (r.medium || "—").trim() || "—";
+        counts[m] = (counts[m] || 0) + 1;
+      });
+      const labels = Object.keys(counts);
+      const values = labels.map((k) => counts[k]);
+      vizBuilderChart = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: labels.length ? labels : ["—"],
+          datasets: [
+            {
+              label: detailed ? "Rows" : "Trials",
+              data: values.length ? values : [0],
+              backgroundColor: accent,
+            },
+          ],
+        },
+        options: {
+          ...base,
+          plugins: {
+            ...base.plugins,
+            legend: { display: detailed && !!labels.length },
+            title: detailed
+              ? {
+                  display: true,
+                  text: "Trials by medium",
+                  color: chartMutedColor(),
+                  font: { size: 13 },
+                }
+              : { display: false },
+          },
+          scales: {
+            ...base.scales,
+            x: {
+              ...base.scales.x,
+              title: {
+                display: detailed,
+                text: "Medium",
+                color: chartMutedColor(),
+              },
+            },
+            y: {
+              ...base.scales.y,
+              beginAtZero: true,
+              title: {
+                display: detailed,
+                text: "Row count",
+                color: chartMutedColor(),
+              },
+            },
+          },
+        },
+      });
+    } else if (chartType === "response_time") {
+      const chrono = [...rows].sort((a, b) =>
+        String(a.timestamp || "").localeCompare(String(b.timestamp || ""))
+      );
+      const times = [];
+      chrono.forEach((r) => {
+        const rt = parseFloat(r.response_time_seconds || "0");
+        if (!Number.isNaN(rt) && rt > 0) times.push(rt);
+      });
+      const labels = times.map((_, i) => String(i + 1));
+      vizBuilderChart = new Chart(canvas, {
+        type: "line",
+        data: {
+          labels: labels.length ? labels : ["—"],
+          datasets: [
+            {
+              label: detailed ? "Seconds" : "Response time",
+              data: times.length ? times : [0],
+              borderColor: good,
+              tension: 0.25,
+              fill: false,
+            },
+          ],
+        },
+        options: {
+          ...base,
+          plugins: {
+            ...base.plugins,
+            legend: { display: false },
+            title: detailed
+              ? {
+                  display: true,
+                  text: "Response time by trial (ordered)",
+                  color: chartMutedColor(),
+                  font: { size: 13 },
+                }
+              : { display: false },
+          },
+          scales: {
+            ...base.scales,
+            x: {
+              ...base.scales.x,
+              display: detailed,
+              title: detailed
+                ? { display: true, text: "Trial order", color: chartMutedColor() }
+                : { display: false },
+            },
+            y: {
+              ...base.scales.y,
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: "Seconds",
+                color: chartMutedColor(),
+              },
+            },
+          },
+        },
+      });
+    } else if (chartType === "avg_rt_input") {
+      const inputKeys = ["Typing", "Swipe typing", "Voice-to-text"];
+      const rtSum = Object.fromEntries(inputKeys.map((k) => [k, 0]));
+      const rtCnt = Object.fromEntries(inputKeys.map((k) => [k, 0]));
+      rows.forEach((r) => {
+        if ((r.input_method || "").trim() === "LLM") return;
+        const im = (r.input_method || "").trim();
+        if (!inputKeys.includes(im)) return;
+        const rt = parseFloat(r.response_time_seconds || "0");
+        if (Number.isNaN(rt) || rt <= 0) return;
+        rtSum[im] += rt;
+        rtCnt[im] += 1;
+      });
+      const avgVals = inputKeys.map((k) => (rtCnt[k] ? rtSum[k] / rtCnt[k] : 0));
+      vizBuilderChart = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: inputKeys,
+          datasets: [
+            {
+              label: detailed ? "Avg seconds" : "Avg s",
+              data: avgVals,
+              backgroundColor: warn,
+            },
+          ],
+        },
+        options: {
+          ...base,
+          plugins: {
+            ...base.plugins,
+            legend: { display: false },
+            title: detailed
+              ? {
+                  display: true,
+                  text: "Avg response time by input method",
+                  color: chartMutedColor(),
+                  font: { size: 13 },
+                }
+              : { display: false },
+          },
+          scales: {
+            ...base.scales,
+            x: {
+              ...base.scales.x,
+              title: {
+                display: detailed,
+                text: "Input method",
+                color: chartMutedColor(),
+              },
+            },
+            y: {
+              ...base.scales.y,
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: detailed ? "Average seconds" : "Seconds",
+                color: chartMutedColor(),
+              },
+            },
+          },
+        },
+      });
+    } else if (chartType === "formality") {
+      const styleCounts = {};
+      rows.forEach((row) => {
+        const fLab = (row.formality_label || "").trim();
+        const style = fLab ? displayFormalityRegisterLabel(fLab) : "(no label)";
+        styleCounts[style] = (styleCounts[style] || 0) + 1;
+      });
+      const styleLabels = Object.keys(styleCounts);
+      const styleValues = styleLabels.map((k) => styleCounts[k]);
+      vizBuilderChart = new Chart(canvas, {
+        type: "doughnut",
+        data: {
+          labels: styleLabels.length ? styleLabels : ["—"],
+          datasets: [
+            {
+              data: styleValues.length ? styleValues : [1],
+              backgroundColor: [accent, good, warn, "#b197fc", "#94a3b8"],
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: detailed ? "bottom" : "right",
+              labels: { color: chartFontColor(), boxWidth: detailed ? 12 : 10 },
+            },
+            title: detailed
+              ? {
+                  display: true,
+                  text: "Formality model distribution",
+                  color: chartMutedColor(),
+                  font: { size: 13 },
+                }
+              : { display: false },
+          },
+        },
+      });
+    }
+  }
+
+  if (els.vizApplyBtn) {
+    els.vizApplyBtn.addEventListener("click", () => {
+      void runVisualizationUpdate();
+    });
+  }
+
+  if (els.downloadStudyAllBtn) {
+    els.downloadStudyAllBtn.addEventListener("click", () => {
+      const adv = els.studyExportAdvancedCols?.checked ? "&study_advanced=1" : "";
+      window.location.href = "/api/download_csv?scope=all&layout=study" + adv;
+    });
+  }
+  if (els.downloadStudyParticipantBtn) {
+    els.downloadStudyParticipantBtn.addEventListener("click", () => {
+      const id = els.exportParticipantSelect?.value;
+      if (!id) {
+        alert("Choose a participant first.");
+        return;
+      }
+      const adv = els.studyExportAdvancedCols?.checked ? "&study_advanced=1" : "";
+      window.location.href =
+        "/api/download_csv?scope=participant&participant_id=" +
+        encodeURIComponent(id) +
+        "&layout=study" +
+        adv;
     });
   }
 

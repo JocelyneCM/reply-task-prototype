@@ -214,7 +214,10 @@
                     <span class="pex-mail-row-from" id="emailFromPreview"
                       >Someone</span
                     >
-                    <span class="pex-mail-row-time">9:41 AM</span>
+                    <span class="pex-mail-row-time-group">
+                      <span class="pex-mail-row-time" id="pexMailRowTime">9:41 AM</span>
+                      <span id="pexMailUnreadBadge" class="pex-mail-unread-badge hidden" aria-hidden="true">1</span>
+                    </span>
                   </div>
                   <div class="pex-mail-row-subject" id="emailSubjectPreview">
                     Quick question
@@ -239,19 +242,87 @@
                 </button>
               </div>
               <article class="pex-mail-read">
-                <h2 class="pex-mail-read-subject" id="emailSubject">
-                  Quick question
-                </h2>
+                <h2 class="pex-mail-read-subject" id="emailSubject">Quick question</h2>
                 <div class="pex-mail-read-meta">
                   <span class="pex-mail-read-from"
                     ><strong id="emailFrom">someone@example.com</strong></span
                   >
-                  <span class="pex-mail-read-to" id="emailTo"
-                    >to you@study.local</span
-                  >
+                  <span class="pex-mail-read-to" id="emailTo">to you@study.local</span>
                 </div>
-                <div class="pex-mail-read-body" id="promptEmail">
-                  Hi! Can you help me with something today?
+                <div class="pex-mail-thread-stack" id="pexMailThreadStack" aria-label="Email thread">
+                  <article class="pex-mail-card pex-mail-card--peer">
+                    <header class="pex-mail-card-hdr">
+                      <span class="pex-mail-card-from"><strong>Alex</strong></span>
+                      <time class="pex-mail-card-time" id="emailTimeOriginal"></time>
+                    </header>
+                    <p class="pex-mail-card-line">
+                      <span class="pex-mail-card-k">From</span>
+                      <span id="emailCardFrom">someone@example.com</span>
+                    </p>
+                    <p class="pex-mail-card-line">
+                      <span class="pex-mail-card-k">To</span>
+                      <span id="emailCardTo">you@study.local</span>
+                    </p>
+                    <p class="pex-mail-card-line">
+                      <span class="pex-mail-card-k">Subject</span>
+                      <span id="emailCardSubject">Quick question</span>
+                    </p>
+                    <div class="pex-mail-card-body" id="promptEmail">
+                      Hi! Can you help me with something today?
+                    </div>
+                  </article>
+                  <div id="pexMailExchange" class="pex-mail-thread-followups hidden" aria-live="polite">
+                    <hr class="pex-mail-sep" />
+                    <article class="pex-mail-card pex-mail-card--self">
+                      <header class="pex-mail-card-hdr">
+                        <span class="pex-mail-card-from"><strong>You</strong></span>
+                        <time class="pex-mail-card-time" id="emailTimeYou"></time>
+                      </header>
+                      <p class="pex-mail-card-line">
+                        <span class="pex-mail-card-k">To</span>
+                        <span id="emailCardToYou">someone@example.com</span>
+                      </p>
+                      <p class="pex-mail-card-line">
+                        <span class="pex-mail-card-k">Subject</span>
+                        <span id="emailCardSubjYou">Re: Quick question</span>
+                      </p>
+                      <div class="pex-mail-card-body" id="pexMailYourReply"></div>
+                    </article>
+                    <hr class="pex-mail-sep" />
+                    <article class="pex-mail-card pex-mail-card--peer">
+                      <header class="pex-mail-card-hdr">
+                        <span class="pex-mail-card-from"><strong>Alex</strong></span>
+                        <time class="pex-mail-card-time" id="emailTimeAlex"></time>
+                      </header>
+                      <p class="pex-mail-card-line">
+                        <span class="pex-mail-card-k">To</span>
+                        <span id="emailCardToAlex">you@study.local</span>
+                      </p>
+                      <p class="pex-mail-card-line">
+                        <span class="pex-mail-card-k">Subject</span>
+                        <span id="emailCardSubjAlex">Re: Quick question</span>
+                      </p>
+                      <div class="pex-mail-card-body" id="pexMailAlexReply"></div>
+                    </article>
+                    <div id="pexMailFinalWrap" class="hidden">
+                      <hr class="pex-mail-sep" />
+                      <article class="pex-mail-card pex-mail-card--self">
+                        <header class="pex-mail-card-hdr">
+                          <span class="pex-mail-card-from"><strong>You</strong></span>
+                          <time class="pex-mail-card-time" id="emailTimeFinal"></time>
+                        </header>
+                        <p class="pex-mail-card-line">
+                          <span class="pex-mail-card-k">To</span>
+                          <span id="emailCardToFinal">someone@example.com</span>
+                        </p>
+                        <p class="pex-mail-card-line">
+                          <span class="pex-mail-card-k">Subject</span>
+                          <span id="emailCardSubjFinal">Re: Quick question</span>
+                        </p>
+                        <div class="pex-mail-card-body" id="pexMailFinalReply"></div>
+                      </article>
+                    </div>
+                  </div>
                 </div>
               </article>
               <div class="pex-mail-read-actions">

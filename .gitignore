@@ -1,4 +1,23 @@
+# Python / virtual environments
 venv/
-GYAFC/
-formality_model/
+.venv/
+prototype/.venv/
+__pycache__/
+*.pyc
+
+# Secrets (never commit)
 keys.json
+prototype/keys.json
+KEYS.js
+
+# Local / OS clutter
+.DS_Store
+
+# Large local training corpus (typically not tracked)
+GYAFC/
+
+# Trained model directory (often large or machine-specific; sync via team process)
+formality_model/
+
+# Runtime uploads — participant-recorded reply audio saved by the Flask app under prototype/static/audio/
+prototype/static/audio/

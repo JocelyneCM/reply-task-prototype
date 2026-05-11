@@ -68,7 +68,5 @@ def test_generate_reply_mocked(monkeypatch, client):
     assert data.get("ok") is True
     assert data.get("reply") == "Mock reply"
 
-    # confirm logging was attempted
-    assert len(calls) == 1
-    assert calls[0]["participant_id"] == "testpid"
-    assert calls[0]["reply_text"] == "Mock reply"
+    # Successful OpenAI responses no longer log trial rows here (client logs generated rows).
+    assert len(calls) == 0

@@ -21,8 +21,9 @@ The code is written to be production‑quality for a prototype:
 from __future__ import annotations
 
 from datetime import datetime
+from io import BytesIO, StringIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import csv
 import json
@@ -61,6 +62,11 @@ if __package__:
         FFMPEG_AVAILABLE,
         WHISPER_ERROR,
     )
+    from .utils.prompt_engineering import (
+        OPENAI_CHAT_MODEL,
+        build_fallback_reply_text,
+        build_openai_generate_reply_system_and_user_content,
+    )
 else:
     from utils.logging_utils import (  # type: ignore
         ensure_base_directories,
@@ -81,6 +87,11 @@ else:
         WHISPER_AVAILABLE,
         FFMPEG_AVAILABLE,
         WHISPER_ERROR,
+    )
+    from utils.prompt_engineering import (  # type: ignore
+        OPENAI_CHAT_MODEL,
+        build_fallback_reply_text,
+        build_openai_generate_reply_system_and_user_content,
     )
 
 
@@ -847,25 +858,15 @@ def api_generate_reply() -> Response:
         try:
             import requests
 
-            inferred_prompt_style = classify_style(prompt_text)
-            desired_style = (target_formality or inferred_prompt_style or "neutral").strip().lower()
-            system = (
-                "You are roleplaying the other person in a short study conversation. "
-                "Write exactly one concise follow-up reply (1-2 sentences). "
-                "Preserve the intended tone/formality of the original prompt. "
-                "Guide the conversation toward a natural ending."
+            system, user_content = build_openai_generate_reply_system_and_user_content(
+                prompt_text,
+                user_reply,
+                target_formality,
+                classify_style,
             )
-            user_content = (
-                f"Original prompt: {prompt_text}\n"
-                f"Participant reply: {user_reply}\n"
-                f"Desired style: {desired_style}\n"
-                "Generate the next reply only."
-            )
-            if target_formality:
-                user_content += f"\nDesired formality: {target_formality}"
 
             body = {
-                "model": "gpt-3.5-turbo",
+                "model": OPENAI_CHAT_MODEL,
                 "messages": [
                     {"role": "system", "content": system},
                     {"role": "user", "content": user_content},
@@ -910,22 +911,11 @@ def api_generate_reply() -> Response:
 
     # Fallback heuristic reply if no LLM is configured or call fails.
     # Fallback heuristic reply if no LLM is configured or call fails.
-    inferred_prompt_style = classify_style(prompt_text)
-    desired_style = (target_formality or inferred_prompt_style or "neutral").strip().lower()
-    if desired_style == "formal":
-        fallback = (
-            "Thank you for the clarification. That sounds reasonable; "
-            "could you share one final detail so we can close this?"
-        )
-    elif desired_style == "informal":
-        fallback = (
-            "Got it, thanks. That helps a lot - can you add one quick final detail "
-            "so we can wrap this up?"
-        )
-    else:
-        fallback = (
-            "Thanks, that helps. Could you add one final short detail so we can finish?"
-        )
+    fallback = build_fallback_reply_text(
+        prompt_text,
+        target_formality,
+        classify_style,
+    )
     try:
         fallback_analysis = analyze_full_text(fallback)
     except Exception:
@@ -1141,6 +1131,28 @@ def api_admin_summary() -> Response:
         )
     )
 
+    input_keys = ["Typing", "Swipe typing", "Voice-to-text"]
+    rt_sum = {k: 0.0 for k in input_keys}
+    rt_cnt = {k: 0 for k in input_keys}
+    for r in rows:
+        im = (r.get("input_method") or "").strip()
+        if im not in input_keys:
+            continue
+        try:
+            rt = float(r.get("response_time_seconds") or 0)
+        except (TypeError, ValueError):
+            rt = 0.0
+        if rt > 0:
+            rt_sum[im] += rt
+            rt_cnt[im] += 1
+    avg_rt_by_input_method = {
+        k: (rt_sum[k] / rt_cnt[k]) if rt_cnt[k] else 0.0 for k in input_keys
+    }
+    avg_rt_input_meta = {
+        k: {"avg_seconds": avg_rt_by_input_method[k], "count": rt_cnt[k]}
+        for k in input_keys
+    }
+
     return jsonify(
         {
             "ok": True,
@@ -1149,8 +1161,151 @@ def api_admin_summary() -> Response:
             "participant_stats": participant_stats,
             "medium_breakdown": medium_breakdown,
             "bert_breakdown": bert_breakdown,
+            "avg_rt_by_input_method": avg_rt_by_input_method,
+            "avg_rt_input_meta": avg_rt_input_meta,
         }
     )
+
+
+def _csv_row_is_generated_for_export(row: Dict[str, str]) -> bool:
+    if (row.get("input_method") or "").strip() == "LLM":
+        return True
+    role = (row.get("row_role") or "").strip().lower().replace("-", "_")
+    return role == "system_generated"
+
+
+def _filter_csv_rows_for_export(
+    rows: List[Dict[str, str]], include_generated: bool
+) -> List[Dict[str, str]]:
+    if include_generated:
+        return rows
+    return [r for r in rows if not _csv_row_is_generated_for_export(r)]
+
+
+def _formality_label_display(raw: str) -> str:
+    """Human-readable formality register label for study exports and admin UI."""
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    u = s.upper()
+    if u == "LABEL_0":
+        return "Informal register (class 0)"
+    if u == "LABEL_1":
+        return "Formal register (class 1)"
+    return s
+
+
+# Study CSV: core columns only; participant / human rows (no LLM rows).
+_STUDY_CSV_BASE_HEADERS = [
+    "timestamp",
+    "participant_id",
+    "medium",
+    "input_method",
+    "prompt_text",
+    "participant_reply_text",
+    "response_time_seconds",
+    "keystrokes",
+    "backspaces",
+    "paste_used",
+    "correction_applied",
+    "formality_label",
+    "formality_confidence",
+]
+
+_STUDY_CSV_ADVANCED_HEADERS = [
+    "formality_label_raw",
+    "bert_label",
+    "bert_raw",
+    "bert_confidence",
+    "transcript_source",
+    "reply_analysis_basis",
+    "llm_provider",
+    "formality_match_prompt_reply",
+    "transcript",
+    "words_per_minute",
+    "row_role",
+    "reply_text",
+    "llm_reply_text",
+    "final_reply_text",
+    "prompt_style",
+    "reply_style",
+    "prompt_tone",
+    "prompt_seriousness",
+    "prompt_formality",
+    "reply_analysis_status",
+    "transcript_status",
+    "audio_filename",
+]
+
+
+def _study_csv_row(
+    row: Dict[str, str], include_advanced: bool
+) -> Dict[str, str]:
+    pr = (row.get("participant_reply_text") or row.get("reply_text") or "").strip()
+    raw_fl = (row.get("formality_label") or "").strip()
+    out: Dict[str, str] = {
+        "timestamp": (row.get("timestamp") or "").strip(),
+        "participant_id": (row.get("participant_id") or "").strip(),
+        "medium": (row.get("medium") or "").strip(),
+        "input_method": (row.get("input_method") or "").strip(),
+        "prompt_text": row.get("prompt_text") or "",
+        "participant_reply_text": pr,
+        "response_time_seconds": (row.get("response_time_seconds") or "").strip(),
+        "keystrokes": (row.get("keypress_count") or "").strip(),
+        "backspaces": (row.get("backspace_count") or "").strip(),
+        "paste_used": (row.get("paste_used") or "").strip(),
+        "correction_applied": (row.get("correction_applied") or "").strip(),
+        "formality_label": _formality_label_display(raw_fl),
+        "formality_confidence": (row.get("formality_confidence") or "").strip(),
+    }
+    if include_advanced:
+        out["formality_label_raw"] = raw_fl
+        for h in _STUDY_CSV_ADVANCED_HEADERS[1:]:
+            out[h] = (row.get(h) or "").strip() if row.get(h) is not None else ""
+    return out
+
+
+def _build_study_csv_bytes(
+    csv_path: Path, include_advanced: bool
+) -> Tuple[bytes, List[str]]:
+    """
+    Build a study-oriented CSV (readable headers / register labels).
+    On-disk logs are unchanged; this is export-only. Excludes LLM rows.
+    """
+    headers = list(_STUDY_CSV_BASE_HEADERS)
+    if include_advanced:
+        headers = headers + list(_STUDY_CSV_ADVANCED_HEADERS)
+
+    if not csv_path.exists():
+        sink = StringIO(newline="")
+        w = csv.DictWriter(sink, fieldnames=headers, extrasaction="ignore")
+        w.writeheader()
+        return sink.getvalue().encode("utf-8"), headers
+
+    with csv_path.open("r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        data_rows = list(reader)
+
+    human_only = [r for r in data_rows if not _csv_row_is_generated_for_export(r)]
+    sink = StringIO(newline="")
+    writer = csv.DictWriter(sink, fieldnames=headers, extrasaction="ignore")
+    writer.writeheader()
+    for r in human_only:
+        writer.writerow(_study_csv_row(r, include_advanced))
+    return sink.getvalue().encode("utf-8"), headers
+
+
+def _build_csv_attachment_bytes(csv_path: Path, include_generated: bool) -> bytes:
+    with csv_path.open("r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        headers = list(reader.fieldnames or [])
+        data_rows = list(reader)
+    filtered = _filter_csv_rows_for_export(data_rows, include_generated)
+    sink = StringIO(newline="")
+    writer = csv.DictWriter(sink, fieldnames=headers, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(filtered)
+    return sink.getvalue().encode("utf-8")
 
 
 @app.get("/api/download_csv")
@@ -1163,9 +1318,23 @@ def api_download_csv() -> Response:
             * "all" (default) – global file with all participants.
             * "participant"  – single participant file
         - participant_id – required when scope=participant
+        - layout:
+            * "raw" (default) — same column schema as on-disk logs (optional row filter).
+            * "study" — export-only: human rows, readable headers, friendly formality labels;
+              LLM rows are never included. Use study_advanced for extra analysis columns.
+        - include_generated — raw layout only: if "1" / true / yes, full on-disk rows.
+        - study_advanced — layout=study: append secondary columns (BERT, transcript_source, …).
     """
     scope = request.args.get("scope", "all")
     participant_id = request.args.get("participant_id", "").strip()
+    layout = (request.args.get("layout") or "raw").strip().lower()
+    inc_raw = (request.args.get("include_generated") or "").strip().lower()
+    include_generated = inc_raw in {"1", "true", "yes", "all"}
+    study_advanced = (request.args.get("study_advanced") or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
     if scope == "participant":
         if not participant_id:
@@ -1179,56 +1348,82 @@ def api_download_csv() -> Response:
             / participant_id
             / "sentiment_log_web.csv"
         )
-        download_name = f"sentiment_log_{participant_id}.csv"
+        download_name = (
+            f"relay_study_{participant_id}.csv"
+            if layout == "study"
+            else f"sentiment_log_{participant_id}.csv"
+        )
     else:
         csv_path = get_global_log_path(BASE_DIR)
-        download_name = "sentiment_log_all_participants.csv"
+        download_name = (
+            "relay_study_all_participants.csv"
+            if layout == "study"
+            else "sentiment_log_all_participants.csv"
+        )
+
+    empty_headers = [
+        "timestamp",
+        "participant_id",
+        "medium",
+        "input_method",
+        "row_role",
+        "llm_provider",
+        "prompt_text",
+        "reply_text",
+        "participant_reply_text",
+        "llm_reply_text",
+        "final_reply_text",
+        "transcript",
+        "response_time_seconds",
+        "words_per_minute",
+        "keypress_count",
+        "backspace_count",
+        "paste_used",
+        "correction_applied",
+        "prompt_style",
+        "prompt_tone",
+        "prompt_seriousness",
+        "prompt_formality",
+        "reply_style",
+        "reply_analysis_status",
+        "reply_analysis_basis",
+        "transcript_status",
+        "transcript_source",
+        "formality_label",
+        "formality_confidence",
+        "bert_label",
+        "bert_raw",
+        "bert_confidence",
+        "audio_filename",
+    ]
 
     if not csv_path.exists():
-        # Return an empty CSV with headers so downstream tools still work.
-        headers = [
-            "timestamp",
-            "participant_id",
-            "medium",
-            "input_method",
-            "row_role",
-            "llm_provider",
-            "prompt_text",
-            "reply_text",
-            "participant_reply_text",
-            "llm_reply_text",
-            "final_reply_text",
-            "transcript",
-            "response_time_seconds",
-            "words_per_minute",
-            "keypress_count",
-            "backspace_count",
-            "paste_used",
-            "correction_applied",
-            "prompt_style",
-            "prompt_tone",
-            "prompt_seriousness",
-            "prompt_formality",
-            "reply_style",
-            "reply_analysis_status",
-            "reply_analysis_basis",
-            "transcript_status",
-            "transcript_source",
-            "formality_label",
-            "formality_confidence",
-            "bert_label",
-            "bert_raw",
-            "bert_confidence",
-            "audio_filename",
-        ]
         csv_path.parent.mkdir(parents=True, exist_ok=True)
         with csv_path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(headers)
+            writer.writerow(empty_headers)
 
+    if layout == "study":
+        study_payload, _ = _build_study_csv_bytes(csv_path, study_advanced)
+        return send_file(
+            BytesIO(study_payload),
+            mimetype="text/csv; charset=utf-8",
+            as_attachment=True,
+            download_name=download_name,
+        )
+
+    if include_generated:
+        return send_file(
+            csv_path,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=download_name,
+        )
+
+    payload = _build_csv_attachment_bytes(csv_path, include_generated=False)
     return send_file(
-        csv_path,
-        mimetype="text/csv",
+        BytesIO(payload),
+        mimetype="text/csv; charset=utf-8",
         as_attachment=True,
         download_name=download_name,
     )
@@ -1306,6 +1501,9 @@ def api_admin_trial_detail() -> Response:
         else:
             audio_url = f"/static/audio/{audio_filename}"
     row["_audio_url"] = audio_url
+    row["formality_label_display"] = _formality_label_display(
+        str(row.get("formality_label") or "")
+    )
 
     # Render a small Jinja template fragment so HTML generation happens server-side.
     return render_template("trial_detail_snippet.html", row=row)

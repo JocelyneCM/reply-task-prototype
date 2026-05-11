@@ -5,7 +5,37 @@ Hi! 🌼
 This is a small prototype I built to simulate reply tasks and collect trial data.
 The interface mimics SMS, Email, and Messenger so we can test responses in different communication mediums.
 
+## Active application (current study UI)
+
+The **participant + admin Relay app** lives under **`prototype/`**. That stack serves the dashboards, CSV logging, and APIs used in ongoing experiments.
+
+**Run the canonical server from the repository root:**
+
+```bash
+python -m prototype.server
+```
+
+Then open **[http://localhost:8000](http://localhost:8000)** (participant UI) or **[http://localhost:8000/admin](http://localhost:8000/admin)** (research console).
+
+From the admin **Exports** page you can download a **study CSV** (readable columns and register labels, participant rows only) or a **full archive CSV** (same column names as the on-disk log). Raw logging paths and behaviour are unchanged.
+
+Use a virtual environment if you prefer (example):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate   # macOS / Linux
+pip install -r prototype/requirements.txt
+python -m prototype.server
+```
+
+### Legacy / alternate stack (repository root)
+
+The repository root also contains an **older Flask + static page** bundle (`server.py`, `index.html`, `app.js`, `style.css`). That path is **not** the active study UI unless your team explicitly still uses it. Prefer `python -m prototype.server` unless you have confirmed otherwise.
+
+---
+
 It logs things like:
+
 - medium (SMS / Email / Messenger)
 - input method (keyboard or voice)
 - prompt
@@ -17,10 +47,12 @@ It logs things like:
 - sentiment scores
 
 For analysis I currently use:
+
 - Server-side formality model (text classification)
 - (BERT-based analysis available as an auxiliary signal)
 
 I am still working on:
+
 - Improved text correction tracking
 - More consistent analysis normalization
 
@@ -28,28 +60,10 @@ The goal is to collect experimental data for our project.
 
 ---
 
-## How to run it
-
-1. Open terminal in the project folder
-2.  Activate the environment
-
-- Mac:
-
-    source sentiment_env/bin/activate
-
-3. Run the server
-
-    python3 server.py
-
-4. Open in browser
-
-    http://localhost:8000
-
----
-
 ## What it does
 
 The web interface lets you:
+
 - simulate replying to messages
 - track typing behavior
 - analyze sentiment
@@ -57,6 +71,7 @@ The web interface lets you:
 - View results in an admin dashboard
 
 ---
+
 ## Notes
 
 This is a research prototype and is still evolving.
