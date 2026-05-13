@@ -11,7 +11,7 @@
   <body data-role="admin" data-theme="dark">
     <!--
       Admin shell: same Relay visual language as the participant app (tokens in style.css).
-      Multi-section console: overview, participants, trials, visualizations, exports, about.
+      Multi-section console: overview, study session, participants, log rows &amp; charts, visualizations, prompts, exports, about.
     -->
     <div class="pex-admin-app">
       <button
@@ -47,25 +47,33 @@
             <span class="pex-admin-nav-label">Overview</span>
             <span class="pex-admin-nav-hint">Study snapshot</span>
           </button>
+          <button type="button" class="pex-admin-nav-item" data-admin-view="session">
+            <span class="pex-admin-nav-label">Study session</span>
+            <span class="pex-admin-nav-hint">Participant &amp; task link</span>
+          </button>
           <button type="button" class="pex-admin-nav-item" data-admin-view="participants">
             <span class="pex-admin-nav-label">Participants</span>
             <span class="pex-admin-nav-hint">Who has data</span>
           </button>
           <button type="button" class="pex-admin-nav-item" data-admin-view="trials">
-            <span class="pex-admin-nav-label">Trials &amp; charts</span>
+            <span class="pex-admin-nav-label">Log rows &amp; charts</span>
             <span class="pex-admin-nav-hint">Filter &amp; inspect</span>
           </button>
           <button type="button" class="pex-admin-nav-item" data-admin-view="visualizations">
             <span class="pex-admin-nav-label">Visualizations</span>
             <span class="pex-admin-nav-hint">Build charts</span>
           </button>
+          <button type="button" class="pex-admin-nav-item" data-admin-view="prompts">
+            <span class="pex-admin-nav-label">Prompts</span>
+            <span class="pex-admin-nav-hint">Next exercise prompts</span>
+          </button>
           <button type="button" class="pex-admin-nav-item" data-admin-view="exports">
             <span class="pex-admin-nav-label">Exports</span>
-            <span class="pex-admin-nav-hint">Study &amp; archive CSV</span>
+            <span class="pex-admin-nav-hint">CSV downloads</span>
           </button>
           <button type="button" class="pex-admin-nav-item" data-admin-view="settings">
             <span class="pex-admin-nav-label">About</span>
-            <span class="pex-admin-nav-hint">Study &amp; model notes</span>
+            <span class="pex-admin-nav-hint">Recording &amp; metrics</span>
           </button>
         </nav>
 
@@ -82,7 +90,7 @@
           <div class="pex-admin-topbar-text">
             <h1 class="pex-admin-heading" id="pexAdminPageTitle">Overview</h1>
             <p class="pex-admin-lead" id="pexAdminPageDesc">
-              Snapshot of logged trials and participants.
+              Snapshot of log rows and participants.
             </p>
           </div>
           <div class="pex-admin-topbar-actions">
@@ -96,6 +104,13 @@
           </div>
         </header>
 
+        <div
+          id="adminStudyContextBanner"
+          class="pex-admin-context-banner"
+          role="status"
+          hidden
+        ></div>
+
         <main class="pex-admin-main">
           <!-- Overview -->
           <section
@@ -106,7 +121,7 @@
           >
             <div class="pex-admin-kpi-grid" id="adminKpiGrid">
               <article class="pex-admin-kpi">
-                <div class="pex-admin-kpi-label">Total trials</div>
+                <div class="pex-admin-kpi-label">Total log rows</div>
                 <div class="pex-admin-kpi-value" id="kpiTotalTrials">—</div>
               </article>
               <article class="pex-admin-kpi">
@@ -123,7 +138,7 @@
 
             <div class="pex-admin-card-grid">
               <div class="pex-admin-card">
-                <h2 class="pex-admin-card-title">Trials by medium</h2>
+                <h2 class="pex-admin-card-title">Log rows by medium</h2>
                 <p class="pex-admin-card-desc">Participant replies in each interface</p>
                 <div class="pex-admin-chart-wrap">
                   <canvas id="overviewMediumChart" height="220"></canvas>
@@ -139,6 +154,86 @@
             </div>
           </section>
 
+          <!-- Study session -->
+          <section
+            id="adminViewSession"
+            class="pex-admin-view"
+            data-admin-view-panel="session"
+            hidden
+          >
+            <div class="pex-admin-card">
+              <h2 class="pex-admin-card-title">Study session</h2>
+              <p class="pex-admin-card-desc">
+                Build a link for the participant device. The participant page reads the query string once when it loads (medium, input method, participant ID). Prompt text still comes from the server pool unless you set a <strong>next prompt</strong> under <strong>Prompts</strong>.
+              </p>
+              <div class="pex-admin-filters-grid" style="margin-top:12px;">
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="sessionParticipantId">Participant ID</label>
+                  <input id="sessionParticipantId" type="text" placeholder="e.g. P006" autocomplete="off" style="width:100%;max-width:280px;" />
+                  <button type="button" class="pex-btn-ghost" id="sessionSuggestParticipantBtn" style="margin-top:8px;">
+                    Suggest next ID (stable P### only)
+                  </button>
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="sessionMedium">Medium</label>
+                  <select id="sessionMedium">
+                    <option value="SMS">SMS</option>
+                    <option value="Messenger">Messenger</option>
+                    <option value="Email">Email</option>
+                    <option value="Voice">Voice</option>
+                  </select>
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="sessionInputMethod">Input method</label>
+                  <select id="sessionInputMethod">
+                    <option value="Typing">Typing</option>
+                    <option value="Swipe typing">Swipe typing</option>
+                    <option value="Voice-to-text">Voice-to-text</option>
+                  </select>
+                  <p class="small" style="margin-top:6px;color:var(--muted);">Swipe typing is typically phone-only; assignment is up to the study protocol.</p>
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="sessionDevice">Device context</label>
+                  <select id="sessionDevice">
+                    <option value="">Not specified</option>
+                    <option value="phone">Phone</option>
+                    <option value="laptop">Laptop</option>
+                  </select>
+                  <p class="small" style="margin-top:6px;color:var(--muted);">Shown as a label on the participant UI only (not logged as its own column).</p>
+                </div>
+              </div>
+              <div class="pex-admin-field" style="margin-top:16px;">
+                <label class="pex-admin-label">Participant link</label>
+                <div class="row" style="flex-wrap:wrap;gap:10px;align-items:center;">
+                  <code id="sessionParticipantUrl" class="small" style="word-break:break-all;flex:1;min-width:200px;padding:8px 10px;border-radius:8px;background:var(--surface-2);"></code>
+                  <button type="button" class="pex-btn-primary" id="sessionOpenParticipantBtn">Open participant UI</button>
+                  <button type="button" class="pex-btn-ghost" id="sessionCopyLinkBtn">Copy link</button>
+                </div>
+              </div>
+              <div class="pex-admin-field" style="margin-top:16px;">
+                <label class="pex-admin-label" for="sessionPlanJson">Session plan (JSON)</label>
+                <p class="small" style="color:var(--muted);margin:6px 0 8px;line-height:1.5;">
+                  Lightweight ordered task list for the participant ID above. Each task is one <strong>task/run</strong> (full two-turn exercise). Fields used when you click <strong>Apply current task to link</strong>:
+                  <code>medium</code>, <code>input_method</code>, <code>device</code> (optional). Example: <code>[{"medium":"SMS","input_method":"Typing","device":"laptop"}]</code>
+                </p>
+                <textarea
+                  id="sessionPlanJson"
+                  rows="8"
+                  spellcheck="false"
+                  style="width:100%;max-width:640px;font-family:ui-monospace,monospace;font-size:12px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);"
+                  placeholder='{"tasks":[{"medium":"SMS","input_method":"Typing","device":"laptop"}],"current_index":0}'
+                ></textarea>
+                <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center;">
+                  <button type="button" class="pex-btn-ghost" id="sessionPlanReloadBtn">Reload plan</button>
+                  <button type="button" class="pex-btn-primary" id="sessionPlanSaveBtn">Save plan</button>
+                  <button type="button" class="pex-btn-primary" id="sessionPlanApplyBtn">Apply current task to link</button>
+                  <button type="button" class="pex-btn-ghost" id="sessionPlanAdvanceBtn">Advance one task</button>
+                </div>
+                <p class="small" id="sessionPlanStatus" style="margin-top:8px;color:var(--muted);" aria-live="polite"></p>
+              </div>
+            </div>
+          </section>
+
           <!-- Participants -->
           <section
             id="adminViewParticipants"
@@ -150,7 +245,7 @@
               <div class="pex-admin-card-header">
                 <h2 class="pex-admin-card-title">Participant directory</h2>
                 <p class="pex-admin-card-desc">
-                  Trial counts from the global log. Open <strong>Trials</strong> to filter by
+                  Log row counts from the global CSV. Open <strong>Log rows &amp; charts</strong> to filter by
                   person.
                 </p>
               </div>
@@ -160,8 +255,12 @@
                     <tr>
                       <th><input type="checkbox" id="participantSelectAll" aria-label="Select all participants" /></th>
                       <th>Participant</th>
-                      <th>Trials</th>
+                      <th>Log rows</th>
+                      <th>Tasks/runs</th>
                       <th>Last activity</th>
+                      <th>Mediums</th>
+                      <th>Input methods</th>
+                      <th>Prompt condition (rows)</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -205,6 +304,14 @@
                   </select>
                 </div>
                 <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="promptConditionFilter">Prompt condition</label>
+                  <select id="promptConditionFilter">
+                    <option value="">All</option>
+                    <option value="formal">Formal</option>
+                    <option value="informal">Informal</option>
+                  </select>
+                </div>
+                <div class="pex-admin-field">
                   <label class="pex-admin-label" for="includeGeneratedFilter">
                     Generated rows
                   </label>
@@ -227,7 +334,7 @@
                       <canvas id="responseTimeChart"></canvas>
                     </div>
                     <div class="pex-admin-chart-card">
-                      <div class="pex-admin-chart-title">Formality model</div>
+                      <div class="pex-admin-chart-title">Reply register (model)</div>
                       <canvas id="styleChart"></canvas>
                     </div>
                     <div class="pex-admin-chart-card">
@@ -254,7 +361,7 @@
                           <th>Input</th>
                           <th>Preview</th>
                           <th>Response (s)</th>
-                          <th>Formality</th>
+                          <th>Reply register</th>
                         </tr>
                       </thead>
                       <tbody id="resultsTableBody"></tbody>
@@ -271,6 +378,39 @@
                 </div>
               </aside>
             </div>
+
+            <details class="pex-admin-card" id="conditionTablesWrap" style="margin-top:16px;">
+              <summary class="pex-admin-card-title" style="cursor:pointer;list-style-position:outside;padding:4px 0;" id="conditionTablesSummary">
+                Participant log rows by prompt condition
+              </summary>
+              <p class="pex-admin-card-desc" style="margin-top:8px;">
+                Buckets rows by study <strong>prompt condition</strong> (<code>prompt_formality</code>, including <code>auto:…</code> mapped to formal/informal). The <strong>Reply register</strong> column is the model&apos;s read of the participant text — not the prompt condition. Each row is one <strong>log row</strong> (message), not a full task/run.
+              </p>
+              <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:12px;">
+                <div style="flex:1;min-width:320px;">
+                  <h3 style="margin-bottom:8px;font-size:.95rem;">Formal prompt condition</h3>
+                  <div class="pex-admin-table-scroll">
+                    <table class="pex-admin-table pex-admin-table--dense" style="font-size:.82rem;">
+                      <thead><tr>
+                        <th>Medium</th><th>Input</th><th>Prompt condition</th><th>Prompt</th><th>Reply</th><th>Response time (s)</th><th>Reply register</th><th>Confidence</th><th>Keystrokes</th><th>Backspaces</th>
+                      </tr></thead>
+                      <tbody id="formalTasksBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div style="flex:1;min-width:320px;">
+                  <h3 style="margin-bottom:8px;font-size:.95rem;">Informal prompt condition</h3>
+                  <div class="pex-admin-table-scroll">
+                    <table class="pex-admin-table pex-admin-table--dense" style="font-size:.82rem;">
+                      <thead><tr>
+                        <th>Medium</th><th>Input</th><th>Prompt condition</th><th>Prompt</th><th>Reply</th><th>Response time (s)</th><th>Reply register</th><th>Confidence</th><th>Keystrokes</th><th>Backspaces</th>
+                      </tr></thead>
+                      <tbody id="informalTasksBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </details>
           </section>
 
           <!-- Visualizations -->
@@ -292,10 +432,11 @@
                 <div class="pex-admin-field">
                   <label class="pex-admin-label" for="vizChartType">Chart type</label>
                   <select id="vizChartType">
-                    <option value="medium">Trials by medium</option>
-                    <option value="response_time">Response time by trial</option>
+                    <option value="medium">Log rows by medium</option>
+                    <option value="prompt_condition">Log rows by prompt condition</option>
+                    <option value="response_time">Response time by log row</option>
                     <option value="avg_rt_input">Avg response time by input method</option>
-                    <option value="formality">Formality model distribution</option>
+                    <option value="formality">Reply register distribution</option>
                   </select>
                 </div>
                 <h3 class="pex-admin-viz-h3">Filters</h3>
@@ -322,6 +463,15 @@
                     <option>Swipe typing</option>
                     <option>Voice-to-text</option>
                     <option>LLM</option>
+                  </select>
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="vizPromptConditionFilter">Prompt condition</label>
+                  <select id="vizPromptConditionFilter">
+                    <option value="">All</option>
+                    <option value="formal">Formal</option>
+                    <option value="informal">Informal</option>
+                    <option value="other">Other / auto</option>
                   </select>
                 </div>
                 <div class="pex-admin-field">
@@ -365,70 +515,123 @@
             data-admin-view-panel="exports"
             hidden
           >
-            <div class="pex-admin-export-grid">
-              <article class="pex-admin-export-card pex-admin-export-card--featured">
-                <h2 class="pex-admin-card-title">Study export (recommended)</h2>
-                <p class="pex-admin-card-desc">
-                  Readable columns for analysis: timing, input method, keystrokes, register labels from the formality model, and reply text. On-disk logs are unchanged.
-                </p>
-                <p class="pex-admin-export-note">
-                  Includes <strong>participant replies only</strong> (assistant / LLM rows are not in this file — use full archive below if you need them).
-                </p>
-                <label class="pex-admin-checkbox-label" style="margin:12px 0;">
-                  <input id="studyExportAdvancedCols" type="checkbox" />
-                  Include advanced analysis fields (raw model code, BERT fields, transcript source, LLM provider, rule tags, …)
-                </label>
-                <div class="pex-admin-export-actions">
-                  <button type="button" class="pex-btn-primary" id="downloadStudyAllBtn">
-                    Download study CSV — all participants
-                  </button>
-                </div>
-                <label class="pex-admin-label" for="exportParticipantSelect" style="margin-top:16px;">Participant</label>
-                <select id="exportParticipantSelect">
-                  <option value="">Choose…</option>
+            <article class="pex-admin-card pex-admin-export-card--featured" style="max-width:720px;">
+              <h2 class="pex-admin-card-title">CSV exports</h2>
+              <p class="pex-admin-card-desc">
+                <strong>Primary for analysis:</strong> full raw log — every column as stored on disk, including participant rows and AI/LLM rows. Check the box below only if you want the same columns restricted to human replies.
+              </p>
+              <label class="pex-admin-checkbox-label" style="margin:14px 0;display:flex;align-items:flex-start;gap:10px;">
+                <input type="checkbox" id="exportParticipantRowsOnly" style="margin-top:3px;" />
+                <span>Participant replies only (hides AI/LLM rows; same technical column names as the full file)</span>
+              </label>
+              <div class="pex-admin-field" style="margin-top:8px;">
+                <label class="pex-admin-label" for="exportParticipantSelect">Participant (optional)</label>
+                <select id="exportParticipantSelect" style="margin-top:6px;max-width:360px;">
+                  <option value="">All participants</option>
                 </select>
-                <button type="button" class="pex-btn-ghost" id="downloadStudyParticipantBtn">
-                  Download study CSV — selected participant
-                </button>
-              </article>
-              <article class="pex-admin-export-card">
-                <h2 class="pex-admin-card-title">Full archive CSV</h2>
-                <p class="pex-admin-card-desc">
-                  Exact column layout as written to disk (technical field names). Use for debugging or merging with other pipelines.
-                </p>
-                <fieldset data-export-card="global" class="pex-admin-export-rows" style="border:none;margin:0 0 12px;padding:0;">
-                  <legend class="pex-admin-label" style="padding:0;">Rows</legend>
-                  <label class="pex-admin-checkbox-label">
-                    <input type="radio" name="exportRowsGlobal" value="participant_only" checked />
-                    Participant replies only
-                  </label>
-                  <label class="pex-admin-checkbox-label">
-                    <input type="radio" name="exportRowsGlobal" value="include_llm" />
-                    Include AI-generated rows
-                  </label>
-                </fieldset>
-                <button type="button" class="pex-btn-primary" id="downloadAllBtn">
-                  Download full CSV — all participants
-                </button>
-                <fieldset data-export-card="participant" class="pex-admin-export-rows" style="border:none;margin:16px 0 12px;padding:0;">
-                  <legend class="pex-admin-label" style="padding:0;">One participant — rows</legend>
-                  <label class="pex-admin-checkbox-label">
-                    <input type="radio" name="exportRowsParticipant" value="participant_only" checked />
-                    Participant replies only
-                  </label>
-                  <label class="pex-admin-checkbox-label">
-                    <input type="radio" name="exportRowsParticipant" value="include_llm" />
-                    Include AI-generated rows
-                  </label>
-                </fieldset>
-                <button type="button" class="pex-btn-ghost" id="downloadParticipantBtn">
-                  Download full CSV — selected participant
-                </button>
-              </article>
+              </div>
+              <div class="pex-admin-export-actions" style="margin-top:16px;display:flex;flex-wrap:wrap;gap:10px;">
+                <button type="button" class="pex-btn-primary" id="downloadAllBtn">Download full CSV — all participants</button>
+                <button type="button" class="pex-btn-ghost" id="downloadParticipantBtn">Download full CSV — selected participant</button>
+              </div>
+            </article>
+            <article class="pex-admin-card" style="max-width:720px;margin-top:16px;">
+              <h2 class="pex-admin-card-title">Optional: simplified CSV</h2>
+              <p class="pex-admin-card-desc">
+                Readable headers and register labels; participant replies only (no LLM rows). For archival analysis and merges, use the full export above.
+              </p>
+              <label class="pex-admin-checkbox-label" style="margin:12px 0;">
+                <input id="studyExportAdvancedCols" type="checkbox" />
+                Include advanced fields (BERT, raw model codes, transcript source, …)
+              </label>
+              <div class="pex-admin-export-actions" style="display:flex;flex-wrap:wrap;gap:10px;">
+                <button type="button" class="pex-btn-ghost" id="downloadStudyAllBtn">Download simplified — all participants</button>
+                <button type="button" class="pex-btn-ghost" id="downloadStudyParticipantBtn">Download simplified — selected participant</button>
+              </div>
+            </article>
+          </section>
+
+          <!-- Prompts -->
+          <section
+            id="adminViewPrompts"
+            class="pex-admin-view"
+            data-admin-view-panel="prompts"
+            hidden
+          >
+            <div class="pex-admin-card">
+              <h2 class="pex-admin-card-title">Prompt manager</h2>
+              <p class="pex-admin-card-desc">
+                Control the <strong>next</strong> text prompt participants receive (SMS, Messenger, and Email stay aligned). Presets come from the built-in pool; custom text is one-shot until used or cleared.
+              </p>
+              <div class="pex-admin-field" style="margin-top:12px">
+                <label class="pex-admin-label" for="adminNextPromptSelect">Next prompt — preset from pool</label>
+                <select id="adminNextPromptSelect">
+                  <option value="">Random (default)</option>
+                </select>
+              </div>
+              <div class="pex-admin-field" style="margin-top:12px">
+                <label class="pex-admin-label" for="adminPromptFormality">Prompt condition (logged as <code>prompt_formality</code>)</label>
+                <select id="adminPromptFormality" style="margin-top:6px;">
+                  <option value="">Auto-detect from text</option>
+                  <option value="formal">Formal</option>
+                  <option value="informal">Informal</option>
+                </select>
+                <p class="small" style="margin-top:4px;color:var(--muted);">Not shown to participants.</p>
+              </div>
+              <fieldset class="pex-admin-field" style="border:none;margin:0;padding:0;margin-top:12px;">
+                <legend class="pex-admin-label">Or write a custom next prompt</legend>
+                <label class="small" style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                  <input type="radio" name="adminCustomPromptKind" value="sms_msg" checked />
+                  SMS / Messenger (one short message for both lanes)
+                </label>
+                <label class="small" style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                  <input type="radio" name="adminCustomPromptKind" value="email" />
+                  Email (subject + body)
+                </label>
+              </fieldset>
+              <div id="adminCustomSmsFields" class="pex-admin-custom-prompt-pane">
+                <div class="pex-admin-field" style="margin-top:12px">
+                  <label class="pex-admin-label" for="adminCustomSmsPrompt">SMS / Messenger text</label>
+                  <textarea id="adminCustomSmsPrompt" rows="3" placeholder="Short prompt shown in Messages and Chats lanes"></textarea>
+                </div>
+              </div>
+              <div id="adminCustomEmailFields" class="pex-admin-custom-prompt-pane hidden">
+                <div class="pex-admin-field" style="margin-top:10px">
+                  <label class="pex-admin-label" for="adminCustomEmailSubject">Email subject</label>
+                  <input id="adminCustomEmailSubject" type="text" placeholder="Subject line" />
+                </div>
+                <div class="pex-admin-field" style="margin-top:10px">
+                  <label class="pex-admin-label" for="adminCustomEmailBody">Email body</label>
+                  <textarea id="adminCustomEmailBody" rows="12" placeholder="Full email — greetings and signatures are fine"></textarea>
+                </div>
+              </div>
+              <div class="pex-admin-card" style="margin-top:16px;background:var(--surface-2);">
+                <h3 class="pex-admin-card-title" style="font-size:1rem;">Preview (what participants will see)</h3>
+                <p class="small" style="color:var(--muted);margin-bottom:10px;">Updates when you save or when the server state refreshes.</p>
+                <div id="adminNextPromptPreview" class="pex-admin-prose small" style="white-space:pre-wrap;line-height:1.45;"></div>
+              </div>
+              <div class="row" style="margin-top:14px;flex-wrap:wrap;gap:10px;">
+                <button type="button" class="pex-btn-primary" id="adminSaveNextPromptBtn">Use selected preset as next prompt</button>
+                <button type="button" class="pex-btn-primary" id="adminSaveCustomPromptBtn">Save custom text as next prompt</button>
+                <button type="button" class="pex-btn-ghost" id="adminClearNextPromptBtn">Clear override (random again)</button>
+              </div>
+              <p class="small" id="adminNextPromptStatus" style="margin-top:10px;font-weight:500;">Next exercise prompt: …</p>
+              <div class="pex-admin-field" style="margin-top:16px">
+                <label class="pex-admin-label" for="adminPromptAudioFile">Voice prompt audio (upload)</label>
+                <input id="adminPromptAudioFile" type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,audio/*" />
+              </div>
+              <div class="row" style="margin-top:10px">
+                <button type="button" class="pex-btn-ghost" id="adminUploadPromptAudioBtn">Upload voice prompt audio</button>
+              </div>
+              <p class="small" id="adminPromptAudioStatus" style="margin-top:8px"></p>
+              <details class="pex-admin-advanced" style="margin-top:12px">
+                <summary>Browse built-in prompt pool</summary>
+                <ul id="adminPromptPoolList" class="pex-admin-about-list"></ul>
+              </details>
             </div>
           </section>
 
-          <!-- About + prompt tools -->
+          <!-- About -->
           <section
             id="adminViewSettings"
             class="pex-admin-view"
@@ -437,115 +640,59 @@
           >
             <div class="pex-admin-card pex-admin-prose">
               <h2 class="pex-admin-card-title">About Relay</h2>
-              <p>
-                Relay is the prototype used for the study. Participants complete short reply tasks in SMS, Messenger, or Email style interfaces.
-              </p>
-              <p>
-                The system records each reply with timing and writing behaviour data, such as response time, input method, keystrokes, backspaces, paste use, and corrections.
-              </p>
-              <p>
-                The main style/register signal is the trained formality model stored in <code>formality_model/</code>. Its output is saved as <code>formality_label</code> and <code>formality_confidence</code>.
-              </p>
-              <p>
-                BERT sentiment is still available in the data, but it is secondary and should not be treated as the main formality result.
-              </p>
-              <p>
-                Audio replies can be transcribed with Whisper when transcription is available. Uploaded prompt audio is not transcribed.
-              </p>
-              <p>
-                The main study exports are saved under <code>prototype/data/logs/</code> and participant-specific folders.
-              </p>
+              <p>Relay records short reply tasks in SMS, Messenger, Email, or Voice-style UIs. Each <strong>log row</strong> is one saved CSV event (e.g. participant first reply, AI reply, participant final reply). A full two-turn interaction is one <strong>task / trial / exercise run</strong> and produces several log rows plus an optional per-run export under <code>prototype/data/runs/</code>.</p>
+              <p>Rows include timing, input method, writing-behaviour counters, optional transcription, and a <strong>reply register</strong> classifier on participant text (<code>formality_label</code> → shown as Formal/Informal in the console). Study <strong>prompt condition</strong> is chosen by the researcher (<code>prompt_formality</code>: formal, informal, or auto:…).</p>
+              <p>Data is written under <code>prototype/data/logs/</code> and per-participant folders. Use <strong>Exports</strong> for CSV downloads (full raw file first; simplified “study” layout is optional).</p>
+              <p class="small" style="color:var(--muted);">BERT sentiment in logs is exploratory only — not the primary register measure. Prefer the study export without advanced columns for clean analysis.</p>
             </div>
-            <div class="pex-admin-card" style="margin-top:16px">
-              <h2 class="pex-admin-card-title">Formality model notes</h2>
-              <ul class="pex-admin-about-list">
-                <li><code>formality_model/</code> — active trained model files (replace when Jakob shares an updated checkpoint).</li>
-                <li><code>prototype/utils/formality_service.py</code> — loads the model for inference.</li>
-                <li><code>prototype/utils/analysis_utils.py</code> — combines formality output with other analysis fields before logging.</li>
-                <li>If the model or label set changes, check the label mapping before interpreting <code>LABEL_0</code> / <code>LABEL_1</code> (see model config or training notes).</li>
+            <details class="pex-admin-card" style="margin-top:16px">
+              <summary class="pex-admin-card-title" style="cursor:pointer;">Raw CSV — text columns</summary>
+              <ul class="pex-admin-about-list" style="margin-top:12px;">
+                <li><code>reply_text</code> — message for this row (participant or LLM).</li>
+                <li><code>participant_reply_text</code> — same text on participant rows; empty on LLM rows.</li>
+                <li><code>llm_reply_text</code> — same text on LLM rows; empty on participant rows.</li>
+                <li><code>final_reply_text</code> — participant&apos;s <strong>second</strong> reply in a two-turn task/run only (empty on first participant row and on LLM rows).</li>
+                <li><code>prompt_tone</code> / <code>prompt_seriousness</code> — optional; no longer back-filled from heuristics. Prefer <code>prompt_formality</code> (formal / informal / auto:…).</li>
               </ul>
-            </div>
+            </details>
             <div class="pex-admin-card" style="margin-top:16px">
-              <h2 class="pex-admin-card-title">Writing behaviour metrics by input method</h2>
-              <ul class="pex-admin-about-list">
-                <li><strong>response_time_seconds</strong> — the main comparable timing metric across all input methods. Measured from prompt display (or first keydown for typing) until Send is pressed.</li>
-                <li><strong>Typing</strong> — keystrokes and backspaces are literal keyboard events (keydown). Timing starts at the first key press.</li>
-                <li><strong>Swipe typing</strong> — the browser may report synthetic keydown events for each inserted character. Keystroke and backspace counts are approximate interaction/editing events, not exact physical key presses or swipe gestures.</li>
-                <li><strong>Voice-to-text</strong> — keystrokes are 0 unless the participant manually edits the transcript after dictation. Timing runs from prompt display to Send press, covering the full dictation and review interval.</li>
-                <li><strong>words_per_minute</strong> — computed server-side from word count and response_time_seconds. Comparable across methods only if response_time is interpreted correctly.</li>
-              </ul>
-            </div>
-            <div class="pex-admin-card" style="margin-top:16px">
-              <h2 class="pex-admin-card-title">Transcription</h2>
+              <h2 class="pex-admin-card-title">Transcription status</h2>
               <p class="pex-admin-card-desc" id="adminTranscriptionRuntime">Checking…</p>
             </div>
-            <div class="pex-admin-card" style="margin-top:16px">
-              <h2 class="pex-admin-card-title">Prompt management (next exercise)</h2>
-              <p class="pex-admin-card-desc">
-                Overrides which prompt bundle participants see next — SMS, Messenger, and Email lanes together unless you customise below.
-              </p>
-              <div class="pex-admin-field" style="margin-top:12px">
-                <label class="pex-admin-label" for="adminNextPromptSelect">Preset from pool</label>
-                <select id="adminNextPromptSelect">
-                  <option value="">Random (default)</option>
-                </select>
-              </div>
-              <fieldset class="pex-admin-field" style="border:none;margin:0;padding:0;margin-top:12px;">
-                <legend class="pex-admin-label">Custom prompt type</legend>
-                <label class="small" style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-                  <input type="radio" name="adminCustomPromptKind" value="sms_msg" checked />
-                  SMS / Messenger (short chat text — one message each)
-                </label>
-                <label class="small" style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-                  <input type="radio" name="adminCustomPromptKind" value="email" />
-                  Email (subject + body — use full greetings/signatures for formal scenarios if you like)
-                </label>
-              </fieldset>
-              <div id="adminCustomSmsFields" class="pex-admin-custom-prompt-pane">
-              <div class="pex-admin-field" style="margin-top:12px">
-                <label class="pex-admin-label" for="adminCustomSmsPrompt">SMS / Messenger text</label>
-                <textarea id="adminCustomSmsPrompt" rows="2" placeholder="Short prompt shown in Messages and Chats lanes"></textarea>
-              </div>
-              </div>
-              <div id="adminCustomEmailFields" class="pex-admin-custom-prompt-pane hidden">
-              <div class="pex-admin-field" style="margin-top:10px">
-                <label class="pex-admin-label" for="adminCustomEmailSubject">Email subject</label>
-                <input id="adminCustomEmailSubject" type="text" placeholder="Subject line (e.g. Re: Quarterly review)" />
-              </div>
-              <div class="pex-admin-field" style="margin-top:10px">
-                <label class="pex-admin-label" for="adminCustomEmailBody">Email body</label>
-                <textarea id="adminCustomEmailBody" rows="10" placeholder="Full email body — salutation, paragraphs, signature block are fine"></textarea>
-              </div>
-              </div>
-              <div class="row" style="margin-top:10px">
-                <button type="button" class="pex-btn-primary" id="adminSaveNextPromptBtn">
-                  Save next prompt
-                </button>
-                <button type="button" class="pex-btn-ghost" id="adminSaveCustomPromptBtn">
-                  Save custom prompt for next exercise
-                </button>
-                <button type="button" class="pex-btn-ghost" id="adminClearNextPromptBtn">
-                  Clear override
-                </button>
-              </div>
-              <p class="small" id="adminNextPromptStatus" style="margin-top:8px">
-                Next exercise prompt: random
-              </p>
-              <div class="pex-admin-field" style="margin-top:12px">
-                <label class="pex-admin-label" for="adminPromptAudioFile">Voice prompt audio (upload)</label>
-                <input id="adminPromptAudioFile" type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,audio/*" />
-              </div>
-              <div class="row" style="margin-top:10px">
-                <button type="button" class="pex-btn-ghost" id="adminUploadPromptAudioBtn">
-                  Upload voice prompt audio
-                </button>
-              </div>
-              <p class="small" id="adminPromptAudioStatus" style="margin-top:8px"></p>
-              <details class="pex-admin-advanced" style="margin-top:10px">
-                <summary>View prompt pool</summary>
-                <ul id="adminPromptPoolList" class="pex-admin-about-list"></ul>
-              </details>
-            </div>
+            <details class="pex-admin-card" style="margin-top:16px">
+              <summary class="pex-admin-card-title" style="cursor:pointer;">Metrics &amp; interpretation</summary>
+              <ul class="pex-admin-about-list" style="margin-top:12px;">
+                <li><strong>response_time_seconds</strong> — wall time from the relevant prompt being shown until the participant presses Send. For the <strong>first</strong> participant reply this anchors on the initial study prompt; for the <strong>final</strong> reply (SMS/Messenger) it re-anchors when Alex&apos;s follow-up appears, so reading/thinking after Alex is included. <strong>LLM generation time is not added</strong> to the participant&apos;s seconds (assistant rows use response_time_seconds for model latency only).</li>
+                <li><strong>Typing</strong> — keystrokes/backspaces = literal <code>keydown</code> events.</li>
+                <li><strong>Swipe typing</strong> — counts are approximate OS/keyboard interaction events, not physical keys; do not compare KSPC to laptop typing.</li>
+                <li><strong>Voice-to-text</strong> — keystrokes reflect manual edits after dictation, not full production effort.</li>
+                <li><strong>WPM</strong> — <code>(word_count / response_time_seconds) × 60</code> on that row, using the same response window as above (prompt shown → Send), not first-keypress → Send.</li>
+                <li><strong>keystrokes_per_character (KSPC)</strong> — <code>keypress_count / len(reply_text)</code> for non-LLM rows. Interpretation is <strong>input-method-specific</strong>; do not treat KSPC as comparable across typing vs swipe vs voice.</li>
+                <li><strong>manual_edit_count</strong> — heuristic: <code>backspace_count + (1 if paste) + (1 if browser autocomplete)</code>. The CSV column <code>correction_applied</code> is only browser autocomplete / IME correction, not “the participant rewrote their message.”</li>
+                <li><strong>backspaces_per_word</strong> — backspaces divided by reply word count when available.</li>
+                <li><strong>edit_activity_compact</strong> — short opaque summary of edit-related flags for later aggregation (not a keylogger).</li>
+                <li><strong>edit_ratio</strong> — <code>manual_edit_count / character count</code> of the sent reply (same caveats as KSPC).</li>
+                <li><strong>MSD / EKS</strong> — need a known target sentence (copy-typing). Not used for free replies in this study.</li>
+              </ul>
+            </details>
+            <details class="pex-admin-card" style="margin-top:16px">
+              <summary class="pex-admin-card-title" style="cursor:pointer;">Formality model — where to update</summary>
+              <ul class="pex-admin-about-list" style="margin-top:12px;">
+                <li><code>formality_model/</code> — model files</li>
+                <li><code>prototype/utils/formality_service.py</code> — loads the model</li>
+                <li><code>prototype/utils/analysis_utils.py</code> — combines outputs before logging</li>
+                <li>Re-check <code>LABEL_0</code> / <code>LABEL_1</code> mapping if the model changes.</li>
+              </ul>
+            </details>
+            <details class="pex-admin-card" style="margin-top:16px">
+              <summary class="pex-admin-card-title" style="cursor:pointer;">Study design notes</summary>
+              <ul class="pex-admin-about-list" style="margin-top:12px;">
+                <li>Tasks may run on phone or laptop; balance phone-first vs laptop-first if needed.</li>
+                <li>Most input methods can be tested on both; <strong>swipe typing is phone-only</strong>.</li>
+                <li>Alternate or balance formal vs informal prompts to limit order effects.</li>
+                <li>Filter exports and log rows by <code>participant_id</code>, <code>medium</code>, <code>input_method</code>, <code>prompt_formality</code>.</li>
+              </ul>
+            </details>
           </section>
         </main>
       </div>

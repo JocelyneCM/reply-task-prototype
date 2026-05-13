@@ -1,0 +1,71 @@
+"""Lightweight JSON store for per-participant session task order (admin-only)."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from .logging_utils import normalize_study_participant_id
+
+
+def _path(base_dir: Path) -> Path:
+    p = base_dir / "data" / "session_plans.json"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def load_all(base_dir: Path) -> Dict[str, Any]:
+    p = _path(base_dir)
+    if not p.exists():
+        return {"plans": {}}
+    try:
+        with p.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return {"plans": {}}
+        data.setdefault("plans", {})
+        return data
+    except (OSError, json.JSONDecodeError):
+        return {"plans": {}}
+
+
+def save_all(base_dir: Path, data: Dict[str, Any]) -> None:
+    p = _path(base_dir)
+    with p.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
+def get_plan(base_dir: Path, participant_id: str) -> Dict[str, Any]:
+    pid = normalize_study_participant_id(participant_id.strip())
+    plans = load_all(base_dir).get("plans") or {}
+    ent = plans.get(pid) or {"tasks": [], "current_index": 0}
+    ent.setdefault("tasks", [])
+    ent.setdefault("current_index", 0)
+    return ent
+
+
+def set_plan(base_dir: Path, participant_id: str, tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
+    pid = normalize_study_participant_id(participant_id.strip())
+    data = load_all(base_dir)
+    plans = data.setdefault("plans", {})
+    cur = (plans.get(pid) or {}).get("current_index", 0)
+    plans[pid] = {"tasks": list(tasks or []), "current_index": int(cur)}
+    save_all(base_dir, data)
+    return plans[pid]
+
+
+def advance_plan(base_dir: Path, participant_id: str) -> Optional[Dict[str, Any]]:
+    """Increment current_index by at most one if there is a next task. Returns updated plan or None."""
+    pid = normalize_study_participant_id(participant_id.strip())
+    data = load_all(base_dir)
+    plans = data.setdefault("plans", {})
+    ent = plans.get(pid) or {"tasks": [], "current_index": 0}
+    tasks: List = list(ent.get("tasks") or [])
+    idx = int(ent.get("current_index") or 0)
+    if idx + 1 >= len(tasks):
+        return None
+    ent = {"tasks": tasks, "current_index": idx + 1}
+    plans[pid] = ent
+    save_all(base_dir, data)
+    return ent

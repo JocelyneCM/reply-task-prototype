@@ -9,6 +9,7 @@
     <dd{% if row.participant_id %} title="{{ row.participant_id }}"{% endif %}>{{ row.participant_display or row.participant_id or "" }}</dd>
     <dt>Medium</dt><dd>{{ row.medium or "" }}</dd>
     <dt>Input method</dt><dd>{{ imethod }}</dd>
+    {% if row.prompt_formality %}<dt>Prompt condition</dt><dd>{{ row.prompt_formality }}</dd>{% endif %}
     <dt>Row type</dt>
     <dd>
       {% if imethod == "LLM" or ((row.row_role or "") | lower | replace("-", "_")) == "system_generated" %}
@@ -40,17 +41,17 @@
     <dt>Keystrokes</dt><dd>{{ row.keypress_count or "" }}{% if (row.input_method or "") == "Swipe typing" %} <span class="small" style="color:var(--muted)">(approx.)</span>{% elif (row.input_method or "") == "Voice-to-text" %} <span class="small" style="color:var(--muted)">(edits only)</span>{% endif %}</dd>
     <dt>Backspaces</dt><dd>{{ row.backspace_count or "" }}{% if (row.input_method or "") == "Swipe typing" %} <span class="small" style="color:var(--muted)">(approx.)</span>{% elif (row.input_method or "") == "Voice-to-text" %} <span class="small" style="color:var(--muted)">(edits only)</span>{% endif %}</dd>
     <dt>Paste</dt><dd>{{ row.paste_used or "" }}</dd>
-    <dt>Correction</dt><dd>{{ row.correction_applied or "" }}</dd>
+    <dt>Browser autocomplete</dt><dd>{{ row.correction_applied or "" }}</dd>
   </dl>
 </div>
 <div class="pex-admin-detail-block">
-  <h3>Formality model</h3>
+  <h3>Reply register (model)</h3>
   <dl class="pex-admin-detail-meta">
     <dt>Register</dt><dd>{{ row.formality_label_display or "—" }}</dd>
     <dt>Confidence</dt><dd>{{ row.formality_confidence or "" }}</dd>
   </dl>
   <div style="margin-top:10px">
-    <button type="button" class="pex-admin-table-action" id="adminDeleteTrialBtn">Delete this trial…</button>
+    <button type="button" class="pex-admin-table-action" id="adminDeleteTrialBtn">Delete this log row…</button>
   </div>
 </div>
 <details class="pex-admin-advanced">
@@ -78,7 +79,7 @@
     <h3 class="pex-admin-detail-subhd">BERT sentiment (exploratory)</h3>
     <dl class="pex-admin-detail-meta">
       <dt>Normalized label</dt><dd>{{ row.bert_label or "" }}</dd>
-      <dt>Raw</dt><dd>{{ row.bert_raw or row.bert_label or "" }}</dd>
+      <dt>Raw (mapped display)</dt><dd>{{ row.bert_raw or row.bert_label or "" }} <span class="small" style="color:var(--muted)">Star-style strings are the model&apos;s coarse sentiment scale, not user ratings.</span></dd>
       <dt>Confidence</dt><dd>{{ row.bert_confidence or "" }}</dd>
     </dl>
     <h3 class="pex-admin-detail-subhd">Heuristics</h3>

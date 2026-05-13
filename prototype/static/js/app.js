@@ -19,13 +19,43 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;");
 }
 
-/** Readable formality model output for admin tables/charts (matches study export mapping). */
+/** Match server-side P### normalisation for URLs, storage, and payloads. */
+function normalizeStudyParticipantIdClient(raw) {
+  const s = String(raw || "").trim();
+  const m = /^P(\d+)$/i.exec(s);
+  if (!m) return s;
+  const n = Number.parseInt(m[1], 10);
+  if (!Number.isFinite(n)) return s;
+  return `P${String(n).padStart(3, "0")}`;
+}
+
+function formatSecondsCell(v) {
+  const x = parseFloat(String(v ?? ""));
+  if (!Number.isFinite(x)) return String(v ?? "");
+  return x.toFixed(3);
+}
+
+function formatConfidenceCell(v) {
+  const x = parseFloat(String(v ?? ""));
+  if (!Number.isFinite(x)) return String(v ?? "");
+  return x.toFixed(3);
+}
+
+/** Bucket logged prompt_formality for admin tables (matches server classify_prompt_condition_bucket). */
+function promptConditionBucket(pf) {
+  const x = String(pf || "").trim().toLowerCase();
+  if (x === "formal" || x.startsWith("auto:label_1")) return "formal";
+  if (x === "informal" || x.startsWith("auto:label_0")) return "informal";
+  return "other";
+}
+
+/** Map formality model class labels to short study-facing text (raw codes stay in CSV / advanced). */
 function displayFormalityRegisterLabel(raw) {
   const s = String(raw || "").trim();
   if (!s) return "—";
   const u = s.toUpperCase();
-  if (u === "LABEL_0") return "Informal register (class 0)";
-  if (u === "LABEL_1") return "Formal register (class 1)";
+  if (u === "LABEL_0") return "Informal";
+  if (u === "LABEL_1") return "Formal";
   return s;
 }
 
@@ -97,6 +127,7 @@ function initParticipantUI() {
     toast: document.getElementById("pexToast"),
     participantId: document.getElementById("participantId"),
     studyCondition: document.querySelector(".pex-study-condition"),
+    studyDeviceContext: document.getElementById("studyDeviceContext"),
     studyInputMethod: document.getElementById("studyInputMethod"),
     studyInputInstruction: document.getElementById("studyInputInstruction"),
     layoutSMS: document.getElementById("layoutSMS"),
@@ -250,9 +281,9 @@ function initParticipantUI() {
 
   /** Prompt tags saved with each trial. Keep this simple for now. */
   let currentPromptMeta = {
-    prompt_tone: "neutral",
-    prompt_seriousness: "medium",
-    prompt_formality: "neutral",
+    prompt_tone: "",
+    prompt_seriousness: "",
+    prompt_formality: "auto",
     prompt_id: "",
     prompt_source: "local",
   };
@@ -368,9 +399,10 @@ function initParticipantUI() {
       delete t0.dataset.locked;
       t0.textContent = formatMailCardTime();
     }
-    const baseText = String(scenario.emailBody || scenario.sms || "");
     currentPromptMeta = {
-      ...derivePromptMetaFromText(baseText),
+      prompt_tone: "",
+      prompt_seriousness: "",
+      prompt_formality: scenario.prompt_formality || "auto",
       prompt_id: scenario.id || "",
       prompt_source: scenario.source || "local",
     };
@@ -447,6 +479,7 @@ function initParticipantUI() {
           emailSubject: bundle.email_subject,
           emailBody: bundle.email_body,
           source: bundle.source,
+          prompt_formality: bundle.prompt_formality || "",
         });
         return;
       }
@@ -476,7 +509,7 @@ function initParticipantUI() {
     if (!pid) return;
     if (els.participantId) els.participantId.value = pid;
     try {
-      sessionStorage.setItem("relay_participant_id", pid);
+      localStorage.setItem("relay_participant_id", pid);
     } catch {
       /* storage optional */
     }
@@ -486,7 +519,9 @@ function initParticipantUI() {
     const already = els.participantId?.value?.trim();
     if (already) return;
     try {
-      const cached = sessionStorage.getItem("relay_participant_id");
+      const cached =
+        localStorage.getItem("relay_participant_id") ||
+        sessionStorage.getItem("relay_participant_id");
       if (cached) {
         setParticipantId(cached);
         return;
@@ -496,8 +531,10 @@ function initParticipantUI() {
     }
     fetchJSON("/api/participants")
       .then((data) => {
-        const pid = nextPresentationParticipantId(data.participants || []);
-        setParticipantId(pid);
+        const next =
+          (data.suggested_next_participant_id || "").trim() ||
+          nextPresentationParticipantId(data.participants || []);
+        setParticipantId(next);
       })
       .catch(() => {
         setParticipantId(fallbackParticipantId());
@@ -660,7 +697,6 @@ function initParticipantUI() {
     els.mailBackRead.addEventListener("click", () => setEmailStep("read"));
 
   function showMode(medium) {
-    if (medium === "Voice") return;
     const previousMedium = currentMedium;
     if (previousMedium === "Voice" && medium !== "Voice") {
       if (mediaRecorder && mediaRecorder.state === "recording") {
@@ -672,6 +708,26 @@ function initParticipantUI() {
         stopMeter();
         stopMediaStream();
       }
+    }
+
+    if (medium === "Voice") {
+      currentMedium = "Voice";
+      document.body.dataset.medium = "Voice";
+      els.layoutSMS?.classList.add("hidden");
+      els.layoutMessenger?.classList.add("hidden");
+      els.layoutEmail?.classList.add("hidden");
+      els.layoutVoice?.classList.remove("hidden");
+      const labels = MODE_LABELS.Voice;
+      if (els.title) els.title.textContent = labels.title;
+      if (els.tagline) els.tagline.textContent = labels.tag;
+      els.navBtns.forEach((btn) => {
+        btn.classList.toggle("is-active", btn.dataset.medium === "Voice");
+      });
+      assignVoicePrompt();
+      if (els.studyInputMethod) syncStudyInstruction();
+      closeDrawer();
+      resetTrialState();
+      return;
     }
 
     currentMedium = medium;
@@ -697,7 +753,6 @@ function initParticipantUI() {
         setEmailStep("list");
       }
     }
-    if (medium === "Voice") assignVoicePrompt();
     if (els.studyInputMethod) syncStudyInstruction();
     closeDrawer();
     resetTrialState();
@@ -709,8 +764,8 @@ function initParticipantUI() {
 
   if (els.studyInputMethod) {
     els.studyInputMethod.addEventListener("change", () => {
-      const selected = (els.studyInputMethod.value || "").trim();
       syncStudyInstruction();
+      syncMicButtonVisibilityForInputMethod();
     });
   }
 
@@ -842,6 +897,8 @@ function initParticipantUI() {
     }
     thread.appendChild(art);
     scrollThread(thread);
+    if (thread === els.smsThread) promptShownAtMsByMedium.SMS = nowMs();
+    else if (thread === els.messengerThread) promptShownAtMsByMedium.Messenger = nowMs();
   }
 
   function showTypingRow(thread, kind) {
@@ -898,6 +955,15 @@ function initParticipantUI() {
     return "Typing";
   }
 
+  function syncMicButtonVisibilityForInputMethod() {
+    const showMic = getSelectedInputMethod() === "Voice-to-text";
+    ["SMS", "Messenger", "Email"].forEach((medium) => {
+      const btn = textVoiceButtonForMedium(medium);
+      if (!btn) return;
+      btn.classList.toggle("hidden", !showMic);
+    });
+  }
+
   function textReplyBoxForMedium(medium) {
     if (medium === "SMS") return els.replySMS;
     if (medium === "Messenger") return els.replyMsg;
@@ -923,6 +989,7 @@ function initParticipantUI() {
       btn.classList.toggle("is-recording", !!isRecording);
       btn.textContent = isRecording ? "Stop" : "Mic";
     });
+    syncMicButtonVisibilityForInputMethod();
   }
 
   function clearTextVoiceDraft(medium) {
@@ -1051,7 +1118,8 @@ function initParticipantUI() {
   }
 
   async function submitReply(extra = {}) {
-    const pid = els.participantId?.value?.trim() || fallbackParticipantId();
+    const pidRaw = els.participantId?.value?.trim() || fallbackParticipantId();
+    const pid = normalizeStudyParticipantIdClient(pidRaw) || pidRaw;
     if (els.participantId) els.participantId.value = pid;
     setParticipantId(pid);
 
@@ -1069,11 +1137,15 @@ function initParticipantUI() {
       extra.replyText != null ? String(extra.replyText).trim() : getReplyText();
     const promptText =
       extra.promptText != null ? String(extra.promptText).trim() : getPromptText();
-    const promptMetaForPayload = {
-      ...currentPromptMeta,
-      ...derivePromptMetaFromText(promptText),
-    };
+    const promptMetaForPayload = { ...currentPromptMeta };
     const selectedInputMethod = getSelectedInputMethod();
+    const isLlmRow = selectedInputMethod === "LLM";
+    let participantTurn = "";
+    if (!isLlmRow) {
+      if (!currentRun) participantTurn = "first";
+      else if (currentRun.llm_reply_text && !currentRun.final_text)
+        participantTurn = "final";
+    }
     const isVoice =
       selectedInputMethod === "Voice-to-text" || currentMedium === "Voice";
 
@@ -1084,11 +1156,9 @@ function initParticipantUI() {
     const promptShownAtMs =
       extra.promptShownAtMs ?? promptShownAtMsByMedium[currentMedium] ?? null;
 
-    // Start time: for typing/swipe it's the first keydown. For voice-to-text
-    // (text mediums) or Voice mode, fall back to when the prompt was shown so
-    // response_time covers the full prompt-shown → Send interval.
-    const startedAtMs =
-      trial.startedAtMs ?? (isVoice ? promptShownAtMs : null);
+    // Participant response time: prompt (or latest Alex message) shown → Send.
+    // Prefer wall-clock from promptShownAtMs so reading/thinking before first key counts.
+    const startedAtMs = promptShownAtMs ?? trial.startedAtMs ?? null;
 
     const responseTimeSeconds =
       startedAtMs == null ? 0 : secondsBetween(startedAtMs, endTime);
@@ -1113,6 +1183,7 @@ function initParticipantUI() {
       transcript_status: lastTranscriptStatus || "",
       transcript_source: lastTranscriptSource || "",
       ui_style_label: "",
+      participant_turn: participantTurn,
     };
 
     try {
@@ -1126,6 +1197,9 @@ function initParticipantUI() {
       }
       if (els.studyCondition) {
         els.studyCondition.classList.add("hidden");
+      }
+      if (els.studyDeviceContext) {
+        els.studyDeviceContext.classList.add("hidden");
       }
       if (els.studyInputInstruction) {
         els.studyInputInstruction.classList.add("hidden");
@@ -1239,6 +1313,7 @@ function initParticipantUI() {
                 prompt_style: body.prompt_style || "",
                 prompt_tone: body.prompt_tone || "",
                 prompt_seriousness: body.prompt_seriousness || "",
+                prompt_formality: body.prompt_formality || "",
               }),
             });
           } catch (e) {
@@ -1281,6 +1356,7 @@ function initParticipantUI() {
                 prompt_style: body.prompt_style || "",
                 prompt_tone: body.prompt_tone || "",
                 prompt_seriousness: body.prompt_seriousness || "",
+                prompt_formality: body.prompt_formality || "",
               }),
             });
           } catch (logErr) {
@@ -1942,7 +2018,43 @@ function initParticipantUI() {
     );
   }
 
-  showMode("SMS");
+  function applyParticipantUrlParams() {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const pidRaw = (sp.get("participant_id") || sp.get("pid") || "").trim();
+      const pid = pidRaw ? normalizeStudyParticipantIdClient(pidRaw) : "";
+      if (pid && els.participantId) {
+        els.participantId.value = pid;
+        try {
+          localStorage.setItem("relay_participant_id", pid);
+        } catch {
+          /* optional */
+        }
+      }
+      const med = (sp.get("medium") || "").trim();
+      if (["SMS", "Messenger", "Email", "Voice"].includes(med)) {
+        showMode(med);
+      } else {
+        showMode("SMS");
+      }
+      const im = (sp.get("input_method") || "").trim();
+      if (els.studyInputMethod) {
+        const allowed = ["Typing", "Swipe typing", "Voice-to-text"];
+        if (allowed.includes(im)) els.studyInputMethod.value = im;
+      }
+      const dev = (sp.get("device") || "").trim().toLowerCase();
+      if (els.studyDeviceContext) {
+        if (dev === "phone") els.studyDeviceContext.textContent = "Session note: phone";
+        else if (dev === "laptop") els.studyDeviceContext.textContent = "Session note: laptop";
+        else els.studyDeviceContext.textContent = "";
+      }
+      syncMicButtonVisibilityForInputMethod();
+    } catch {
+      showMode("SMS");
+    }
+  }
+
+  applyParticipantUrlParams();
   refreshTextVoiceButtons();
   syncStudyInstruction();
   assignRandomTextPrompts();
@@ -1957,27 +2069,35 @@ function initAdminUI() {
   const VIEW_COPY = {
     overview: {
       title: "Overview",
-      desc: "Participant trials, mediums, and average response time by input method.",
+      desc: "Log rows by medium, input method, and average response time (participant messages only in charts).",
+    },
+    session: {
+      title: "Study session",
+      desc: "Set participant ID and open the participant UI with the right medium and input method.",
     },
     participants: {
       title: "Participants",
-      desc: "Who has submitted trials and how many rows they have in the global log.",
+      desc: "Who has submitted data and how many log rows they have in the global CSV.",
     },
     trials: {
-      title: "Trials & charts",
-      desc: "Filter the log, inspect rows, and open a trial for full detail.",
+      title: "Log rows & charts",
+      desc: "Filter log rows, inspect messages, and open a row for full detail. A completed two-turn exercise is a task/run (several rows).",
     },
     visualizations: {
       title: "Visualizations",
-      desc: "Build charts from the log with filters — display only; storage unchanged.",
+      desc: "Display-only charts: response time, input method, reply register model, prompt condition.",
+    },
+    prompts: {
+      title: "Prompts",
+      desc: "Next exercise prompt text and study prompt condition (formal / informal / auto), logged as prompt_formality.",
     },
     exports: {
       title: "Exports",
-      desc: "Study-friendly CSV or full archive — on-disk logs are never modified by export.",
+      desc: "Full raw CSV first; simplified export is optional.",
     },
     settings: {
       title: "About",
-      desc: "What Relay records and where exports live.",
+      desc: "What Relay records and how to read the metrics.",
     },
   };
 
@@ -1989,6 +2109,7 @@ function initAdminUI() {
     dateFilter: document.getElementById("dateFilter"),
     mediumFilter: document.getElementById("mediumFilter"),
     includeGeneratedFilter: document.getElementById("includeGeneratedFilter"),
+    promptConditionFilter: document.getElementById("promptConditionFilter"),
     downloadAllBtn: document.getElementById("downloadAllBtn"),
     downloadParticipantBtn: document.getElementById("downloadParticipantBtn"),
     resultsTableBody: document.getElementById("resultsTableBody"),
@@ -2018,16 +2139,34 @@ function initAdminUI() {
     uploadPromptAudioBtn: document.getElementById("adminUploadPromptAudioBtn"),
     promptAudioStatus: document.getElementById("adminPromptAudioStatus"),
     transcriptionRuntime: document.getElementById("adminTranscriptionRuntime"),
+    adminNextPromptPreview: document.getElementById("adminNextPromptPreview"),
+    sessionParticipantId: document.getElementById("sessionParticipantId"),
+    sessionMedium: document.getElementById("sessionMedium"),
+    sessionInputMethod: document.getElementById("sessionInputMethod"),
+    sessionDevice: document.getElementById("sessionDevice"),
+    sessionParticipantUrl: document.getElementById("sessionParticipantUrl"),
+    sessionOpenParticipantBtn: document.getElementById("sessionOpenParticipantBtn"),
+    sessionCopyLinkBtn: document.getElementById("sessionCopyLinkBtn"),
+    sessionSuggestParticipantBtn: document.getElementById("sessionSuggestParticipantBtn"),
+    exportParticipantRowsOnly: document.getElementById("exportParticipantRowsOnly"),
     vizChartType: document.getElementById("vizChartType"),
     vizParticipantFilter: document.getElementById("vizParticipantFilter"),
     vizMediumFilter: document.getElementById("vizMediumFilter"),
     vizInputMethodFilter: document.getElementById("vizInputMethodFilter"),
+    vizPromptConditionFilter: document.getElementById("vizPromptConditionFilter"),
     vizIncludeLlm: document.getElementById("vizIncludeLlm"),
     vizApplyBtn: document.getElementById("vizApplyBtn"),
     vizMetaPanel: document.getElementById("vizMetaPanel"),
     studyExportAdvancedCols: document.getElementById("studyExportAdvancedCols"),
     downloadStudyAllBtn: document.getElementById("downloadStudyAllBtn"),
     downloadStudyParticipantBtn: document.getElementById("downloadStudyParticipantBtn"),
+    adminStudyContextBanner: document.getElementById("adminStudyContextBanner"),
+    sessionPlanJson: document.getElementById("sessionPlanJson"),
+    sessionPlanSaveBtn: document.getElementById("sessionPlanSaveBtn"),
+    sessionPlanReloadBtn: document.getElementById("sessionPlanReloadBtn"),
+    sessionPlanAdvanceBtn: document.getElementById("sessionPlanAdvanceBtn"),
+    sessionPlanApplyBtn: document.getElementById("sessionPlanApplyBtn"),
+    sessionPlanStatus: document.getElementById("sessionPlanStatus"),
   };
 
   let responseTimeChart = null;
@@ -2133,9 +2272,10 @@ function initAdminUI() {
   }
 
   /**
-   * Build P001… aliases from the given participant id set only.
+   * Build optional display aliases from the given participant id set only.
    * Must use the full /api/participants list — never filtered trial rows —
    * or the same display alias will point at different raw ids after filtering.
+   * Option values are always the real logged IDs; aliases are labels only.
    */
   function buildParticipantAliases(rows) {
     const ids = Array.from(
@@ -2143,11 +2283,20 @@ function initAdminUI() {
     ).sort();
     participantAliasMap = {};
     aliasToRawMap = {};
-    ids.forEach((id, idx) => {
-      const alias = aliasOverrides[id] || `P${String(idx + 1).padStart(3, "0")}`;
+    ids.forEach((id) => {
+      const alias = aliasOverrides[id] || id;
       participantAliasMap[id] = alias;
-      aliasToRawMap[alias] = id;
+      if (alias !== id) {
+        aliasToRawMap[alias] = id;
+      }
     });
+  }
+
+  /** Resolve export / API participant id (never treat display-only aliases as folder names). */
+  function rawParticipantIdForApi(sel) {
+    const t = (sel || "").trim();
+    if (!t) return "";
+    return aliasToRawMap[t] || t;
   }
 
   function displayParticipantId(realId) {
@@ -2232,6 +2381,15 @@ function initAdminUI() {
       const key = btn.dataset.adminView;
       if (key) showAdminView(key);
       if (key === "visualizations") void runVisualizationUpdate();
+      if (key === "prompts") loadPromptPool();
+      if (key === "session") {
+        const ex = (els.exportParticipantSelect?.value || "").trim();
+        if (els.sessionParticipantId && !els.sessionParticipantId.value.trim() && ex) {
+          els.sessionParticipantId.value = ex;
+        }
+        onSessionFieldsChanged();
+        loadSessionPlan();
+      }
     });
   });
 
@@ -2257,7 +2415,7 @@ function initAdminUI() {
       });
     }
     fillSelect(els.participantFilter, true, "All participants", "");
-    fillSelect(els.exportParticipantSelect, false, "", "Choose…");
+    fillSelect(els.exportParticipantSelect, true, "All participants", "");
     fillSelect(els.vizParticipantFilter, true, "All participants", "");
   }
 
@@ -2291,11 +2449,23 @@ function initAdminUI() {
       .catch(() => {});
   }
 
+  function formatAdminTimestamp(ts) {
+    const raw = (ts || "").trim();
+    if (!raw) return "—";
+    const isoish = raw.includes("T") ? raw : raw.replace(" ", "T");
+    const d = new Date(isoish);
+    if (Number.isNaN(d.getTime())) return raw.length > 19 ? raw.slice(0, 19) : raw;
+    return d.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  }
+
   function renderParticipantStats(stats) {
     const tbody = els.participantStatsBody;
     if (!tbody) return;
     tbody.innerHTML = "";
-    (stats || []).forEach((s) => {
+    const sorted = [...(stats || [])].sort((a, b) =>
+      String(b.last_timestamp || "").localeCompare(String(a.last_timestamp || ""))
+    );
+    sorted.forEach((s) => {
       const pid = s.participant_id || "";
       const tr = document.createElement("tr");
       const tdSel = document.createElement("td");
@@ -2314,15 +2484,34 @@ function initAdminUI() {
       if (pid && pid !== disp) tdId.title = `Logged ID: ${pid}`;
       else if (pid) tdId.title = `Participant ID: ${pid}`;
       const tdCount = document.createElement("td");
-      tdCount.textContent = String(s.trial_count ?? "");
+      tdCount.textContent = String(s.log_row_count ?? s.trial_count ?? "");
+      const tdRuns = document.createElement("td");
+      tdRuns.textContent = String(s.completed_runs_count ?? "0");
       const tdLast = document.createElement("td");
-      tdLast.textContent = s.last_timestamp || "";
+      const ts = s.last_timestamp || "";
+      tdLast.textContent = formatAdminTimestamp(ts);
+      tdLast.title = ts || "";
+
+      const tdMed = document.createElement("td");
+      tdMed.textContent = (s.mediums || "").trim() || "—";
+      tdMed.className = "small";
+      const tdIm = document.createElement("td");
+      tdIm.textContent = (s.input_methods || "").trim() || "—";
+      tdIm.className = "small";
+      const tdReg = document.createElement("td");
+      const fr = Number(s.formal_prompt_rows || 0);
+      const ir = Number(s.informal_prompt_rows || 0);
+      const bits = [];
+      if (fr) bits.push(`Formal ${fr}`);
+      if (ir) bits.push(`Informal ${ir}`);
+      tdReg.textContent = bits.length ? bits.join(" · ") : "—";
+      tdReg.className = "small";
 
       const tdAct = document.createElement("td");
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "pex-admin-table-action";
-      btn.textContent = "View trials";
+      btn.textContent = "View log rows";
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         if (els.participantFilter) els.participantFilter.value = pid;
@@ -2353,12 +2542,16 @@ function initAdminUI() {
       tr.appendChild(tdSel);
       tr.appendChild(tdId);
       tr.appendChild(tdCount);
+      tr.appendChild(tdRuns);
       tr.appendChild(tdLast);
+      tr.appendChild(tdMed);
+      tr.appendChild(tdIm);
+      tr.appendChild(tdReg);
       tr.appendChild(tdAct);
       tbody.appendChild(tr);
     });
     if (els.participantSelectAll) {
-      const pids = (stats || []).map((s) => s.participant_id || "").filter(Boolean);
+      const pids = sorted.map((s) => s.participant_id || "").filter(Boolean);
       els.participantSelectAll.checked =
         pids.length > 0 && pids.every((pid) => selectedParticipants.has(pid));
     }
@@ -2390,7 +2583,7 @@ function initAdminUI() {
         labels: mLabels.length ? mLabels : ["—"],
         datasets: [
           {
-            label: "Trials",
+            label: "Log rows",
             data: mValues.length ? mValues : [0],
             backgroundColor: accent,
           },
@@ -2431,9 +2624,31 @@ function initAdminUI() {
     });
   }
 
+  let lastAdminSummary = null;
+
+  function refreshStudyContextBanner() {
+    const bar = els.adminStudyContextBanner;
+    if (!bar) return;
+    const sid = (els.sessionParticipantId?.value || "").trim();
+    const pid = normalizeStudyParticipantIdClient(sid);
+    if (!sid || !/^P\d{3,}$/i.test(pid)) {
+      bar.hidden = true;
+      return;
+    }
+    bar.hidden = false;
+    const stats = (lastAdminSummary?.participant_stats || []).find(
+      (s) => s.participant_id === pid
+    );
+    const logRows = stats?.log_row_count ?? stats?.trial_count ?? "—";
+    const runs = stats?.completed_runs_count ?? "—";
+    bar.textContent = `Session focus: ${pid} · ${logRows} log rows (global) · ${runs} completed tasks/runs (per-run exports) · display: ${displayParticipantId(pid)}`;
+  }
+
   function loadSummary() {
     fetchJSON("/api/admin_summary")
       .then((data) => {
+        lastAdminSummary = data;
+        refreshStudyContextBanner();
         if (els.kpiTotalTrials)
           els.kpiTotalTrials.textContent = String(data.total_trials ?? 0);
         if (els.kpiParticipantCount)
@@ -2476,6 +2691,41 @@ function initAdminUI() {
     }
   }
 
+  function updateNextPromptPreview(data) {
+    const el = els.adminNextPromptPreview;
+    if (!el) return;
+    const nextId = data.next_text_prompt_id || "";
+    const custom = data.next_text_prompt_custom || {};
+    const prompts = data.text_prompts || [];
+    const lines = [];
+    if (nextId) {
+      const p = prompts.find((x) => (x.id || "") === nextId);
+      if (p) {
+        lines.push(`Next preset: ${nextId}`);
+        lines.push(`SMS / Messenger:\n${p.sms || p.messenger || ""}`);
+        lines.push(
+          `Email\nSubject: ${p.email_subject || ""}\n\n${p.email_body || ""}`
+        );
+      } else {
+        lines.push(`Next preset id: ${nextId}`);
+      }
+    } else if (custom && (custom.sms || custom.email_body || custom.messenger)) {
+      lines.push("Next: custom one-shot prompt");
+      if (custom.prompt_formality)
+        lines.push(`Prompt condition (logged): ${custom.prompt_formality}`);
+      lines.push(`SMS:\n${custom.sms || ""}`);
+      lines.push(`Messenger:\n${custom.messenger || custom.sms || ""}`);
+      lines.push(
+        `Email\nSubject: ${custom.email_subject || ""}\n\n${custom.email_body || ""}`
+      );
+    } else {
+      lines.push(
+        "Next text prompt: random from the built-in pool (no server override)."
+      );
+    }
+    el.textContent = lines.filter(Boolean).join("\n\n");
+  }
+
   function loadPromptPool() {
     fetchJSON("/api/prompt_pool")
       .then((data) => {
@@ -2486,6 +2736,12 @@ function initAdminUI() {
         if (els.customEmailSubject)
           els.customEmailSubject.value = custom.email_subject || "";
         if (els.customEmailBody) els.customEmailBody.value = custom.email_body || "";
+        const pf = (custom.prompt_formality || "").trim().toLowerCase();
+        const pfSel = document.getElementById("adminPromptFormality");
+        if (pfSel) {
+          if (pf === "formal" || pf === "informal") pfSel.value = pf;
+          else pfSel.value = "";
+        }
 
         if (els.promptPoolList) {
           els.promptPoolList.innerHTML = prompts
@@ -2514,13 +2770,14 @@ function initAdminUI() {
         }
         if (els.nextPromptStatus) {
           if (nextId) {
-            els.nextPromptStatus.textContent = `Next exercise preset: ${nextId}`;
+            els.nextPromptStatus.textContent = `Server: next preset = ${nextId}`;
           } else if (custom && (custom.sms || custom.email_body)) {
-            els.nextPromptStatus.textContent = "Next exercise preset: custom prompt";
+            els.nextPromptStatus.textContent = "Server: custom prompt queued for next bundle.";
           } else {
-            els.nextPromptStatus.textContent = "Next exercise prompt: random";
+            els.nextPromptStatus.textContent = "Server: next text prompt = random from pool.";
           }
         }
+        updateNextPromptPreview(data);
       })
       .catch(() => {
         if (els.nextPromptStatus)
@@ -2540,16 +2797,22 @@ function initAdminUI() {
     if (els.dateFilter?.value) params.set("date", els.dateFilter.value);
 
     const showGeneratedRows = !!els.includeGeneratedFilter?.checked;
+    const conditionVal = (els.promptConditionFilter?.value || "").trim().toLowerCase();
     fetchJSON("/api/logs?" + params.toString())
       .then((data) => {
         const rowsAll = data.rows || [];
-        const rows = showGeneratedRows
+        let rows = showGeneratedRows
           ? rowsAll
           : rowsAll.filter((r) => (r.input_method || "").trim() !== "LLM");
-        // Do not rebuild aliases from filtered rows — breaks P001↔raw id mapping.
+        if (conditionVal) {
+          rows = rows.filter(
+            (r) => (r.prompt_formality || "").trim().toLowerCase() === conditionVal
+          );
+        }
         populateMediumFilter(rows.map((r) => r.medium));
         renderTable(rows);
         renderCharts(rows);
+        renderConditionTables(rowsAll);
       })
       .catch(() => {});
   }
@@ -2576,6 +2839,9 @@ function initAdminUI() {
   if (els.includeGeneratedFilter) {
     els.includeGeneratedFilter.addEventListener("change", loadLogs);
   }
+  if (els.promptConditionFilter) {
+    els.promptConditionFilter.addEventListener("change", loadLogs);
+  }
 
   if (els.exportParticipantSelect) {
     els.exportParticipantSelect.addEventListener("change", () => {
@@ -2584,29 +2850,201 @@ function initAdminUI() {
     });
   }
 
-  function csvExportIncludeQuery(card) {
-    const fs = document.querySelector(`fieldset[data-export-card="${card}"]`);
-    if (!fs) return "";
-    const r = fs.querySelector('input[type="radio"]:checked');
-    if (r && r.value === "include_llm") return "&include_generated=1";
-    return "";
+  function exportRawIncludeGeneratedQuery() {
+    const cb = els.exportParticipantRowsOnly;
+    const participantOnly = cb && cb.checked;
+    if (participantOnly) return "";
+    return "&include_generated=1";
+  }
+
+  function syncSessionUrlPreview() {
+    if (!els.sessionParticipantUrl) return;
+    const base = `${window.location.origin}/`;
+    const pid = normalizeStudyParticipantIdClient(
+      (els.sessionParticipantId?.value || "").trim()
+    );
+    const med = (els.sessionMedium?.value || "SMS").trim();
+    const im = (els.sessionInputMethod?.value || "Typing").trim();
+    const dev = (els.sessionDevice?.value || "").trim();
+    const sp = new URLSearchParams();
+    if (pid) sp.set("participant_id", pid);
+    if (med) sp.set("medium", med);
+    if (im) sp.set("input_method", im);
+    if (dev) sp.set("device", dev);
+    const q = sp.toString();
+    els.sessionParticipantUrl.textContent = q ? `${base}?${q}` : base;
+    refreshStudyContextBanner();
+  }
+
+  let sessionPlanAdvancing = false;
+
+  function setSessionPlanStatus(msg) {
+    if (els.sessionPlanStatus) els.sessionPlanStatus.textContent = msg || "";
+  }
+
+  function sessionPlanParticipantId() {
+    return normalizeStudyParticipantIdClient((els.sessionParticipantId?.value || "").trim());
+  }
+
+  function loadSessionPlan() {
+    const pid = sessionPlanParticipantId();
+    if (!pid || !/^P\d{3,}$/i.test(pid)) {
+      setSessionPlanStatus("Enter a stable participant ID (P###) first.");
+      return;
+    }
+    fetchJSON(
+      `/api/admin/session_plan?participant_id=${encodeURIComponent(pid)}`
+    )
+      .then((d) => {
+        if (!d?.ok) throw new Error("bad");
+        const plan = d.plan || { tasks: [], current_index: 0 };
+        if (els.sessionPlanJson)
+          els.sessionPlanJson.value = JSON.stringify(plan, null, 2);
+        const t = (plan.tasks || []).length;
+        const i = Number(plan.current_index || 0);
+        const labelT = t || 0;
+        const labelCur = t ? Math.min(i + 1, t) : 0;
+        setSessionPlanStatus(
+          `Loaded: ${labelT} task(s), current_index=${i} (${labelCur} of ${labelT}).`
+        );
+      })
+      .catch(() => setSessionPlanStatus("Could not load session plan."));
+  }
+
+  function saveSessionPlan() {
+    const pid = sessionPlanParticipantId();
+    if (!pid || !/^P\d{3,}$/i.test(pid)) {
+      alert("Enter a stable participant ID (P###) first.");
+      return;
+    }
+    let payloadTasks;
+    try {
+      const raw = (els.sessionPlanJson?.value || "").trim();
+      const parsed = raw ? JSON.parse(raw) : {};
+      if (Array.isArray(parsed)) payloadTasks = parsed;
+      else if (Array.isArray(parsed.tasks)) payloadTasks = parsed.tasks;
+      else payloadTasks = [];
+    } catch {
+      alert("Session plan JSON is invalid.");
+      return;
+    }
+    fetchJSON("/api/admin/session_plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ participant_id: pid, tasks: payloadTasks }),
+    })
+      .then((d) => {
+        if (!d?.ok) throw new Error("bad");
+        if (els.sessionPlanJson) els.sessionPlanJson.value = JSON.stringify(d.plan, null, 2);
+        setSessionPlanStatus("Session plan saved.");
+      })
+      .catch(() => setSessionPlanStatus("Save failed."));
+  }
+
+  function advanceSessionPlan() {
+    if (sessionPlanAdvancing) return;
+    const pid = sessionPlanParticipantId();
+    if (!pid || !/^P\d{3,}$/i.test(pid)) {
+      alert("Enter a stable participant ID (P###) first.");
+      return;
+    }
+    sessionPlanAdvancing = true;
+    fetchJSON("/api/admin/session_plan/advance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ participant_id: pid }),
+    })
+      .then((d) => {
+        if (!d?.ok) throw new Error("bad");
+        const plan = d.plan || { tasks: [], current_index: 0 };
+        if (els.sessionPlanJson) els.sessionPlanJson.value = JSON.stringify(plan, null, 2);
+        const t = (plan.tasks || []).length;
+        if (d.done)
+          setSessionPlanStatus(
+            t ? "Already at last task (no further advance)." : "No tasks in plan."
+          );
+        else
+          setSessionPlanStatus(
+            `Advanced to task ${Number(plan.current_index || 0) + 1} of ${t}. Use “Apply current task to link” before opening the participant UI.`
+          );
+      })
+      .catch(() => setSessionPlanStatus("Advance failed."))
+      .finally(() => {
+        sessionPlanAdvancing = false;
+      });
+  }
+
+  function applySessionPlanToSessionLink() {
+    const pid = sessionPlanParticipantId();
+    if (!pid || !/^P\d{3,}$/i.test(pid)) {
+      alert("Enter a stable participant ID (P###) first.");
+      return;
+    }
+    fetchJSON(
+      `/api/admin/session_plan?participant_id=${encodeURIComponent(pid)}`
+    )
+      .then((d) => {
+        if (!d?.ok) throw new Error("bad");
+        const plan = d.plan || { tasks: [], current_index: 0 };
+        const tasks = plan.tasks || [];
+        if (!tasks.length) {
+          setSessionPlanStatus("No tasks in plan — save a JSON plan first.");
+          return;
+        }
+        let idx = Number(plan.current_index || 0);
+        if (idx < 0) idx = 0;
+        if (idx >= tasks.length) idx = tasks.length - 1;
+        const t = tasks[idx] || {};
+        const med = String(t.medium || "").trim();
+        const im = String(t.input_method || "").trim();
+        const dev = String(t.device || "").trim().toLowerCase();
+        if (med && ["SMS", "Messenger", "Email", "Voice"].includes(med) && els.sessionMedium)
+          els.sessionMedium.value = med;
+        const allowedIm = ["Typing", "Swipe typing", "Voice-to-text"];
+        if (im && allowedIm.includes(im) && els.sessionInputMethod)
+          els.sessionInputMethod.value = im;
+        if (els.sessionDevice) {
+          if (dev === "phone" || dev === "laptop") els.sessionDevice.value = dev;
+        }
+        onSessionFieldsChanged();
+        setSessionPlanStatus(`Applied plan task ${idx + 1} of ${tasks.length} to session link.`);
+      })
+      .catch(() => setSessionPlanStatus("Could not load plan to apply."));
+  }
+
+  function onSessionFieldsChanged() {
+    syncSessionUrlPreview();
+    refreshStudyContextBanner();
+  }
+
+  if (els.sessionPlanReloadBtn) {
+    els.sessionPlanReloadBtn.addEventListener("click", () => loadSessionPlan());
+  }
+  if (els.sessionPlanSaveBtn) {
+    els.sessionPlanSaveBtn.addEventListener("click", () => saveSessionPlan());
+  }
+  if (els.sessionPlanAdvanceBtn) {
+    els.sessionPlanAdvanceBtn.addEventListener("click", () => advanceSessionPlan());
+  }
+  if (els.sessionPlanApplyBtn) {
+    els.sessionPlanApplyBtn.addEventListener("click", () => applySessionPlanToSessionLink());
   }
 
   if (els.downloadAllBtn) {
     els.downloadAllBtn.addEventListener("click", () => {
-      const inc = csvExportIncludeQuery("global");
+      const inc = exportRawIncludeGeneratedQuery();
       window.location.href = "/api/download_csv?scope=all" + inc;
     });
   }
 
   if (els.downloadParticipantBtn) {
     els.downloadParticipantBtn.addEventListener("click", () => {
-      const id = els.exportParticipantSelect?.value;
+      const id = rawParticipantIdForApi(els.exportParticipantSelect?.value);
       if (!id) {
-        alert("Choose a participant first.");
+        alert("Choose a participant in the list (or pick “All participants” only for the all-participants download).");
         return;
       }
-      const inc = csvExportIncludeQuery("participant");
+      const inc = exportRawIncludeGeneratedQuery();
       window.location.href =
         "/api/download_csv?scope=participant&participant_id=" +
         encodeURIComponent(id) +
@@ -2651,6 +3089,8 @@ function initAdminUI() {
       const kind =
         document.querySelector('input[name="adminCustomPromptKind"]:checked')
           ?.value || "sms_msg";
+      const formalitySel = document.getElementById("adminPromptFormality");
+      const promptFormality = formalitySel ? formalitySel.value : "";
       let sms = (els.customSmsPrompt?.value || "").trim();
       let emailSubject = (els.customEmailSubject?.value || "").trim();
       let emailBody = (els.customEmailBody?.value || "").trim();
@@ -2677,6 +3117,7 @@ function initAdminUI() {
           custom_messenger: sms,
           custom_email_subject: emailSubject,
           custom_email_body: emailBody,
+          prompt_formality: promptFormality,
         }),
       })
         .then(() => loadPromptPool())
@@ -2788,7 +3229,7 @@ function initAdminUI() {
         wrap.innerHTML = html;
         const delBtn = wrap.querySelector("#adminDeleteTrialBtn");
         delBtn?.addEventListener("click", () => {
-          const ok = window.confirm("Delete this trial row from CSV logs? This cannot be undone.");
+          const ok = window.confirm("Delete this log row from CSV logs? This cannot be undone.");
           if (!ok) return;
           fetchJSON("/api/admin/delete_trial", {
             method: "POST",
@@ -2825,7 +3266,7 @@ function initAdminUI() {
         }
         const delBtn = wrap.querySelector("#adminDeleteTrialBtn");
         delBtn?.addEventListener("click", () => {
-          const ok = window.confirm("Delete this trial row from CSV logs? This cannot be undone.");
+          const ok = window.confirm("Delete this log row from CSV logs? This cannot be undone.");
           if (!ok) return;
           fetchJSON("/api/admin/delete_trial", {
             method: "POST",
@@ -2899,7 +3340,7 @@ function initAdminUI() {
         <td>${escapeHtml(row.medium || "")}</td>
         <td>${escapeHtml(row.input_method || "")}</td>
         <td>${escapeHtml(previewWithRole.slice(0, 72))}${previewWithRole.length > 72 ? "…" : ""}</td>
-        <td>${escapeHtml(String(row.response_time_seconds ?? ""))}</td>
+        <td>${escapeHtml(formatSecondsCell(row.response_time_seconds))}</td>
         <td title="${escapeHtml((row.formality_label || "").trim() || "—")}">${escapeHtml(
           displayFormalityRegisterLabel((row.formality_label || "").trim())
         )}</td>
@@ -2913,6 +3354,68 @@ function initAdminUI() {
       });
       tbody.appendChild(tr);
     });
+  }
+
+  function renderConditionTables(allRows) {
+    const formalBody = document.getElementById("formalTasksBody");
+    const informalBody = document.getElementById("informalTasksBody");
+    if (!formalBody || !informalBody) return;
+
+    const sel = (els.participantFilter?.value || "").trim();
+    const rawSel = sel ? aliasToRawMap[sel] || sel : "";
+
+    let humanRows = allRows.filter(
+      (r) => (r.input_method || "").trim() !== "LLM"
+    );
+    if (rawSel) {
+      humanRows = humanRows.filter(
+        (r) => (r.participant_id || "").trim() === rawSel
+      );
+    }
+    const formal = humanRows.filter(
+      (r) => promptConditionBucket(r.prompt_formality) === "formal"
+    );
+    const informal = humanRows.filter(
+      (r) => promptConditionBucket(r.prompt_formality) === "informal"
+    );
+
+    function fillBody(tbody, rows) {
+      tbody.innerHTML = "";
+      if (!rows.length) {
+        tbody.innerHTML =
+          '<tr><td colspan="10" style="text-align:center;color:var(--muted);">No matching log rows</td></tr>';
+        return;
+      }
+      rows.forEach((row) => {
+        const tr = document.createElement("tr");
+        const reply = (row.reply_text || row.participant_reply_text || "").toString();
+        const prompt = (row.prompt_text || "").toString();
+        const pcond = String(row.prompt_formality || "").trim() || "—";
+        tr.innerHTML = `
+          <td>${escapeHtml(row.medium || "")}</td>
+          <td>${escapeHtml(row.input_method || "")}</td>
+          <td title="${escapeHtml(pcond)}">${escapeHtml(pcond.slice(0, 24))}${pcond.length > 24 ? "…" : ""}</td>
+          <td title="${escapeHtml(prompt)}">${escapeHtml(prompt.slice(0, 40))}${prompt.length > 40 ? "…" : ""}</td>
+          <td title="${escapeHtml(reply)}">${escapeHtml(reply.slice(0, 40))}${reply.length > 40 ? "…" : ""}</td>
+          <td>${escapeHtml(formatSecondsCell(row.response_time_seconds))}</td>
+          <td>${escapeHtml(displayFormalityRegisterLabel((row.formality_label || "").trim()))}</td>
+          <td>${escapeHtml(formatConfidenceCell(row.formality_confidence))}</td>
+          <td>${escapeHtml(String(row.keypress_count ?? ""))}</td>
+          <td>${escapeHtml(String(row.backspace_count ?? ""))}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    fillBody(formalBody, formal);
+    fillBody(informalBody, informal);
+
+    const sum = document.getElementById("conditionTablesSummary");
+    if (sum) {
+      const who = rawSel
+        ? `participant ${displayParticipantId(rawSel) || rawSel}`
+        : "all participants (pick one above to narrow)";
+      sum.textContent = `Log rows by prompt condition — ${who}: ${formal.length} formal-condition, ${informal.length} informal-condition (each row is one message, not a full task/run)`;
+    }
   }
 
   function renderCharts(rows) {
@@ -2929,6 +3432,7 @@ function initAdminUI() {
     const responseTimes = [];
 
     rows.forEach((row) => {
+      if ((row.input_method || "").trim() === "LLM") return;
       const fLab = (row.formality_label || "").trim();
       const style = fLab ? displayFormalityRegisterLabel(fLab) : "(no label)";
       styleCounts[style] = (styleCounts[style] || 0) + 1;
@@ -2938,6 +3442,7 @@ function initAdminUI() {
       String(a.timestamp || "").localeCompare(String(b.timestamp || ""))
     );
     rowsChrono.forEach((row) => {
+      if ((row.input_method || "").trim() === "LLM") return;
       const rt = parseFloat(row.response_time_seconds || "0");
       if (!Number.isNaN(rt) && rt > 0) responseTimes.push(rt);
     });
@@ -2995,7 +3500,7 @@ function initAdminUI() {
             ...base.scales.x,
             title: {
               display: true,
-              text: "Trial # (oldest → newest in this view)",
+              text: "Log row # (oldest → newest in this view)",
               color: chartMutedColor(),
             },
           },
@@ -3019,6 +3524,19 @@ function initAdminUI() {
         maintainAspectRatio: false,
         plugins: {
           legend: { position: "bottom", labels: { color: chartFontColor() } },
+          title: {
+            display: true,
+            text: "Reply register (model on participant text)",
+            color: chartMutedColor(),
+            font: { size: 12 },
+          },
+          subtitle: {
+            display: true,
+            text: "Excludes LLM rows. Do not compare to prompt condition in the row inspector.",
+            color: chartMutedColor(),
+            font: { size: 10 },
+            padding: { bottom: 4 },
+          },
         },
       },
     });
@@ -3044,7 +3562,7 @@ function initAdminUI() {
             ...base.scales.x,
             title: {
               display: true,
-              text: "Input method (participant rows)",
+              text: "Input method (participant rows) — not directly comparable",
               color: chartMutedColor(),
             },
           },
@@ -3063,7 +3581,7 @@ function initAdminUI() {
   }
 
   function filterVisualizationRows(rowsAll, opts) {
-    const { participant, medium, inputMethod, includeLlm } = opts;
+    const { participant, medium, inputMethod, includeLlm, promptCondition } = opts;
     let rows = rowsAll || [];
     if (!includeLlm) {
       rows = rows.filter((r) => (r.input_method || "").trim() !== "LLM");
@@ -3077,12 +3595,23 @@ function initAdminUI() {
     if (med) rows = rows.filter((r) => (r.medium || "").trim() === med);
     const im = (inputMethod || "").trim();
     if (im) rows = rows.filter((r) => (r.input_method || "").trim() === im);
+    const pc = (promptCondition || "").trim().toLowerCase();
+    if (pc === "formal" || pc === "informal") {
+      rows = rows.filter(
+        (r) => (r.prompt_formality || "").trim().toLowerCase() === pc
+      );
+    } else if (pc === "other") {
+      rows = rows.filter((r) => {
+        const pf = (r.prompt_formality || "").trim().toLowerCase();
+        return pf && pf !== "formal" && pf !== "informal";
+      });
+    }
     return rows;
   }
 
   const VIZ_HELP = {
     medium: {
-      title: "Trials by medium",
+      title: "Log rows by medium",
       body: "Row counts per interface (SMS, Messenger, Email, …) after filters. Participant replies only unless you include AI-generated rows.",
     },
     response_time: {
@@ -3094,8 +3623,12 @@ function initAdminUI() {
       body: "Mean seconds for Typing, Swipe typing, and Voice-to-text where response time is recorded and positive.",
     },
     formality: {
-      title: "Formality model",
-      body: "Distribution of register labels from the trained formality model (readable labels, not raw codes).",
+      title: "Reply register (model)",
+      body: "Distribution of reply register labels from the trained classifier (Formal/Informal in the UI; raw LABEL_* only in advanced export). BERT/sentiment are not shown here.",
+    },
+    prompt_condition: {
+      title: "Prompt condition",
+      body: "Counts rows by logged prompt_formality (formal / informal / other). Useful when prompts were tagged in the Prompts screen.",
     },
   };
 
@@ -3121,11 +3654,13 @@ function initAdminUI() {
     const includeLlm = !!els.vizIncludeLlm?.checked;
     const medium = (els.vizMediumFilter?.value || "").trim();
     const inputMethod = (els.vizInputMethodFilter?.value || "").trim();
+    const promptCondition = (els.vizPromptConditionFilter?.value || "").trim();
     const rows = filterVisualizationRows(rowsAll, {
       participant: rawPid,
       medium,
       inputMethod,
       includeLlm,
+      promptCondition,
     });
 
     const chartType = (els.vizChartType?.value || "medium").trim();
@@ -3146,6 +3681,14 @@ function initAdminUI() {
         const dispPid = rawPid ? displayParticipantId(rawPid) || rawPid : "All";
         const mf = medium || "All";
         const imf = inputMethod || "All";
+        const pcf =
+          promptCondition === "formal"
+            ? "Formal"
+            : promptCondition === "informal"
+              ? "Informal"
+              : promptCondition === "other"
+                ? "Other / auto"
+                : "All";
         const gen = includeLlm ? "Include AI-generated rows" : "Participant replies only";
         const nRt = rows.filter((r) => {
           const x = parseFloat(r.response_time_seconds || "0");
@@ -3160,6 +3703,7 @@ function initAdminUI() {
             <li><strong>Participant:</strong> ${escapeHtml(dispPid)}</li>
             <li><strong>Medium:</strong> ${escapeHtml(mf)}</li>
             <li><strong>Input method:</strong> ${escapeHtml(imf)}</li>
+            <li><strong>Prompt condition:</strong> ${escapeHtml(pcf)}</li>
             <li><strong>Rows setting:</strong> ${escapeHtml(gen)}</li>
           </ul>`;
       } else {
@@ -3182,7 +3726,7 @@ function initAdminUI() {
           labels: labels.length ? labels : ["—"],
           datasets: [
             {
-              label: detailed ? "Rows" : "Trials",
+              label: detailed ? "Rows" : "Log rows",
               data: values.length ? values : [0],
               backgroundColor: accent,
             },
@@ -3196,7 +3740,7 @@ function initAdminUI() {
             title: detailed
               ? {
                   display: true,
-                  text: "Trials by medium",
+                  text: "Log rows by medium",
                   color: chartMutedColor(),
                   font: { size: 13 },
                 }
@@ -3345,9 +3889,73 @@ function initAdminUI() {
           },
         },
       });
+    } else if (chartType === "prompt_condition") {
+      const bucket = (r) => {
+        const pf = (r.prompt_formality || "").trim().toLowerCase();
+        if (pf === "formal") return "Formal";
+        if (pf === "informal") return "Informal";
+        if (pf) return "Other / auto";
+        return "(unset)";
+      };
+      const counts = {};
+      rows.forEach((r) => {
+        const b = bucket(r);
+        counts[b] = (counts[b] || 0) + 1;
+      });
+      const labels = Object.keys(counts);
+      const values = labels.map((k) => counts[k]);
+      vizBuilderChart = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels: labels.length ? labels : ["—"],
+          datasets: [
+            {
+              label: detailed ? "Rows" : "Log rows",
+              data: values.length ? values : [0],
+              backgroundColor: good,
+            },
+          ],
+        },
+        options: {
+          ...base,
+          plugins: {
+            ...base.plugins,
+            legend: { display: false },
+            title: detailed
+              ? {
+                  display: true,
+                  text: "Log rows by prompt condition",
+                  color: chartMutedColor(),
+                  font: { size: 13 },
+                }
+              : { display: false },
+          },
+          scales: {
+            ...base.scales,
+            x: {
+              ...base.scales.x,
+              title: {
+                display: detailed,
+                text: "Prompt condition",
+                color: chartMutedColor(),
+              },
+            },
+            y: {
+              ...base.scales.y,
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: "Row count",
+                color: chartMutedColor(),
+              },
+            },
+          },
+        },
+      });
     } else if (chartType === "formality") {
       const styleCounts = {};
       rows.forEach((row) => {
+        if ((row.input_method || "").trim() === "LLM") return;
         const fLab = (row.formality_label || "").trim();
         const style = fLab ? displayFormalityRegisterLabel(fLab) : "(no label)";
         styleCounts[style] = (styleCounts[style] || 0) + 1;
@@ -3376,7 +3984,7 @@ function initAdminUI() {
             title: detailed
               ? {
                   display: true,
-                  text: "Formality model distribution",
+                  text: "Reply register (participant text)",
                   color: chartMutedColor(),
                   font: { size: 13 },
                 }
@@ -3393,6 +4001,46 @@ function initAdminUI() {
     });
   }
 
+  if (els.sessionParticipantId)
+    els.sessionParticipantId.addEventListener("input", onSessionFieldsChanged);
+  if (els.sessionMedium)
+    els.sessionMedium.addEventListener("change", onSessionFieldsChanged);
+  if (els.sessionInputMethod)
+    els.sessionInputMethod.addEventListener("change", onSessionFieldsChanged);
+  if (els.sessionDevice)
+    els.sessionDevice.addEventListener("change", onSessionFieldsChanged);
+  if (els.sessionSuggestParticipantBtn) {
+    els.sessionSuggestParticipantBtn.addEventListener("click", () => {
+      fetchJSON("/api/participants")
+        .then((data) => {
+          const next =
+            (data.suggested_next_participant_id || "").trim() ||
+            nextPresentationParticipantId(data.participants || []);
+          if (els.sessionParticipantId) els.sessionParticipantId.value = next;
+          onSessionFieldsChanged();
+        })
+        .catch(() => {});
+    });
+  }
+  if (els.sessionOpenParticipantBtn) {
+    els.sessionOpenParticipantBtn.addEventListener("click", () => {
+      const url = (els.sessionParticipantUrl?.textContent || "").trim();
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+    });
+  }
+  if (els.sessionCopyLinkBtn) {
+    els.sessionCopyLinkBtn.addEventListener("click", async () => {
+      const url = (els.sessionParticipantUrl?.textContent || "").trim();
+      if (!url) return;
+      try {
+        await navigator.clipboard.writeText(url);
+        alert("Link copied to clipboard.");
+      } catch {
+        alert(url);
+      }
+    });
+  }
+
   if (els.downloadStudyAllBtn) {
     els.downloadStudyAllBtn.addEventListener("click", () => {
       const adv = els.studyExportAdvancedCols?.checked ? "&study_advanced=1" : "";
@@ -3401,7 +4049,7 @@ function initAdminUI() {
   }
   if (els.downloadStudyParticipantBtn) {
     els.downloadStudyParticipantBtn.addEventListener("click", () => {
-      const id = els.exportParticipantSelect?.value;
+      const id = rawParticipantIdForApi(els.exportParticipantSelect?.value);
       if (!id) {
         alert("Choose a participant first.");
         return;
@@ -3414,6 +4062,9 @@ function initAdminUI() {
         adv;
     });
   }
+
+  syncSessionUrlPreview();
+  refreshStudyContextBanner();
 
   loadAliasOverrides();
   // Load logs after filter options are ready so stale values do not hide rows.

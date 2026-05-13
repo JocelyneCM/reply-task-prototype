@@ -10,6 +10,7 @@ in offline analysis scripts if desired.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -18,6 +19,23 @@ from datetime import datetime
 
 
 GLOBAL_LOG_FILENAME = "sentiment_log_web.csv"
+
+_STABLE_STUDY_PID = re.compile(r"^P\d{3,}$", re.IGNORECASE)
+
+
+def is_stable_study_participant_id(pid: str) -> bool:
+    """True for study-style IDs like P001 / P005 (P + at least three digits)."""
+    return bool(pid and _STABLE_STUDY_PID.fullmatch((pid or "").strip()))
+
+
+def normalize_study_participant_id(raw: str) -> str:
+    """Strip and normalise P-prefixed numeric IDs to P + zero-padded 3 digits."""
+    s = (raw or "").strip()
+    m = re.match(r"^P(\d+)\s*$", s, re.IGNORECASE)
+    if not m:
+        return s
+    n = int(m.group(1))
+    return f"P{n:03d}"
 
 
 def base_data_dir(base_dir: Path) -> Path:
@@ -73,6 +91,11 @@ def _csv_headers() -> List[str]:
         "backspace_count",
         "paste_used",
         "correction_applied",
+        "manual_edit_count",
+        "edit_ratio",
+        "keystrokes_per_character",
+        "backspaces_per_word",
+        "edit_activity_compact",
         "prompt_style",
         "prompt_tone",
         "prompt_seriousness",
@@ -141,10 +164,27 @@ def log_trial_row(base_dir: Path, row: Dict[str, Any]) -> None:
     headers = _csv_headers()
 
     # Write everything as strings so CSV output stays consistent.
+    _round_keys = {
+        "response_time_seconds",
+        "words_per_minute",
+        "formality_confidence",
+        "keystrokes_per_character",
+        "edit_ratio",
+        "backspaces_per_word",
+    }
+
     def normalise_value(key: str) -> str:
         value = row.get(key, "")
-        if value is None:
+        if value is None or value == "":
             return ""
+        if key in _round_keys:
+            try:
+                f = float(value)
+                if key == "formality_confidence":
+                    return str(round(f, 4))
+                return str(round(f, 4))
+            except (TypeError, ValueError):
+                return str(value)
         return str(value)
 
     serialised_row = {key: normalise_value(key) for key in headers}
@@ -178,11 +218,25 @@ def list_participants_with_data(base_dir: Path) -> List[str]:
     for child in root.iterdir():
         if not child.is_dir():
             continue
+        if not is_stable_study_participant_id(child.name):
+            continue
         csv_path = child / GLOBAL_LOG_FILENAME
         if csv_path.exists():
             participants.append(child.name)
     participants.sort()
     return participants
+
+
+def suggest_next_participant_id(base_dir: Path) -> str:
+    """Next P### id after the highest stable study id that has on-disk logs."""
+    ids = list_participants_with_data(base_dir)
+    nums: List[int] = []
+    for pid in ids:
+        m = re.match(r"^P(\d+)$", pid, re.IGNORECASE)
+        if m:
+            nums.append(int(m.group(1)))
+    n = max(nums) + 1 if nums else 1
+    return f"P{n:03d}"
 
 
 def runs_dir(base_dir: Path) -> Path:
@@ -256,6 +310,26 @@ def log_run_row(base_dir: Path, row: Dict[str, Any]) -> Path:
             w.writerow(serialised)
 
     return run_path
+
+
+def count_completed_runs_for_participant(base_dir: Path, participant_id: str) -> int:
+    """Count rows in run_summary.csv for this participant (one row per completed task/run)."""
+    pid = (participant_id or "").strip()
+    if not pid:
+        return 0
+    summary = runs_dir(base_dir) / "run_summary.csv"
+    if not summary.exists():
+        return 0
+    n = 0
+    try:
+        with summary.open("r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for r in reader:
+                if (r.get("participant_id") or "").strip() == pid:
+                    n += 1
+    except OSError:
+        return 0
+    return n
 
 
 def load_logs_for_admin(

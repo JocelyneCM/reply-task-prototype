@@ -43,13 +43,19 @@ from flask import (
 # Keep a direct-script fallback only when __package__ is empty.
 if __package__:
     from .utils.logging_utils import (
+        _csv_headers,
+        count_completed_runs_for_participant,
         ensure_base_directories,
         get_global_log_path,
-        log_trial_row,
-        log_run_row,
-        load_logs_for_admin,
+        is_stable_study_participant_id,
         list_participants_with_data,
+        load_logs_for_admin,
+        log_run_row,
+        log_trial_row,
+        normalize_study_participant_id,
+        suggest_next_participant_id,
     )
+    from .utils.session_plan_store import advance_plan, get_plan, set_plan
     from .utils.analysis_utils import (
         analyze_full_text,
         classify_style,
@@ -69,13 +75,19 @@ if __package__:
     )
 else:
     from utils.logging_utils import (  # type: ignore
+        _csv_headers,
+        count_completed_runs_for_participant,
         ensure_base_directories,
         get_global_log_path,
-        log_trial_row,
-        log_run_row,
-        load_logs_for_admin,
+        is_stable_study_participant_id,
         list_participants_with_data,
+        load_logs_for_admin,
+        log_run_row,
+        log_trial_row,
+        normalize_study_participant_id,
+        suggest_next_participant_id,
     )
+    from utils.session_plan_store import advance_plan, get_plan, set_plan  # type: ignore
     from utils.analysis_utils import (  # type: ignore
         analyze_full_text,
         classify_style,
@@ -191,48 +203,6 @@ def _pick_text_prompt_bundle(consume_override: bool) -> Dict[str, str]:
     out = dict(prompt)
     out["source"] = source
     return out
-
-
-def derive_prompt_metadata(prompt_text: str) -> Dict[str, str]:
-    """
-    Simple prompt tags for admin review.
-    This is rule-based so we can swap in a model later.
-    """
-    text = (prompt_text or "").strip()
-    lower = text.lower()
-
-    # Determine formality using the trained model (preferred).
-    formality = ""
-    try:
-        formality = analyze_full_text(text).get("formality_label", "") if text else ""
-    except Exception:
-        formality = ""
-    tone = "neutral"
-    seriousness = "medium"
-
-    if any(k in lower for k in ["urgent", "asap", "immediately", "before 5", "deadline"]):
-        tone = "urgent"
-        seriousness = "high"
-    elif any(k in lower for k in ["sorry", "apolog", "regret"]):
-        tone = "apologetic"
-    elif any(k in lower for k in ["dear", "regards", "sincerely"]):
-        tone = "professional"
-    elif any(k in lower for k in ["hello", "hi", "hey", "thank", "please"]):
-        tone = "friendly"
-    elif any(k in lower for k in ["meeting", "review", "prepare", "plan"]):
-        tone = "serious"
-        seriousness = "high"
-
-    if any(k in lower for k in ["quick", "small", "tiny", "short"]) and seriousness != "high":
-        seriousness = "low"
-    elif len(text.split()) > 18 and seriousness != "high":
-        seriousness = "high"
-
-    return {
-        "prompt_tone": tone,
-        "prompt_seriousness": seriousness,
-        "prompt_formality": formality,
-    }
 
 
 def normalize_bert_label(raw_label: str) -> str:
@@ -468,6 +438,7 @@ def api_prompt_pool_next() -> Response:
     custom_email_subject = (payload.get("custom_email_subject") or "").strip()
     custom_email_body = (payload.get("custom_email_body") or "").strip()
     custom_email_from = (payload.get("custom_email_from") or "researcher@example.com").strip()
+    custom_formality = (payload.get("prompt_formality") or "").strip().lower()
 
     if custom_sms or custom_messenger or custom_email_subject or custom_email_body:
         NEXT_TEXT_PROMPT_ID = None
@@ -482,6 +453,8 @@ def api_prompt_pool_next() -> Response:
             "email_subject": custom_email_subject or "Prompt",
             "email_body": custom_email_body or custom_sms or custom_messenger or "Please respond.",
         }
+        if custom_formality in ("formal", "informal"):
+            NEXT_TEXT_PROMPT_CUSTOM["prompt_formality"] = custom_formality
         return jsonify(
             {
                 "ok": True,
@@ -640,7 +613,8 @@ def api_log_reply() -> Response:
     except Exception:
         return jsonify({"ok": False, "error": "Invalid JSON body."}), 400
 
-    participant_id: str = (payload.get("participant_id") or "UNKNOWN").strip()
+    participant_id_raw = str(payload.get("participant_id") or "UNKNOWN").strip()
+    participant_id = normalize_study_participant_id(participant_id_raw)
     medium: str = (payload.get("medium") or "SMS").strip()
     input_method: str = normalize_input_method(
         str(payload.get("input_method") or ""),
@@ -657,6 +631,27 @@ def api_log_reply() -> Response:
     backspace_count: int = int(payload.get("backspace_count") or 0)
     paste_used: bool = bool(payload.get("paste_used") or False)
     correction_applied: bool = bool(payload.get("correction_applied") or False)
+    participant_turn = (payload.get("participant_turn") or "").strip().lower()
+
+    paste_n = 1 if paste_used else 0
+    corr_n = 1 if correction_applied else 0
+    manual_edit_count = int(backspace_count) + paste_n + corr_n
+    reply_len = len(reply_text) if reply_text else 0
+    if reply_len > 0 and input_method != "LLM":
+        keystrokes_per_character = round(keypress_count / reply_len, 4)
+        edit_ratio = round(manual_edit_count / reply_len, 4)
+    else:
+        keystrokes_per_character = ""
+        edit_ratio = ""
+
+    reply_words = len(reply_text.split()) if reply_text.strip() else 0
+    if input_method != "LLM" and reply_words > 0:
+        backspaces_per_word = round(backspace_count / reply_words, 4)
+    else:
+        backspaces_per_word = ""
+    edit_activity_compact = (
+        f"B{backspace_count}P{paste_n}A{corr_n}" if input_method != "LLM" else ""
+    )
 
     # If no transcript came from the browser but we have an audio filename,
     # attempt to transcribe it here.
@@ -698,6 +693,25 @@ def api_log_reply() -> Response:
         words = len(final_text_for_analysis.strip().split())
         words_per_minute = (words / response_time_seconds) * 60.0
 
+    if input_method == "LLM":
+        final_reply_text_val = ""
+    elif participant_turn == "final":
+        final_reply_text_val = reply_text
+    else:
+        final_reply_text_val = ""
+
+    client_pf = (payload.get("prompt_formality") or "").strip()
+    client_pf_lower = client_pf.lower()
+    if input_method == "LLM":
+        resolved_prompt_formality = client_pf_lower or ""
+    elif client_pf_lower in ("formal", "informal"):
+        resolved_prompt_formality = client_pf_lower
+    elif client_pf_lower in ("", "auto", "neutral"):
+        fl = (prompt_analysis.get("formality_label") or "").strip()
+        resolved_prompt_formality = f"auto:{fl}" if fl else "auto:unknown"
+    else:
+        resolved_prompt_formality = client_pf_lower
+
     # Build log row strictly following the requested schema.
     row = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
@@ -710,7 +724,7 @@ def api_log_reply() -> Response:
         "reply_text": reply_text,
         "participant_reply_text": reply_text if input_method != "LLM" else "",
         "llm_reply_text": reply_text if input_method == "LLM" else "",
-        "final_reply_text": "",
+        "final_reply_text": final_reply_text_val,
         "transcript": transcript,
         "response_time_seconds": response_time_seconds,
         "words_per_minute": round(words_per_minute, 2) if words_per_minute else "",
@@ -718,11 +732,16 @@ def api_log_reply() -> Response:
         "backspace_count": backspace_count,
         "paste_used": "yes" if paste_used else "no",
         "correction_applied": "yes" if correction_applied else "no",
-        # Keep prompt metadata explicit for admin prompt interpretation.
+        "manual_edit_count": manual_edit_count,
+        "edit_ratio": edit_ratio,
+        "keystrokes_per_character": keystrokes_per_character,
+        "backspaces_per_word": backspaces_per_word,
+        "edit_activity_compact": edit_activity_compact,
+        # Prompt condition: prefer admin / bundle tags; avoid heuristic tone/seriousness.
         "prompt_style": payload.get("prompt_style") or prompt_analysis.get("formality_label", ""),
         "prompt_tone": (payload.get("prompt_tone") or "").strip(),
         "prompt_seriousness": (payload.get("prompt_seriousness") or "").strip(),
-        "prompt_formality": (payload.get("prompt_formality") or "").strip(),
+        "prompt_formality": resolved_prompt_formality,
         "reply_style": style_label,
         "reply_analysis_status": "ok",
         "reply_analysis_basis": (
@@ -741,13 +760,6 @@ def api_log_reply() -> Response:
         "audio_filename": audio_filename,
     }
 
-    # Fill prompt tags if the front-end did not send them.
-    if not row["prompt_tone"] or not row["prompt_seriousness"] or not row["prompt_formality"]:
-        meta = derive_prompt_metadata(prompt_text)
-        row["prompt_tone"] = row["prompt_tone"] or meta["prompt_tone"]
-        row["prompt_seriousness"] = row["prompt_seriousness"] or meta["prompt_seriousness"]
-        row["prompt_formality"] = row["prompt_formality"] or meta["prompt_formality"]
-
     # If we have no text to analyze, mark it clearly instead of guessing.
     if not final_text_for_analysis:
         row["reply_analysis_status"] = "unavailable_missing_text_or_transcript"
@@ -761,7 +773,6 @@ def api_log_reply() -> Response:
     # Persist to global + per‑participant CSV files.
     # Compute whether user's reply roughly matches prompt formality.
     try:
-        prompt_analysis = analyze_full_text(prompt_text)
         reply_analysis = analyze_full_text(final_text_for_analysis)
         p_label = (prompt_analysis.get("formality_label") or "").lower()
         r_label = (reply_analysis.get("formality_label") or "").lower()
@@ -921,7 +932,6 @@ def api_generate_reply() -> Response:
             app.logger.exception("LLM call failed: %s", exc)
 
     # Fallback heuristic reply if no LLM is configured or call fails.
-    # Fallback heuristic reply if no LLM is configured or call fails.
     fallback = build_fallback_reply_text(
         prompt_text,
         target_formality,
@@ -958,7 +968,9 @@ def api_log_run() -> Response:
     except Exception:
         return jsonify({"ok": False, "error": "Invalid JSON body."}), 400
 
-    participant_id = (payload.get("participant_id") or "UNKNOWN").strip()
+    participant_id = normalize_study_participant_id(
+        str(payload.get("participant_id") or "UNKNOWN").strip()
+    )
     medium = (payload.get("medium") or "SMS").strip()
     input_method = normalize_input_method(
         str(payload.get("input_method") or ""),
@@ -1017,7 +1029,8 @@ def api_log_run() -> Response:
         "backspace_count": backspace_count,
         "paste_used": "yes" if paste_used else "no",
         "correction_applied": "yes" if correction_applied else "no",
-        "prompt_style": payload.get("prompt_style") or derive_prompt_metadata(prompt_text).get("prompt_formality") or "",
+        "prompt_style": payload.get("prompt_style")
+        or (prompt_analysis.get("formality_label", "") if prompt_text else ""),
         "prompt_tone": payload.get("prompt_tone") or "",
         "prompt_seriousness": payload.get("prompt_seriousness") or "",
         "notes": payload.get("notes") or "",
@@ -1042,7 +1055,52 @@ def api_participants() -> Response:
     Return a simple list of participant IDs that currently have data files.
     """
     participants = list_participants_with_data(BASE_DIR)
-    return jsonify({"ok": True, "participants": participants})
+    return jsonify(
+        {
+            "ok": True,
+            "participants": participants,
+            "suggested_next_participant_id": suggest_next_participant_id(BASE_DIR),
+        }
+    )
+
+
+@app.get("/api/admin/session_plan")
+def api_admin_get_session_plan() -> Response:
+    pid = normalize_study_participant_id((request.args.get("participant_id") or "").strip())
+    if not is_stable_study_participant_id(pid):
+        return jsonify({"ok": False, "error": "Stable participant_id (e.g. P001) required."}), 400
+    return jsonify({"ok": True, "plan": get_plan(BASE_DIR, pid)})
+
+
+@app.post("/api/admin/session_plan")
+def api_admin_post_session_plan() -> Response:
+    try:
+        payload: Dict[str, Any] = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid JSON body."}), 400
+    pid = normalize_study_participant_id(str(payload.get("participant_id") or "").strip())
+    if not is_stable_study_participant_id(pid):
+        return jsonify({"ok": False, "error": "Stable participant_id (e.g. P001) required."}), 400
+    tasks = payload.get("tasks") or []
+    if not isinstance(tasks, list):
+        return jsonify({"ok": False, "error": "tasks must be a JSON array."}), 400
+    plan = set_plan(BASE_DIR, pid, tasks)
+    return jsonify({"ok": True, "plan": plan})
+
+
+@app.post("/api/admin/session_plan/advance")
+def api_admin_session_plan_advance() -> Response:
+    try:
+        payload: Dict[str, Any] = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid JSON body."}), 400
+    pid = normalize_study_participant_id(str(payload.get("participant_id") or "").strip())
+    if not is_stable_study_participant_id(pid):
+        return jsonify({"ok": False, "error": "Stable participant_id (e.g. P001) required."}), 400
+    ent = advance_plan(BASE_DIR, pid)
+    if ent is None:
+        return jsonify({"ok": True, "done": True, "plan": get_plan(BASE_DIR, pid)})
+    return jsonify({"ok": True, "done": False, "plan": ent})
 
 
 @app.get("/api/logs")
@@ -1125,22 +1183,39 @@ def api_admin_summary() -> Response:
     for pid in sorted(by_pid.keys()):
         pr = by_pid[pid]
         timestamps = [r.get("timestamp") or "" for r in pr]
+        mediums_set: set[str] = set()
+        inputs_set: set[str] = set()
+        formal_rows = 0
+        informal_rows = 0
+        for r in pr:
+            m = (r.get("medium") or "").strip()
+            if m:
+                mediums_set.add(m)
+            im = (r.get("input_method") or "").strip()
+            if im and im != "LLM":
+                inputs_set.add(im)
+            pf_bucket = classify_prompt_condition_bucket(r.get("prompt_formality") or "")
+            if pf_bucket == "formal":
+                formal_rows += 1
+            elif pf_bucket == "informal":
+                informal_rows += 1
         participant_stats.append(
             {
                 "participant_id": pid,
                 "trial_count": len(pr),
+                "log_row_count": len(pr),
+                "completed_runs_count": count_completed_runs_for_participant(BASE_DIR, pid),
                 "last_timestamp": max(timestamps) if timestamps else "",
+                "mediums": ", ".join(sorted(mediums_set)),
+                "input_methods": ", ".join(sorted(inputs_set)),
+                "formal_prompt_rows": formal_rows,
+                "informal_prompt_rows": informal_rows,
             }
         )
 
     medium_breakdown = dict(
         Counter((r.get("medium") or "—").strip() or "—" for r in rows))
-    bert_breakdown = dict(
-        Counter(
-            (r.get("bert_label") or "neutral").strip() or "neutral"
-            for r in rows
-        )
-    )
+    bert_breakdown: Dict[str, int] = {}
 
     input_keys = ["Typing", "Swipe typing", "Voice-to-text"]
     rt_sum = {k: 0.0 for k in input_keys}
@@ -1193,20 +1268,46 @@ def _filter_csv_rows_for_export(
     return [r for r in rows if not _csv_row_is_generated_for_export(r)]
 
 
+def classify_prompt_condition_bucket(pf: str) -> str:
+    """Bucket logged prompt_formality for admin stats (formal / informal / other)."""
+    x = (pf or "").strip().lower()
+    if x == "formal" or x.startswith("auto:label_1"):
+        return "formal"
+    if x == "informal" or x.startswith("auto:label_0"):
+        return "informal"
+    return "other"
+
+
+def prompt_condition_readable(pf: str) -> str:
+    """Short human-readable prompt condition for study exports."""
+    x = (pf or "").strip().lower()
+    if x == "formal":
+        return "formal"
+    if x == "informal":
+        return "informal"
+    if x.startswith("auto:label_1"):
+        return "auto (formal)"
+    if x.startswith("auto:label_0"):
+        return "auto (informal)"
+    if x.startswith("auto:"):
+        return "auto (unknown)"
+    return (pf or "").strip()
+
+
 def _formality_label_display(raw: str) -> str:
-    """Human-readable formality register label for study exports and admin UI."""
+    """Human-readable reply register for study exports and admin (not raw LABEL_*)."""
     s = (raw or "").strip()
     if not s:
         return ""
     u = s.upper()
     if u == "LABEL_0":
-        return "Informal register (class 0)"
+        return "Informal"
     if u == "LABEL_1":
-        return "Formal register (class 1)"
+        return "Formal"
     return s
 
 
-# Study CSV: core columns only; participant / human rows (no LLM rows).
+# Study CSV: readable core columns; participant rows only (no LLM rows).
 _STUDY_CSV_BASE_HEADERS = [
     "timestamp",
     "participant_id",
@@ -1215,16 +1316,23 @@ _STUDY_CSV_BASE_HEADERS = [
     "prompt_text",
     "participant_reply_text",
     "response_time_seconds",
+    "words_per_minute",
     "keystrokes",
     "backspaces",
     "paste_used",
-    "correction_applied",
-    "formality_label",
+    "browser_autocomplete",
+    "manual_edit_count",
+    "edit_ratio",
+    "keystrokes_per_character",
+    "backspaces_per_word",
+    "edit_activity_compact",
+    "prompt_condition",
+    "reply_register",
     "formality_confidence",
 ]
 
 _STUDY_CSV_ADVANCED_HEADERS = [
-    "formality_label_raw",
+    "formality_model_label_raw",
     "bert_label",
     "bert_raw",
     "bert_confidence",
@@ -1233,7 +1341,6 @@ _STUDY_CSV_ADVANCED_HEADERS = [
     "llm_provider",
     "formality_match_prompt_reply",
     "transcript",
-    "words_per_minute",
     "row_role",
     "reply_text",
     "llm_reply_text",
@@ -1246,6 +1353,7 @@ _STUDY_CSV_ADVANCED_HEADERS = [
     "reply_analysis_status",
     "transcript_status",
     "audio_filename",
+    "correction_applied",
 ]
 
 
@@ -1254,6 +1362,15 @@ def _study_csv_row(
 ) -> Dict[str, str]:
     pr = (row.get("participant_reply_text") or row.get("reply_text") or "").strip()
     raw_fl = (row.get("formality_label") or "").strip()
+
+    def _fmt_num(val: Any, nd: int) -> str:
+        if val is None or val == "":
+            return ""
+        try:
+            return str(round(float(val), nd))
+        except (TypeError, ValueError):
+            return str(val)
+
     out: Dict[str, str] = {
         "timestamp": (row.get("timestamp") or "").strip(),
         "participant_id": (row.get("participant_id") or "").strip(),
@@ -1261,16 +1378,23 @@ def _study_csv_row(
         "input_method": (row.get("input_method") or "").strip(),
         "prompt_text": row.get("prompt_text") or "",
         "participant_reply_text": pr,
-        "response_time_seconds": (row.get("response_time_seconds") or "").strip(),
+        "response_time_seconds": _fmt_num(row.get("response_time_seconds"), 4),
+        "words_per_minute": _fmt_num(row.get("words_per_minute"), 2),
         "keystrokes": (row.get("keypress_count") or "").strip(),
         "backspaces": (row.get("backspace_count") or "").strip(),
         "paste_used": (row.get("paste_used") or "").strip(),
-        "correction_applied": (row.get("correction_applied") or "").strip(),
-        "formality_label": _formality_label_display(raw_fl),
-        "formality_confidence": (row.get("formality_confidence") or "").strip(),
+        "browser_autocomplete": (row.get("correction_applied") or "").strip(),
+        "manual_edit_count": (row.get("manual_edit_count") or "").strip(),
+        "edit_ratio": _fmt_num(row.get("edit_ratio"), 4),
+        "keystrokes_per_character": _fmt_num(row.get("keystrokes_per_character"), 4),
+        "backspaces_per_word": _fmt_num(row.get("backspaces_per_word"), 4),
+        "edit_activity_compact": (row.get("edit_activity_compact") or "").strip(),
+        "prompt_condition": prompt_condition_readable(row.get("prompt_formality") or ""),
+        "reply_register": _formality_label_display(raw_fl),
+        "formality_confidence": _fmt_num(row.get("formality_confidence"), 3),
     }
     if include_advanced:
-        out["formality_label_raw"] = raw_fl
+        out["formality_model_label_raw"] = raw_fl
         for h in _STUDY_CSV_ADVANCED_HEADERS[1:]:
             out[h] = (row.get(h) or "").strip() if row.get(h) is not None else ""
     return out
@@ -1352,6 +1476,14 @@ def api_download_csv() -> Response:
             return jsonify(
                 {"ok": False, "error": "participant_id is required for scope=participant"}
             ), 400
+        participant_id = normalize_study_participant_id(participant_id)
+        if not is_stable_study_participant_id(participant_id):
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": "participant_id must be a stable study id like P005 (not a display alias).",
+                }
+            ), 400
         csv_path = (
             BASE_DIR
             / "data"
@@ -1372,41 +1504,7 @@ def api_download_csv() -> Response:
             else "sentiment_log_all_participants.csv"
         )
 
-    empty_headers = [
-        "timestamp",
-        "participant_id",
-        "medium",
-        "input_method",
-        "row_role",
-        "llm_provider",
-        "prompt_text",
-        "reply_text",
-        "participant_reply_text",
-        "llm_reply_text",
-        "final_reply_text",
-        "transcript",
-        "response_time_seconds",
-        "words_per_minute",
-        "keypress_count",
-        "backspace_count",
-        "paste_used",
-        "correction_applied",
-        "prompt_style",
-        "prompt_tone",
-        "prompt_seriousness",
-        "prompt_formality",
-        "reply_style",
-        "reply_analysis_status",
-        "reply_analysis_basis",
-        "transcript_status",
-        "transcript_source",
-        "formality_label",
-        "formality_confidence",
-        "bert_label",
-        "bert_raw",
-        "bert_confidence",
-        "audio_filename",
-    ]
+    empty_headers = _csv_headers()
 
     if not csv_path.exists():
         csv_path.parent.mkdir(parents=True, exist_ok=True)

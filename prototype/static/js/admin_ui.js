@@ -61,6 +61,7 @@ function buildTrialDetailHtml(row) {
         <dt>Participant</dt><dd title="${pidRaw ? `Logged ID: ${pidRaw}` : ""}">${pidDisp}</dd>
         <dt>Medium</dt><dd>${escapeHtml(row.medium || "")}</dd>
         <dt>Input method</dt><dd>${escapeHtml(imethod)}</dd>
+        ${row.prompt_formality ? `<dt>Prompt condition</dt><dd>${escapeHtml(row.prompt_formality)}</dd>` : ""}
         <dt>Row type</dt><dd>${escapeHtml(String(rowType))}</dd>
         ${llmDd}
       </dl>
@@ -76,7 +77,11 @@ function buildTrialDetailHtml(row) {
     <div class="pex-admin-detail-block">
       <h3>Timing &amp; behaviour</h3>
       <dl class="pex-admin-detail-meta">
-        <dt>Response time (s)</dt><dd>${escapeHtml(String(row.response_time_seconds ?? ""))}</dd>
+        <dt>Response time (s)</dt><dd>${
+          typeof formatSecondsCell === "function"
+            ? escapeHtml(formatSecondsCell(row.response_time_seconds))
+            : escapeHtml(String(row.response_time_seconds ?? ""))
+        }</dd>
         <dt>Words per minute</dt><dd>${escapeHtml(String(row.words_per_minute ?? ""))}</dd>
         <dt>Keystrokes</dt><dd>${escapeHtml(String(row.keypress_count ?? ""))}${
           imethod === "Swipe typing" ? ' <span class="small" style="color:var(--muted)">(approx.)</span>'
@@ -89,11 +94,11 @@ function buildTrialDetailHtml(row) {
           : ""
         }</dd>
         <dt>Paste</dt><dd>${escapeHtml(row.paste_used || "")}</dd>
-        <dt>Correction</dt><dd>${escapeHtml(row.correction_applied || "")}</dd>
+        <dt>Browser autocomplete</dt><dd>${escapeHtml(row.correction_applied || "")}</dd>
       </dl>
     </div>
     <div class="pex-admin-detail-block">
-      <h3>Formality model</h3>
+      <h3>Reply register (model)</h3>
       <dl class="pex-admin-detail-meta">
         <dt>Register</dt><dd>${escapeHtml(
           typeof displayFormalityRegisterLabel === "function"
@@ -103,7 +108,7 @@ function buildTrialDetailHtml(row) {
         <dt>Confidence</dt><dd>${escapeHtml(String(row.formality_confidence ?? ""))}</dd>
       </dl>
       <div style="margin-top:10px">
-        <button type="button" class="pex-admin-table-action" id="adminDeleteTrialBtn">Delete this trial…</button>
+        <button type="button" class="pex-admin-table-action" id="adminDeleteTrialBtn">Delete this log row…</button>
       </div>
     </div>
     <details class="pex-admin-advanced">

@@ -92,17 +92,16 @@
 
       <main class="pex-main">
         <input type="hidden" id="participantId" value="" />
-        <section class="pex-study-condition" aria-label="Study condition">
-          <label for="studyInputMethod" class="pex-study-condition-label">Study condition</label>
+        <div class="pex-study-condition pex-sr-only" aria-hidden="true">
+          <label for="studyInputMethod">Input method (set via admin link URL)</label>
           <select id="studyInputMethod" class="pex-study-condition-select">
             <option value="Typing">Typing</option>
             <option value="Swipe typing">Swipe typing</option>
             <option value="Voice-to-text">Voice-to-text</option>
           </select>
-        </section>
-        <p class="pex-study-condition-hint" id="studyInputInstruction">
-          Type your reply normally.
-        </p>
+        </div>
+        <p class="pex-sr-only" id="studyDeviceContext" aria-hidden="true"></p>
+        <p class="pex-sr-only" id="studyInputInstruction" aria-hidden="true">Type your reply normally.</p>
 
         <!-- ——— SMS (iMessage-inspired) ——— -->
         <section

@@ -2141,6 +2141,21 @@ body[data-theme="light"] .pex-admin-sidebar{
   flex-wrap:wrap;
 }
 
+.pex-admin-context-banner{
+  margin:0 24px 4px;
+  padding:10px 14px;
+  border-radius:var(--radius);
+  border:1px solid var(--line);
+  background:var(--surface-2);
+  font-size:13px;
+  line-height:1.45;
+  color:var(--text);
+}
+
+.pex-admin-context-banner[hidden]{
+  display:none !important;
+}
+
 .pex-admin-pill{
   font-size:12px;
   padding:6px 10px;
