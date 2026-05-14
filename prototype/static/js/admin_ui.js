@@ -112,7 +112,7 @@ function buildTrialDetailHtml(row) {
       </div>
     </div>
     <details class="pex-admin-advanced">
-      <summary>Advanced (raw model codes, transcripts, exploratory sentiment)</summary>
+      <summary>Advanced (raw model codes, transcripts, edit traces)</summary>
       <div class="pex-admin-detail-block">
         <h3 class="pex-admin-detail-subhd">Formality model (raw)</h3>
         <dl class="pex-admin-detail-meta">
@@ -124,12 +124,6 @@ function buildTrialDetailHtml(row) {
         </dl>
         ${transBlock || voiceNoTrans || ""}
         ${audioBlock || ""}
-        <h3 class="pex-admin-detail-subhd">BERT sentiment (exploratory)</h3>
-        <dl class="pex-admin-detail-meta">
-          <dt>Normalized label</dt><dd>${escapeHtml(normalizeBertLabel(row.bert_label || ""))}</dd>
-          <dt>Raw</dt><dd>${escapeHtml(row.bert_raw || row.bert_label || "")}</dd>
-          <dt>Confidence</dt><dd>${escapeHtml(String(row.bert_confidence ?? ""))}</dd>
-        </dl>
         <h3 class="pex-admin-detail-subhd">Heuristics</h3>
         <dl class="pex-admin-detail-meta">
           <dt>Prompt style / register (rules)</dt><dd>${escapeHtml(row.prompt_style || "")}</dd>

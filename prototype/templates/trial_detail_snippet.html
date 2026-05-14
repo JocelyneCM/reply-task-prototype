@@ -55,7 +55,7 @@
   </div>
 </div>
 <details class="pex-admin-advanced">
-  <summary>Advanced (raw model codes, transcripts, exploratory sentiment)</summary>
+  <summary>Advanced (raw model codes, transcripts, edit traces)</summary>
   <div class="pex-admin-detail-block">
     <h3 class="pex-admin-detail-subhd">Formality model (raw)</h3>
     <dl class="pex-admin-detail-meta">
@@ -76,12 +76,95 @@
     <audio class="pex-admin-audio" controls preload="metadata" src="{{ row._audio_url }}"></audio>
     <p class="small" style="margin-top:8px;color:var(--muted)">{{ row.audio_filename }}</p>
     {% endif %}
-    <h3 class="pex-admin-detail-subhd">BERT sentiment (exploratory)</h3>
+    <h3 class="pex-admin-detail-subhd">Edit / revision trace (approximate)</h3>
+    <p class="small" style="margin:0 0 8px;color:var(--muted)">
+      Free-text replies have no target sentence: counts describe edit/revision behaviour, not copy-typing error rate.
+      Voice-to-text: manual edits after transcript only. Swipe typing: browser events are approximate.
+    </p>
     <dl class="pex-admin-detail-meta">
-      <dt>Normalized label</dt><dd>{{ row.bert_label or "" }}</dd>
-      <dt>Raw (mapped display)</dt><dd>{{ row.bert_raw or row.bert_label or "" }} <span class="small" style="color:var(--muted)">Star-style strings are the model&apos;s coarse sentiment scale, not user ratings.</span></dd>
-      <dt>Confidence</dt><dd>{{ row.bert_confidence or "" }}</dd>
+      <dt>Edit trace stored</dt>
+      <dd>{% if (row.edit_trace_available or "").strip() == "yes" %}yes{% else %}no{% endif %}</dd>
+      <dt>Revision estimate</dt><dd>{{ row.revision_count or "—" }}</dd>
+      <dt>Inserted chars (est.)</dt><dd>{{ row.inserted_chars_est or "—" }}</dd>
+      <dt>Deleted chars (est.)</dt><dd>{{ row.deleted_chars_est or "—" }}</dd>
+      <dt>Net char change</dt><dd>{{ row.net_char_change or "—" }}</dd>
+      <dt>Manual edits after transcript (est.)</dt><dd>{{ row.manual_edit_chars_after_transcript_est or "—" }}</dd>
+      <dt>Voice transcript initial chars</dt><dd>{{ row.voice_transcript_initial_chars or "—" }}</dd>
+      <dt>log_row_id</dt><dd>{{ row.log_row_id or "—" }}</dd>
+      {% if row.edit_trace_path %}
+      <dt>edit_trace_path</dt><dd><code>{{ row.edit_trace_path }}</code></dd>
+      {% endif %}
     </dl>
+    {% if row.edit_trace_data %}
+    {% set et = row.edit_trace_data %}
+    {% set keys = et.get('key_events') or [] %}
+    {% set muts = et.get('text_mutations') or [] %}
+    {% set snaps = et.get('snapshots') or [] %}
+    {% set legacy = et.get('events') or [] %}
+    {% set met = et.get('metrics') or {} %}
+    <h3 class="pex-admin-detail-subhd">Keystrokes / edit trace (same sidecar)</h3>
+    <p class="small" style="margin:0 0 8px;color:var(--muted)">
+      Layers are separated in the JSON: <code>key_events</code> (browser interaction),
+      <code>text_mutations</code> (DOM / value diffs / voice transcript marker),
+      <code>snapshots</code> (value fingerprints). Legacy traces (schema_version 1) use a single <code>events</code> array.
+    </p>
+    <p class="pex-admin-trace-summary">
+      schema_version <strong>{{ et.get('schema_version', '—') }}</strong>
+      · key_events: <strong>{{ keys|length }}</strong>
+      · text_mutations: <strong>{{ muts|length }}</strong>
+      · snapshots: <strong>{{ snaps|length }}</strong>
+      {% if legacy|length %}· legacy events: <strong>{{ legacy|length }}</strong>{% endif %}
+      {% if met.get('key_event_count') is not none %}· metrics.key_event_count: <strong>{{ met.get('key_event_count') }}</strong>{% endif %}
+    </p>
+    {% if row.participant_id and row.log_row_id %}
+    <p style="margin:0 0 10px">
+      <a class="pex-admin-table-action" href="/api/download_edit_trace?participant_id={{ row.participant_id|urlencode }}&amp;log_row_id={{ row.log_row_id|urlencode }}">Download trace JSON</a>
+    </p>
+    {% endif %}
+    <div class="pex-admin-trace-layers">
+      <details>
+        <summary>Summary (metrics + markers)</summary>
+        <p class="small" style="margin:6px 0 4px;color:var(--muted)">metrics</p>
+        <pre class="pex-admin-trace-pre">{{ met | tojson(indent=2) }}</pre>
+        <p class="small" style="margin:10px 0 4px;color:var(--muted)">Context</p>
+        <pre class="pex-admin-trace-pre">{{ {
+          "medium": et.get("medium"),
+          "input_method": et.get("input_method"),
+          "row_role": et.get("row_role"),
+          "session_started_ms": et.get("session_started_ms"),
+          "finalized_ms": et.get("finalized_ms"),
+          "voice_transcript_marker": et.get("voice_transcript_marker")
+        } | tojson(indent=2) }}</pre>
+        <p class="small" style="margin:10px 0 4px;color:var(--muted)">disclaimers</p>
+        <pre class="pex-admin-trace-pre">{{ (et.get('disclaimers') or []) | tojson(indent=2) }}</pre>
+      </details>
+      <details>
+        <summary>Key events ({{ keys|length }})</summary>
+        <pre class="pex-admin-trace-pre">{{ keys | tojson(indent=2) }}</pre>
+      </details>
+      <details>
+        <summary>Text mutations ({{ muts|length }})</summary>
+        <pre class="pex-admin-trace-pre">{{ muts | tojson(indent=2) }}</pre>
+      </details>
+      <details>
+        <summary>Snapshots / value fingerprints ({{ snaps|length }})</summary>
+        <pre class="pex-admin-trace-pre">{{ snaps | tojson(indent=2) }}</pre>
+      </details>
+      {% if legacy|length %}
+      <details>
+        <summary>Legacy unified events ({{ legacy|length }})</summary>
+        <pre class="pex-admin-trace-pre">{{ legacy | tojson(indent=2) }}</pre>
+      </details>
+      {% endif %}
+      <details>
+        <summary>Raw JSON (full sidecar)</summary>
+        <pre class="pex-admin-trace-pre">{{ et | tojson(indent=2) }}</pre>
+      </details>
+    </div>
+    {% elif (row.edit_trace_available or '').strip() == 'yes' %}
+    <h3 class="pex-admin-detail-subhd">Keystrokes / edit trace</h3>
+    <p class="small" style="color:var(--muted)">Sidecar marked available but file could not be loaded (path, permissions, or missing file).</p>
+    {% endif %}
     <h3 class="pex-admin-detail-subhd">Heuristics</h3>
     <dl class="pex-admin-detail-meta">
       <dt>Prompt style / register (rules)</dt><dd>{{ row.prompt_style or "" }}</dd>

@@ -45,12 +45,26 @@ def get_plan(base_dir: Path, participant_id: str) -> Dict[str, Any]:
     return ent
 
 
-def set_plan(base_dir: Path, participant_id: str, tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
+def set_plan(
+    base_dir: Path,
+    participant_id: str,
+    tasks: List[Dict[str, Any]],
+    current_index: Optional[int] = None,
+) -> Dict[str, Any]:
     pid = normalize_study_participant_id(participant_id.strip())
     data = load_all(base_dir)
     plans = data.setdefault("plans", {})
-    cur = (plans.get(pid) or {}).get("current_index", 0)
-    plans[pid] = {"tasks": list(tasks or []), "current_index": int(cur)}
+    old = plans.get(pid) or {}
+    cur = int(old.get("current_index") or 0)
+    if current_index is not None:
+        try:
+            cur = int(current_index)
+        except (TypeError, ValueError):
+            cur = 0
+    task_list = list(tasks or [])
+    max_i = max(0, len(task_list) - 1)
+    cur = max(0, min(cur, max_i))
+    plans[pid] = {"tasks": task_list, "current_index": cur}
     save_all(base_dir, data)
     return plans[pid]
 

@@ -1,0 +1,491 @@
+{
+  "version": 1,
+  "intro": "Filter by field name, label, or text. Kind badges: Exact = logged as recorded; Heuristic = derived estimate; Legacy = kept for compatibility, not populated on new rows.",
+  "categories": [
+    {
+      "id": "identity",
+      "title": "Identity, IDs & paths",
+      "entries": [
+        {
+          "fieldNames": ["timestamp"],
+          "label": "When the row was written",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "Server wall-clock time when this log row was appended (ISO-8601 local, seconds precision).",
+          "example": "2026-05-13T14:22:36"
+        },
+        {
+          "fieldNames": ["participant_id"],
+          "label": "Participant ID",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail", "sidecar_json"],
+          "kind": "exact",
+          "explanation": "Stable study ID (e.g. P001). Normalised to P + three digits when possible.",
+          "example": "P002"
+        },
+        {
+          "fieldNames": ["log_row_id"],
+          "label": "Stable row UUID",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail", "sidecar_json"],
+          "kind": "exact",
+          "explanation": "UUID v4 linking the CSV row to optional JSON sidecars under data/edit_traces/<participant_id>/.",
+          "example": "e40d7cef-dc11-4ac8-adb5-9bc42e430924"
+        },
+        {
+          "fieldNames": ["edit_trace_path"],
+          "label": "Relative path to edit trace JSON",
+          "appearsIn": ["raw_csv", "study_export_advanced"],
+          "kind": "exact",
+          "explanation": "Repo-relative POSIX path from the prototype root, e.g. data/edit_traces/P001/<uuid>.json. Empty when no sidecar was written.",
+          "example": "data/edit_traces/P002/e40d7cef-dc11-4ac8-adb5-9bc42e430924.json"
+        },
+        {
+          "fieldNames": ["medium"],
+          "label": "UI lane",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail", "sidecar_json"],
+          "kind": "exact",
+          "explanation": "SMS, Messenger, Email, or Voice (pure audio lane).",
+          "example": "SMS"
+        },
+        {
+          "fieldNames": ["input_method"],
+          "label": "How the participant composed text",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail", "sidecar_json"],
+          "kind": "exact",
+          "explanation": "Typing, Swipe typing, Voice-to-text, Speech (pure Voice), or LLM for assistant rows.",
+          "example": "Voice-to-text"
+        },
+        {
+          "fieldNames": ["row_role"],
+          "label": "participant_reply vs system_generated",
+          "appearsIn": ["raw_csv", "study_export_advanced"],
+          "kind": "exact",
+          "explanation": "Distinguishes human rows from generated assistant rows.",
+          "example": "participant_reply"
+        }
+      ]
+    },
+    {
+      "id": "timing",
+      "title": "Timing & throughput",
+      "entries": [
+        {
+          "fieldNames": ["response_time_seconds"],
+          "label": "Response time (seconds)",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "Wall time from the relevant prompt (or Alex follow-up) being shown until Send. See About → Metrics for first vs final reply anchoring.",
+          "caveats": "Not comparable to LLM latency on the same thread; assistant rows may log model timing separately.",
+          "example": "20.02"
+        },
+        {
+          "fieldNames": ["words_per_minute"],
+          "label": "Words per minute",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail"],
+          "kind": "heuristic",
+          "explanation": "(word count / response_time_seconds) × 60 using the same window as response_time_seconds.",
+          "caveats": "Uses the logged analysis text length; for Voice medium prefers transcript. Not a typing-speed measure for swipe or voice-to-text.",
+          "example": "13.44"
+        }
+      ]
+    },
+    {
+      "id": "keystrokes",
+      "title": "Keystrokes & browser edit flags",
+      "entries": [
+        {
+          "fieldNames": ["keypress_count", "keystrokes"],
+          "label": "Keystrokes (raw) / Keystrokes (study)",
+          "appearsIn": ["raw_csv", "study_export"],
+          "kind": "heuristic",
+          "explanation": "Count of keydown events on the compose textarea. Study export renames this column to keystrokes for readability.",
+          "caveats": "Includes Shift, Enter, punctuation, etc. Swipe and mobile IME events are approximate. Voice-to-text: counts manual edits only, not speech production.",
+          "example": "4"
+        },
+        {
+          "fieldNames": ["backspace_count", "backspaces"],
+          "label": "Backspaces (raw) / Backspaces (study)",
+          "appearsIn": ["raw_csv", "study_export"],
+          "kind": "heuristic",
+          "explanation": "keydown where key === 'Backspace'. Study export column: backspaces.",
+          "example": "1"
+        },
+        {
+          "fieldNames": ["paste_used"],
+          "label": "Paste used",
+          "appearsIn": ["raw_csv", "study_export"],
+          "kind": "exact",
+          "explanation": "yes/no if a paste event was observed on the compose field during that reply.",
+          "example": "no"
+        },
+        {
+          "fieldNames": ["correction_applied", "browser_autocomplete"],
+          "label": "Browser autocomplete / IME correction",
+          "appearsIn": ["raw_csv", "study_export"],
+          "kind": "exact",
+          "explanation": "yes/no when the in-app suggestion chip was applied (not general rewriting). Study export: browser_autocomplete.",
+          "example": "no"
+        },
+        {
+          "fieldNames": ["manual_edit_count"],
+          "label": "Manual edit count (heuristic)",
+          "appearsIn": ["raw_csv", "study_export"],
+          "kind": "heuristic",
+          "explanation": "backspace_count + (1 if paste) + (1 if correction_applied).",
+          "caveats": "Not a full edit-diff; do not treat as ground-truth revision depth.",
+          "example": "1"
+        },
+        {
+          "fieldNames": ["keystrokes_per_character"],
+          "label": "KSPC",
+          "appearsIn": ["raw_csv", "study_export"],
+          "kind": "heuristic",
+          "explanation": "keypress_count / len(reply_text) for non-LLM rows.",
+          "caveats": "Input-method-specific; do not compare typing vs swipe vs voice-to-text.",
+          "example": "0.3077"
+        },
+        {
+          "fieldNames": ["backspaces_per_word"],
+          "label": "Backspaces per word",
+          "appearsIn": ["raw_csv", "study_export"],
+          "kind": "heuristic",
+          "explanation": "backspace_count divided by word count of reply_text when words > 0.",
+          "example": "0.3333"
+        },
+        {
+          "fieldNames": ["edit_ratio"],
+          "label": "Edit ratio",
+          "appearsIn": ["raw_csv", "study_export"],
+          "kind": "heuristic",
+          "explanation": "manual_edit_count / character length of reply_text.",
+          "example": "0.0769"
+        },
+        {
+          "fieldNames": ["edit_activity_compact"],
+          "label": "Edit activity compact code",
+          "appearsIn": ["raw_csv", "study_export"],
+          "kind": "heuristic",
+          "explanation": "Short token summarising B/P/A counts (backspace, paste, autocomplete), e.g. B1P0A0.",
+          "example": "B1P0A0"
+        }
+      ]
+    },
+    {
+      "id": "edit_trace",
+      "title": "Edit trace (CSV summaries + sidecar JSON)",
+      "entries": [
+        {
+          "fieldNames": ["edit_trace_available"],
+          "label": "Whether a JSON sidecar exists",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "yes when a bounded trace file was written for this row; no for pure Voice rows, LLM rows, or when the client sent no trace.",
+          "example": "yes"
+        },
+        {
+          "fieldNames": ["revision_count"],
+          "label": "Revision estimate",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail", "sidecar_json.metrics"],
+          "kind": "heuristic",
+          "explanation": "Client-derived count of meaningful text-change steps (threshold on insert/delete deltas).",
+          "caveats": "Not a true revision count; free text has no gold target.",
+          "example": "3"
+        },
+        {
+          "fieldNames": ["inserted_chars_est", "deleted_chars_est"],
+          "label": "Inserted / deleted characters (est.)",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail", "sidecar_json.metrics"],
+          "kind": "heuristic",
+          "explanation": "Cumulative sum of greedy per-step insert/delete deltas recorded on the active compose field during the session (value_diff + finalize_align). Measures edit churn and revision work, not unique keystrokes.",
+          "caveats": "Often exceeds net message length because edits overlap (e.g. replace, IME, corrections). Not a copy-typing error rate. Client finalize only reconciles the medium that sent the row (SMS / Messenger / Email), not inactive textareas.",
+          "example": "39 / 34"
+        },
+        {
+          "fieldNames": ["net_char_change"],
+          "label": "Net character change",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail", "sidecar_json.metrics"],
+          "kind": "heuristic",
+          "explanation": "len(final_sent_text) − len(initial_empty_session) for the compose session.",
+          "example": "13"
+        },
+        {
+          "fieldNames": ["manual_edit_chars_after_transcript_est"],
+          "label": "Manual edits after transcript (est.)",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail", "sidecar_json.metrics"],
+          "kind": "heuristic",
+          "explanation": "Greedy insert+delete distance between the first inserted voice transcript string in that trace session and the final sent text.",
+          "caveats": "Uses the first non-empty transcript anchor only; a second dictation pass does not replace that anchor (see sidecar disclaimers). Zero when input method is not voice-to-text or no transcript marker.",
+          "example": "2"
+        },
+        {
+          "fieldNames": ["voice_transcript_initial_chars"],
+          "label": "Voice transcript initial length",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail", "sidecar_json.metrics"],
+          "kind": "exact",
+          "explanation": "Character length of the transcript when it was first inserted into the box (Voice-to-text).",
+          "example": "13"
+        },
+        {
+          "fieldNames": ["voice_transcript_marker"],
+          "label": "Voice transcript fingerprint (sidecar)",
+          "appearsIn": ["sidecar_json"],
+          "kind": "heuristic",
+          "explanation": "Length + hash + short prefix of the first non-empty transcript string captured in that trace session (not the live textarea after edits).",
+          "caveats": "Paired with manual_edit_chars_after_transcript_est; re-dictation does not replace this anchor.",
+          "example": "{ \"len\": 13, \"hash\": \"…\", \"sample_prefix\": \"Okay see you.\" }"
+        },
+        {
+          "fieldNames": ["key_event_count", "text_mutation_count", "snapshot_count"],
+          "label": "Sidecar layer sizes (schema ≥ 2)",
+          "appearsIn": ["sidecar_json.metrics"],
+          "kind": "exact",
+          "explanation": "Counts of recorded items in each bounded array at finalize time (for quick QA without scanning arrays).",
+          "caveats": "Not written to CSV; JSON sidecar only.",
+          "example": "42 / 18 / 5"
+        },
+        {
+          "fieldNames": ["schema_version"],
+          "label": "Edit trace schema version",
+          "appearsIn": ["sidecar_json"],
+          "kind": "exact",
+          "explanation": "1 = legacy single `events` array; 2 = three layers `key_events`, `text_mutations`, `snapshots` (value fingerprints). Readers should accept both.",
+          "example": "2"
+        },
+        {
+          "fieldNames": ["key_events"],
+          "label": "Key / interaction events (schema ≥ 2)",
+          "appearsIn": ["sidecar_json"],
+          "kind": "heuristic",
+          "explanation": "Bounded list of keydown/keyup plus paste/cut (length-only for paste) and synthetic `send` after SMS/Messenger Enter-submit. Includes modifier booleans and selection indices when readable. Not a full keylogger: hard cap and no clipboard body.",
+          "caveats": "Swipe/IME/mobile: sparse or batched vs physical typing.",
+          "example": "[{ \"type\": \"keydown\", \"t\": 120, \"key\": \"a\", \"code\": \"KeyA\" }]"
+        },
+        {
+          "fieldNames": ["text_mutations"],
+          "label": "Text mutation events (schema ≥ 2)",
+          "appearsIn": ["sidecar_json"],
+          "kind": "heuristic",
+          "explanation": "DOM-level signals: beforeinput/input summaries (inputType, data_len), value_diff (rough ins/del/len per change), composition*, voice_transcript_insert (marker only), suggestion_autocomplete_apply, finalize_align. Optional data_char only when insertText length is exactly 1 (linkage, not content logging).",
+          "caveats": "Voice transcript insert is explicit; subsequent value_diff entries are manual edits unless another layer applies.",
+          "example": "[{ \"kind\": \"voice_transcript_insert\", \"layer\": \"voice_transcript\", \"marker\": { \"len\": 12, \"hash\": \"…\" } }]"
+        },
+        {
+          "fieldNames": ["snapshots"],
+          "label": "Value fingerprints / snapshots",
+          "appearsIn": ["sidecar_json"],
+          "kind": "heuristic",
+          "explanation": "Throttled length/hash/prefix samples of the compose value after substantive edits (same role in v1 and v2).",
+          "caveats": "Prefix is bounded; not a full replay log.",
+          "example": "[{ \"t_rel\": 400, \"field\": { \"len\": 20, \"hash\": \"…\", \"sample_prefix\": \"…\" } }]"
+        },
+        {
+          "fieldNames": ["events"],
+          "label": "Legacy unified trace events (schema 1)",
+          "appearsIn": ["sidecar_json"],
+          "kind": "heuristic",
+          "explanation": "schema_version 1 only: mixed session, text_change, keydown_special, etc. v2 traces omit this array.",
+          "caveats": "Prefer three-layer fields for new analysis.",
+          "example": "[{ \"type\": \"text_change\", \"ins\": 1, \"del\": 0 }]"
+        },
+        {
+          "fieldNames": ["disclaimers"],
+          "label": "Study-language disclaimers",
+          "appearsIn": ["sidecar_json"],
+          "kind": "exact",
+          "explanation": "Static strings clarifying that metrics describe edit behaviour, not copy-typing error rate, and caveats for voice/swipe.",
+          "example": "(array of strings)"
+        }
+      ]
+    },
+    {
+      "id": "text_content",
+      "title": "Prompt, reply & transcript text",
+      "entries": [
+        {
+          "fieldNames": ["prompt_text"],
+          "label": "Prompt shown for this row",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "The scenario text the participant answered for this event.",
+          "example": "(short message text)"
+        },
+        {
+          "fieldNames": ["reply_text", "participant_reply_text"],
+          "label": "Reply text / participant copy",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "reply_text is always the message for the row. participant_reply_text duplicates it on human rows; study export uses participant_reply_text as the main human column.",
+          "example": "Okay see you!"
+        },
+        {
+          "fieldNames": ["final_reply_text"],
+          "label": "Second-turn participant reply",
+          "appearsIn": ["raw_csv", "study_export_advanced"],
+          "kind": "exact",
+          "explanation": "Filled only on the participant’s final reply in a two-turn SMS/Messenger run; empty elsewhere.",
+          "example": "—"
+        },
+        {
+          "fieldNames": ["llm_reply_text"],
+          "label": "Assistant-generated text",
+          "appearsIn": ["raw_csv", "study_export_advanced"],
+          "kind": "exact",
+          "explanation": "The assistant message on LLM rows; empty on normal participant rows.",
+          "example": "(assistant reply)"
+        },
+        {
+          "fieldNames": ["transcript"],
+          "label": "Speech-to-text transcript",
+          "appearsIn": ["raw_csv", "study_export_advanced", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "For Voice-to-text: initial ASR text sent alongside the final edited reply_text. For pure Voice: recognised speech when available.",
+          "caveats": "Final edited compose text lives in reply_text; compare to transcript for manual changes.",
+          "example": "Okay see you."
+        },
+        {
+          "fieldNames": ["transcript_status", "transcript_source"],
+          "label": "Transcript pipeline metadata",
+          "appearsIn": ["raw_csv", "study_export_advanced", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "Client/server bookkeeping for how transcript was obtained (e.g. upload_api).",
+          "example": "upload_api"
+        },
+        {
+          "fieldNames": ["audio_filename"],
+          "label": "Uploaded reply audio file",
+          "appearsIn": ["raw_csv", "study_export_advanced", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "Filename under static/audio for voice replies; used for playback in admin.",
+          "example": "reply_20260513_142250.webm"
+        }
+      ]
+    },
+    {
+      "id": "formality",
+      "title": "Formality / reply register (primary model)",
+      "entries": [
+        {
+          "fieldNames": ["formality_label", "formality_model_label_raw", "reply_register"],
+          "label": "Model label (raw) / Register (study)",
+          "appearsIn": ["raw_csv", "study_export", "study_export_advanced", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "Output of the trained formality classifier (e.g. LABEL_0 / LABEL_1). Study base column reply_register is a human-readable map (Informal/Formal). Advanced study column formality_model_label_raw keeps the raw code.",
+          "example": "LABEL_1 / Formal"
+        },
+        {
+          "fieldNames": ["formality_confidence"],
+          "label": "Model confidence",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "Classifier score from the formality service.",
+          "example": "0.8441"
+        },
+        {
+          "fieldNames": ["formality_label_display"],
+          "label": "Register (human label, admin only)",
+          "appearsIn": ["admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "Server-rendered friendly label (Formal / Informal) from raw formality_label. Not written to CSV.",
+          "example": "Formal"
+        },
+        {
+          "fieldNames": ["formality_match_prompt_reply"],
+          "label": "Prompt–reply register match",
+          "appearsIn": ["raw_csv", "study_export_advanced"],
+          "kind": "heuristic",
+          "explanation": "yes/no coarse match between prompt and reply formality labels (neutral matches either).",
+          "example": "yes"
+        },
+        {
+          "fieldNames": ["prompt_style", "reply_style"],
+          "label": "Rule-based style hints",
+          "appearsIn": ["raw_csv", "study_export_advanced", "admin_trial_detail"],
+          "kind": "heuristic",
+          "explanation": "Legacy heuristics on top of model labels; use formality_label for primary analysis.",
+          "example": "LABEL_1"
+        },
+        {
+          "fieldNames": ["reply_analysis_status", "reply_analysis_basis"],
+          "label": "Analysis availability / which text was analysed",
+          "appearsIn": ["raw_csv", "study_export_advanced", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "Whether NLP ran and whether reply_text vs transcript was used as input.",
+          "example": "ok / reply_text"
+        }
+      ]
+    },
+    {
+      "id": "prompt_condition",
+      "title": "Prompt condition & tags",
+      "entries": [
+        {
+          "fieldNames": ["prompt_formality", "prompt_condition"],
+          "label": "Logged prompt condition",
+          "appearsIn": ["raw_csv", "study_export", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "formal, informal, or auto:… from bundle/admin. Study export column prompt_condition is a short readable form.",
+          "example": "auto:LABEL_1 / auto (formal)"
+        },
+        {
+          "fieldNames": ["prompt_tone", "prompt_seriousness"],
+          "label": "Optional tone tags",
+          "appearsIn": ["raw_csv", "study_export_advanced"],
+          "kind": "exact",
+          "explanation": "Optional researcher tags; not back-filled from heuristics.",
+          "example": "(often empty)"
+        }
+      ]
+    },
+    {
+      "id": "llm",
+      "title": "LLM & provider",
+      "entries": [
+        {
+          "fieldNames": ["llm_provider"],
+          "label": "LLM provider string",
+          "appearsIn": ["raw_csv", "study_export_advanced", "admin_trial_detail"],
+          "kind": "exact",
+          "explanation": "openai, fallback, client_error, etc. on assistant rows.",
+          "example": "openai"
+        }
+      ]
+    },
+    {
+      "id": "legacy",
+      "title": "Legacy / deprecated",
+      "entries": [
+        {
+          "fieldNames": ["bert_label", "bert_raw", "bert_confidence"],
+          "label": "BERT / star-sentiment columns (legacy)",
+          "appearsIn": ["raw_csv"],
+          "kind": "legacy",
+          "explanation": "Columns retained for backward compatibility. New rows leave them blank; they previously held an unrelated HuggingFace star-rating sentiment demo.",
+          "caveats": "Not Jakob’s formality model. Do not use for current study analysis.",
+          "example": "(empty on new rows)"
+        }
+      ]
+    },
+    {
+      "id": "exports",
+      "title": "Exports & other files",
+      "entries": [
+        {
+          "fieldNames": ["run_summary.csv", "per-run CSV"],
+          "label": "Per-run exports",
+          "appearsIn": ["runs_csv"],
+          "kind": "exact",
+          "explanation": "Separate from the main sentiment_log_web.csv — one row per completed two-turn task under prototype/data/runs/. Different column schema.",
+          "caveats": "Not listed field-for-field here; see run export headers in logging_utils._run_csv_headers.",
+          "example": "run_20260513_…_P001.csv"
+        },
+        {
+          "fieldNames": ["study_export"],
+          "label": "Simplified study CSV",
+          "appearsIn": ["study_export"],
+          "kind": "exact",
+          "explanation": "Human rows only; readable column names; optional advanced columns. Never embeds full edit_trace JSON.",
+          "example": "relay_study_P001.csv"
+        }
+      ]
+    }
+  ]
+}

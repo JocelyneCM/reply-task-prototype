@@ -2455,6 +2455,43 @@ body[data-theme="light"] .pex-admin-sidebar{
   font-weight:500;
 }
 
+.pex-admin-trace-summary{
+  font-size:12px;
+  color:var(--muted);
+  margin:4px 0 10px;
+  line-height:1.5;
+}
+
+.pex-admin-trace-layers{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-top:8px;
+}
+
+.pex-admin-trace-layers details{
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:6px 8px;
+  background:var(--card);
+}
+
+.pex-admin-trace-layers summary{
+  cursor:pointer;
+  font-size:12px;
+  font-weight:600;
+}
+
+.pex-admin-trace-pre{
+  max-height:260px;
+  overflow:auto;
+  font-size:11px;
+  line-height:1.35;
+  margin:8px 0 0;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
 .pex-admin-audio{
   width:100%;
   margin-top:8px;
@@ -2707,4 +2744,188 @@ body[data-role="admin"] .pex-btn-ghost:hover{
   .pex-admin-topbar{
     padding-left:64px;
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Admin — Field dictionary (About)                                           */
+/* -------------------------------------------------------------------------- */
+
+body[data-role="admin"] .pex-fielddict-card{
+  max-width:720px;
+}
+
+body[data-role="admin"] .pex-fielddict-search{
+  width:100%;
+  max-width:420px;
+  box-sizing:border-box;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid var(--line);
+  background:var(--surface);
+  color:var(--text);
+  font-size:14px;
+}
+
+body[data-role="admin"] .pex-fielddict-search:focus{
+  outline:2px solid var(--accent);
+  outline-offset:1px;
+}
+
+body[data-role="admin"] .pex-fielddict-intro{
+  margin:0 0 12px;
+  font-size:13px;
+  line-height:1.45;
+  color:var(--muted);
+}
+
+body[data-role="admin"] .pex-fielddict-cats{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+body[data-role="admin"] .pex-fielddict-cat{
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--surface);
+  overflow:hidden;
+}
+
+body[data-role="admin"] .pex-fielddict-cat--empty{
+  display:none;
+}
+
+body[data-role="admin"] .pex-fielddict-cat-sum{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 14px;
+  cursor:pointer;
+  font-weight:600;
+  font-size:14px;
+  color:var(--text);
+  list-style:none;
+}
+
+body[data-role="admin"] .pex-fielddict-cat-sum::-webkit-details-marker{
+  display:none;
+}
+
+body[data-role="admin"] .pex-fielddict-cat-count{
+  font-size:12px;
+  font-weight:500;
+  color:var(--muted);
+  background:var(--surface);
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid var(--line);
+}
+
+body[data-role="admin"] .pex-fielddict-cat-body{
+  padding:0 10px 10px;
+  border-top:1px solid var(--line);
+}
+
+body[data-role="admin"] .pex-fielddict-entry{
+  padding:10px 8px;
+  border-bottom:1px solid var(--line);
+}
+
+body[data-role="admin"] .pex-fielddict-entry:last-child{
+  border-bottom:none;
+}
+
+body[data-role="admin"] .pex-fielddict-entry--hidden{
+  display:none;
+}
+
+body[data-role="admin"] .pex-fielddict-entry-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:4px;
+}
+
+body[data-role="admin"] .pex-fielddict-entry-title{
+  margin:0;
+  font-size:14px;
+  font-weight:600;
+  color:var(--text);
+}
+
+body[data-role="admin"] .pex-fielddict-badge{
+  display:inline-block;
+  font-size:11px;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  padding:2px 8px;
+  border-radius:6px;
+  border:1px solid var(--line);
+}
+
+body[data-role="admin"] .pex-fielddict-badge--exact{
+  color:var(--text);
+  border-color:var(--accent);
+  background:var(--surface);
+}
+
+body[data-role="admin"] .pex-fielddict-badge--heuristic{
+  color:var(--text);
+  border-color:var(--line);
+  background:var(--surface);
+}
+
+body[data-role="admin"] .pex-fielddict-badge--legacy{
+  color:var(--muted);
+  border-style:dashed;
+  background:transparent;
+}
+
+body[data-role="admin"] .pex-fielddict-names{
+  margin:4px 0 6px;
+  font-size:12px;
+  line-height:1.4;
+  color:var(--muted);
+}
+
+body[data-role="admin"] .pex-fielddict-names code{
+  font-size:12px;
+}
+
+body[data-role="admin"] .pex-fielddict-appear{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-bottom:6px;
+}
+
+body[data-role="admin"] .pex-fielddict-tag{
+  font-size:11px;
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  color:var(--muted);
+}
+
+body[data-role="admin"] .pex-fielddict-expl{
+  margin:0;
+  font-size:13px;
+  line-height:1.45;
+  color:var(--text);
+}
+
+body[data-role="admin"] .pex-fielddict-caveat,
+body[data-role="admin"] .pex-fielddict-example{
+  margin:6px 0 0;
+  font-size:12px;
+  line-height:1.4;
+  color:var(--muted);
+}
+
+body[data-role="admin"] .pex-fielddict-example-code{
+  font-size:12px;
+  word-break:break-word;
 }

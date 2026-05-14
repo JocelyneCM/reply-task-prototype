@@ -211,6 +211,14 @@ function initParticipantUI() {
     correctionApplied: false,
   };
 
+  const studyEditTrace =
+    typeof globalThis.ComposeEditTraceTracker === "function"
+      ? new globalThis.ComposeEditTraceTracker()
+      : null;
+  if (studyEditTrace) {
+    studyEditTrace.attachTextareas(els.replySMS, els.replyMsg, els.replyEmail);
+  }
+
   // Tracks a small in-memory conversation run: first user reply -> LLM reply -> final user reply
   let currentRun = null;
   let currentMedium = "SMS";
@@ -287,6 +295,13 @@ function initParticipantUI() {
     prompt_id: "",
     prompt_source: "local",
   };
+  /**
+   * When the participant URL includes prompt_condition= (or legacy prompt_formality=),
+   * we re-apply after the prompt bundle loads so the study session plan wins over bundle defaults.
+   */
+  let urlStudyPromptCondition = null;
+  /** When set, participant loads this bundle id via /api/prompt_bundle (does not use global next). */
+  let urlTextPromptId = null;
   /** How we got the transcript for voice rows. */
   let lastTranscriptStatus = "";
   let lastTranscriptSource = "";
@@ -412,6 +427,7 @@ function initParticipantUI() {
     promptShownAtMsByMedium.Email = stamp;
     resetMailExchangeUi();
     els.mailUnreadBadge?.classList.add("hidden");
+    startComposeEditTraceSession();
   }
 
   function formatMailCardTime() {
@@ -466,9 +482,19 @@ function initParticipantUI() {
     });
   }
 
+  function applyUrlStudyPromptConditionOverride() {
+    if (!urlStudyPromptCondition) return;
+    const v = String(urlStudyPromptCondition).trim().toLowerCase();
+    if (v !== "formal" && v !== "informal" && v !== "auto") return;
+    currentPromptMeta.prompt_formality = v;
+  }
+
   async function assignRandomTextPrompts() {
     try {
-      const data = await fetchJSON("/api/prompt_bundle?consume=1");
+      let bundleUrl = "/api/prompt_bundle?consume=1";
+      if (urlTextPromptId)
+        bundleUrl += `&text_prompt_id=${encodeURIComponent(urlTextPromptId)}`;
+      const data = await fetchJSON(bundleUrl);
       const bundle = data.text_bundle || null;
       if (bundle) {
         applyTextPromptScenario({
@@ -481,12 +507,14 @@ function initParticipantUI() {
           source: bundle.source,
           prompt_formality: bundle.prompt_formality || "",
         });
+        applyUrlStudyPromptConditionOverride();
         return;
       }
     } catch {
       /* use local fallback */
     }
     applyTextPromptScenario(pickRandom(TEXT_PROMPT_SCENARIOS));
+    applyUrlStudyPromptConditionOverride();
   }
 
   function nextPresentationParticipantId(existingIds) {
@@ -564,6 +592,7 @@ function initParticipantUI() {
     if (els.promptTime) els.promptTime.textContent = "0:00";
     if (els.promptDuration) els.promptDuration.textContent = "…";
     promptShownAtMsByMedium.Voice = nowMs();
+    startComposeEditTraceSession();
   }
 
   /** Invalidate draft playback + clear duration label (new take / discard). */
@@ -692,7 +721,10 @@ function initParticipantUI() {
   if (els.mailBackList)
     els.mailBackList.addEventListener("click", () => setEmailStep("list"));
   if (els.mailReplyBtn)
-    els.mailReplyBtn.addEventListener("click", () => setEmailStep("compose"));
+    els.mailReplyBtn.addEventListener("click", () => {
+      setEmailStep("compose");
+      startComposeEditTraceSession();
+    });
   if (els.mailBackRead)
     els.mailBackRead.addEventListener("click", () => setEmailStep("read"));
 
@@ -782,6 +814,12 @@ function initParticipantUI() {
         // Only treat Enter as submit for single-line chat inputs (SMS/Messenger)
         if (textarea === els.replySMS || textarea === els.replyMsg) {
           e.preventDefault();
+          if (studyEditTrace) {
+            studyEditTrace.recordSendTrigger({
+              source: "enter_chat_submit",
+              medium: textarea === els.replySMS ? "SMS" : "Messenger",
+            });
+          }
           if (textarea === els.replySMS) {
             els.sendSMSBtn && els.sendSMSBtn.click();
           } else {
@@ -835,6 +873,7 @@ function initParticipantUI() {
       textarea.value = suggestion;
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
       trial.correctionApplied = true;
+      if (studyEditTrace) studyEditTrace.noteSuggestionChipApplied();
       wrap.innerHTML = "";
     });
     const hint = createEl("span", "pex-suggest-hint");
@@ -955,6 +994,14 @@ function initParticipantUI() {
     return "Typing";
   }
 
+  function startComposeEditTraceSession() {
+    if (!studyEditTrace) return;
+    studyEditTrace.startNewSession({
+      medium: currentMedium,
+      input_method: getSelectedInputMethod(),
+    });
+  }
+
   function syncMicButtonVisibilityForInputMethod() {
     const showMic = getSelectedInputMethod() === "Voice-to-text";
     ["SMS", "Messenger", "Email"].forEach((medium) => {
@@ -1006,6 +1053,7 @@ function initParticipantUI() {
     const box = textReplyBoxForMedium(medium);
     if (!draft || !box) return;
     if (draft.transcript) {
+      if (studyEditTrace) studyEditTrace.noteVoiceTranscriptInserted(draft.transcript);
       box.value = draft.transcript;
       box.dispatchEvent(new Event("input", { bubbles: true }));
     }
@@ -1186,7 +1234,23 @@ function initParticipantUI() {
       participant_turn: participantTurn,
     };
 
+    const isPureVoiceLogRow = currentMedium === "Voice";
+
     try {
+      if (!isPureVoiceLogRow && studyEditTrace) {
+        const fin = studyEditTrace.finalize({
+          finalText: replyText,
+          medium: currentMedium,
+          input_method: selectedInputMethod,
+          row_role: "participant_reply",
+          active_medium: currentMedium,
+        });
+        body.log_row_id = fin.log_row_id;
+        body.edit_trace = fin.trace;
+      } else if (typeof crypto !== "undefined" && crypto.randomUUID) {
+        body.log_row_id = crypto.randomUUID();
+      }
+
       await fetchJSON("/api/log_reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1204,7 +1268,9 @@ function initParticipantUI() {
       if (els.studyInputInstruction) {
         els.studyInputInstruction.classList.add("hidden");
       }
+      if (studyEditTrace) startComposeEditTraceSession();
     } catch (e) {
+      if (studyEditTrace) startComposeEditTraceSession();
       console.error(e);
       showToast("Could not save — check connection.");
       throw e;
@@ -1299,6 +1365,7 @@ function initParticipantUI() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
+                log_row_id: crypto.randomUUID(),
                 participant_id: currentRun.participant_id,
                 medium: currentRun.medium,
                 input_method: "LLM",
@@ -1342,6 +1409,7 @@ function initParticipantUI() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
+                log_row_id: crypto.randomUUID(),
                 participant_id: currentRun.participant_id,
                 medium: currentRun.medium,
                 input_method: "LLM",
@@ -1490,9 +1558,14 @@ function initParticipantUI() {
         showToast("Record voice first, then send.");
         return;
       }
-      text = (draft.transcript || "").trim();
+      // Authoritative text is whatever is in the compose box at Send (user may edit the transcript).
+      text = (ta?.value || "").trim();
       if (!text) {
-        showToast("No transcript available. Please re-record.");
+        if (!(draft.transcript || "").trim()) {
+          showToast("No transcript available. Please re-record.");
+        } else {
+          showToast("Write a reply first.");
+        }
         return;
       }
     } else if (!text) {
@@ -1544,9 +1617,13 @@ function initParticipantUI() {
           showToast("Record voice first, then send.");
           return;
         }
-        text = (draft.transcript || "").trim();
+        text = (els.replyEmail?.value || "").trim();
         if (!text) {
-          showToast("No transcript available. Please re-record.");
+          if (!(draft.transcript || "").trim()) {
+            showToast("No transcript available. Please re-record.");
+          } else {
+            showToast("Write a reply first.");
+          }
           return;
         }
       } else if (!text) {
@@ -2048,6 +2125,14 @@ function initParticipantUI() {
         else if (dev === "laptop") els.studyDeviceContext.textContent = "Session note: laptop";
         else els.studyDeviceContext.textContent = "";
       }
+      const pcRaw = (sp.get("prompt_condition") || sp.get("prompt_formality") || "")
+        .trim()
+        .toLowerCase();
+      if (pcRaw === "formal" || pcRaw === "informal" || pcRaw === "auto")
+        urlStudyPromptCondition = pcRaw;
+      else urlStudyPromptCondition = null;
+      const tpid = (sp.get("text_prompt_id") || "").trim();
+      urlTextPromptId = /^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tpid) ? tpid : null;
       syncMicButtonVisibilityForInputMethod();
     } catch {
       showMode("SMS");
@@ -2083,13 +2168,17 @@ function initAdminUI() {
       title: "Log rows & charts",
       desc: "Filter log rows, inspect messages, and open a row for full detail. A completed two-turn exercise is a task/run (several rows).",
     },
+    editTraces: {
+      title: "Keystrokes / Edit Traces",
+      desc: "Browse rows with stored compose traces, filter by study fields, inspect JSON layers, and download single files or a bounded ZIP export.",
+    },
     visualizations: {
       title: "Visualizations",
       desc: "Display-only charts: response time, input method, reply register model, prompt condition.",
     },
     prompts: {
       title: "Prompts",
-      desc: "Next exercise prompt text and study prompt condition (formal / informal / auto), logged as prompt_formality.",
+      desc: "Prompt library (persistent JSON), next-exercise override, and voice prompt uploads.",
     },
     exports: {
       title: "Exports",
@@ -2144,6 +2233,8 @@ function initAdminUI() {
     sessionMedium: document.getElementById("sessionMedium"),
     sessionInputMethod: document.getElementById("sessionInputMethod"),
     sessionDevice: document.getElementById("sessionDevice"),
+    sessionPromptCondition: document.getElementById("sessionPromptCondition"),
+    sessionTextPromptId: document.getElementById("sessionTextPromptId"),
     sessionParticipantUrl: document.getElementById("sessionParticipantUrl"),
     sessionOpenParticipantBtn: document.getElementById("sessionOpenParticipantBtn"),
     sessionCopyLinkBtn: document.getElementById("sessionCopyLinkBtn"),
@@ -2166,7 +2257,53 @@ function initAdminUI() {
     sessionPlanReloadBtn: document.getElementById("sessionPlanReloadBtn"),
     sessionPlanAdvanceBtn: document.getElementById("sessionPlanAdvanceBtn"),
     sessionPlanApplyBtn: document.getElementById("sessionPlanApplyBtn"),
+    sessionPlanRepeatBtn: document.getElementById("sessionPlanRepeatBtn"),
+    sessionPlanSkipBtn: document.getElementById("sessionPlanSkipBtn"),
+    sessionPlanAddTaskBtn: document.getElementById("sessionPlanAddTaskBtn"),
+    sessionPlanImportJsonBtn: document.getElementById("sessionPlanImportJsonBtn"),
+    sessionPlanTableBody: document.getElementById("sessionPlanTableBody"),
+    sessionPlanSummary: document.getElementById("sessionPlanSummary"),
+    sessionPlanCurrentTaskNum: document.getElementById("sessionPlanCurrentTaskNum"),
     sessionPlanStatus: document.getElementById("sessionPlanStatus"),
+    etParticipantFilter: document.getElementById("etParticipantFilter"),
+    etMediumFilter: document.getElementById("etMediumFilter"),
+    etInputMethodFilter: document.getElementById("etInputMethodFilter"),
+    etPromptConditionFilter: document.getElementById("etPromptConditionFilter"),
+    etFormalityLabelFilter: document.getElementById("etFormalityLabelFilter"),
+    etRowRoleFilter: document.getElementById("etRowRoleFilter"),
+    etDateFromFilter: document.getElementById("etDateFromFilter"),
+    etDateToFilter: document.getElementById("etDateToFilter"),
+    etSchemaVersionFilter: document.getElementById("etSchemaVersionFilter"),
+    etIncludeGeneratedFilter: document.getElementById("etIncludeGeneratedFilter"),
+    etApplyFiltersBtn: document.getElementById("etApplyFiltersBtn"),
+    etBrowseWarnings: document.getElementById("etBrowseWarnings"),
+    etPageInfo: document.getElementById("etPageInfo"),
+    etPagePrevBtn: document.getElementById("etPagePrevBtn"),
+    etPageNextBtn: document.getElementById("etPageNextBtn"),
+    etTableBody: document.getElementById("etTableBody"),
+    etDetailInner: document.getElementById("etDetailInner"),
+    etDownloadSelectedBtn: document.getElementById("etDownloadSelectedBtn"),
+    etDownloadZipBtn: document.getElementById("etDownloadZipBtn"),
+    plSearchInput: document.getElementById("plSearchInput"),
+    plIncludeInactive: document.getElementById("plIncludeInactive"),
+    plReloadBtn: document.getElementById("plReloadBtn"),
+    plExportBtn: document.getElementById("plExportBtn"),
+    plTableBody: document.getElementById("plLibraryTableBody"),
+    plFormStatus: document.getElementById("plFormStatus"),
+    plFieldId: document.getElementById("plFieldId"),
+    plSms: document.getElementById("plSms"),
+    plMessenger: document.getElementById("plMessenger"),
+    plEmailFrom: document.getElementById("plEmailFrom"),
+    plEmailSubject: document.getElementById("plEmailSubject"),
+    plEmailBody: document.getElementById("plEmailBody"),
+    plPromptKind: document.getElementById("plPromptKind"),
+    plPromptCondition: document.getElementById("plPromptCondition"),
+    plNotes: document.getElementById("plNotes"),
+    plCategory: document.getElementById("plCategory"),
+    plActive: document.getElementById("plActive"),
+    plNewBtn: document.getElementById("plNewBtn"),
+    plSaveBtn: document.getElementById("plSaveBtn"),
+    plClearFormBtn: document.getElementById("plClearFormBtn"),
   };
 
   let responseTimeChart = null;
@@ -2181,6 +2318,15 @@ function initAdminUI() {
   let aliasToRawMap = {};
   let aliasOverrides = {};
   const selectedParticipants = new Set();
+  let etBrowsePage = 1;
+  const etBrowsePageSize = 25;
+  let etBrowseTotal = 0;
+  let etSelectedParticipantId = "";
+  let etSelectedLogRowId = "";
+  /** Active prompts from last /api/prompt_pool (for session-plan library pick). */
+  let lastPromptPoolActiveRows = [];
+  /** True when library form is editing an existing id (id field locked). */
+  let plLibraryEditMode = false;
 
   function loadAliasOverrides() {
     try {
@@ -2251,24 +2397,6 @@ function initAdminUI() {
         },
       },
     };
-  }
-
-  function normalizeBertLabel(raw) {
-    const s = String(raw || "").trim().toLowerCase();
-    if (!s) return "ok";
-    if (s.includes("unavailable")) return "ok";
-    if (s === "ok") return "ok";
-    const star = /([1-5])\s*star/.exec(s);
-    if (star) {
-      const n = parseInt(star[1], 10);
-      if (n <= 2) return "negative";
-      if (n === 3) return "neutral";
-      return "positive";
-    }
-    if (s.includes("negative")) return "negative";
-    if (s.includes("positive")) return "positive";
-    if (s.includes("neutral")) return "neutral";
-    return "ok";
   }
 
   /**
@@ -2381,13 +2509,21 @@ function initAdminUI() {
       const key = btn.dataset.adminView;
       if (key) showAdminView(key);
       if (key === "visualizations") void runVisualizationUpdate();
-      if (key === "prompts") loadPromptPool();
+      if (key === "prompts") {
+        loadPromptPool();
+        loadPromptLibraryTable();
+      }
+      if (key === "editTraces") {
+        etBrowsePage = 1;
+        loadEditTracesBrowse();
+      }
       if (key === "session") {
         const ex = (els.exportParticipantSelect?.value || "").trim();
         if (els.sessionParticipantId && !els.sessionParticipantId.value.trim() && ex) {
           els.sessionParticipantId.value = ex;
         }
         onSessionFieldsChanged();
+        loadPromptPool();
         loadSessionPlan();
       }
     });
@@ -2417,6 +2553,7 @@ function initAdminUI() {
     fillSelect(els.participantFilter, true, "All participants", "");
     fillSelect(els.exportParticipantSelect, true, "All participants", "");
     fillSelect(els.vizParticipantFilter, true, "All participants", "");
+    fillSelect(els.etParticipantFilter, true, "All participants", "");
   }
 
   function loadParticipants() {
@@ -2720,7 +2857,7 @@ function initAdminUI() {
       );
     } else {
       lines.push(
-        "Next text prompt: random from the built-in pool (no server override)."
+        "Next text prompt: random from the active prompt library (no server override)."
       );
     }
     el.textContent = lines.filter(Boolean).join("\n\n");
@@ -2730,6 +2867,7 @@ function initAdminUI() {
     fetchJSON("/api/prompt_pool")
       .then((data) => {
         const prompts = data.text_prompts || [];
+        lastPromptPoolActiveRows = prompts.filter((p) => p.active !== false);
         const nextId = data.next_text_prompt_id || "";
         const custom = data.next_text_prompt_custom || {};
         if (els.customSmsPrompt) els.customSmsPrompt.value = custom.sms || "";
@@ -2758,7 +2896,7 @@ function initAdminUI() {
         if (els.adminNextPromptSelect) {
           els.adminNextPromptSelect.innerHTML =
             '<option value="">Random (default)</option>' +
-            prompts
+            lastPromptPoolActiveRows
               .map(
                 (p) =>
                   `<option value="${escapeHtml(p.id || "")}">${escapeHtml(
@@ -2774,7 +2912,8 @@ function initAdminUI() {
           } else if (custom && (custom.sms || custom.email_body)) {
             els.nextPromptStatus.textContent = "Server: custom prompt queued for next bundle.";
           } else {
-            els.nextPromptStatus.textContent = "Server: next text prompt = random from pool.";
+            els.nextPromptStatus.textContent =
+              "Server: next text prompt = random from active library.";
           }
         }
         updateNextPromptPreview(data);
@@ -2782,6 +2921,297 @@ function initAdminUI() {
       .catch(() => {
         if (els.nextPromptStatus)
           els.nextPromptStatus.textContent = "Prompt pool unavailable.";
+      });
+  }
+
+  function plSetFormStatus(msg) {
+    if (els.plFormStatus) els.plFormStatus.textContent = msg || "";
+  }
+
+  function plClearLibraryForm() {
+    plLibraryEditMode = false;
+    if (els.plFieldId) {
+      els.plFieldId.value = "";
+      els.plFieldId.readOnly = false;
+    }
+    if (els.plSms) els.plSms.value = "";
+    if (els.plMessenger) els.plMessenger.value = "";
+    if (els.plEmailFrom) els.plEmailFrom.value = "";
+    if (els.plEmailSubject) els.plEmailSubject.value = "";
+    if (els.plEmailBody) els.plEmailBody.value = "";
+    if (els.plPromptKind) els.plPromptKind.value = "all";
+    if (els.plPromptCondition) els.plPromptCondition.value = "auto";
+    if (els.plNotes) els.plNotes.value = "";
+    if (els.plCategory) els.plCategory.value = "";
+    if (els.plActive) els.plActive.checked = true;
+    plSetFormStatus("New prompt — enter an id and text fields, then Save.");
+  }
+
+  function plFillLibraryForm(p) {
+    if (!p) return;
+    plLibraryEditMode = true;
+    if (els.plFieldId) {
+      els.plFieldId.value = p.id || "";
+      els.plFieldId.readOnly = true;
+    }
+    if (els.plSms) els.plSms.value = p.sms || "";
+    if (els.plMessenger) els.plMessenger.value = p.messenger || "";
+    if (els.plEmailFrom) els.plEmailFrom.value = p.email_from || "";
+    if (els.plEmailSubject) els.plEmailSubject.value = p.email_subject || "";
+    if (els.plEmailBody) els.plEmailBody.value = p.email_body || "";
+    if (els.plPromptKind) els.plPromptKind.value = p.prompt_kind || "all";
+    if (els.plPromptCondition) els.plPromptCondition.value = p.prompt_condition || "auto";
+    if (els.plNotes) els.plNotes.value = p.notes || "";
+    if (els.plCategory) els.plCategory.value = p.category || "";
+    if (els.plActive) els.plActive.checked = p.active !== false;
+    plSetFormStatus(`Editing ${p.id || ""}`);
+  }
+
+  function plPayloadFromForm() {
+    return {
+      id: (els.plFieldId?.value || "").trim(),
+      sms: (els.plSms?.value || "").trim(),
+      messenger: (els.plMessenger?.value || "").trim(),
+      email_from: (els.plEmailFrom?.value || "").trim(),
+      email_subject: (els.plEmailSubject?.value || "").trim(),
+      email_body: (els.plEmailBody?.value || "").trim(),
+      prompt_kind: (els.plPromptKind?.value || "all").trim(),
+      prompt_condition: (els.plPromptCondition?.value || "auto").trim(),
+      notes: (els.plNotes?.value || "").trim(),
+      category: (els.plCategory?.value || "").trim(),
+      active: !!els.plActive?.checked,
+    };
+  }
+
+  function loadPromptLibraryTable() {
+    if (!els.plTableBody) return;
+    const q = (els.plSearchInput?.value || "").trim();
+    const inc = els.plIncludeInactive?.checked ? "1" : "0";
+    const qs = new URLSearchParams();
+    if (q) qs.set("q", q);
+    qs.set("include_inactive", inc);
+    fetchJSON(`/api/admin/prompt_library?${qs.toString()}`)
+      .then((d) => {
+        if (!d?.ok) throw new Error("bad");
+        const rows = d.prompts || [];
+        els.plTableBody.innerHTML = rows
+          .map((p) => {
+            const act = p.active !== false ? "yes" : "no";
+            const sms = escapeHtml((p.sms || "").slice(0, 56));
+            return `<tr data-pl-id="${escapeHtml(p.id || "")}">
+              <td>${act}</td>
+              <td><code>${escapeHtml(p.id || "")}</code></td>
+              <td>${escapeHtml(p.prompt_condition || "")}</td>
+              <td>${escapeHtml(p.prompt_kind || "")}</td>
+              <td class="small">${sms}</td>
+              <td class="small">${escapeHtml((p.notes || "").slice(0, 40))}</td>
+              <td>
+                <button type="button" class="pex-btn-ghost pl-edit-btn" data-pl-id="${escapeHtml(
+                  p.id || ""
+                )}">Edit</button>
+                <button type="button" class="pex-btn-ghost pl-del-btn" data-pl-id="${escapeHtml(
+                  p.id || ""
+                )}">Delete</button>
+              </td>
+            </tr>`;
+          })
+          .join("");
+      })
+      .catch(() => {
+        els.plTableBody.innerHTML =
+          '<tr><td colspan="7" class="small">Could not load prompt library.</td></tr>';
+      });
+  }
+
+  function etCollectFilters() {
+    const rawPid = (els.etParticipantFilter?.value || "").trim();
+    const pid = rawPid ? aliasToRawMap[rawPid] || rawPid : "";
+    return {
+      participant_id: pid ? normalizeStudyParticipantIdClient(pid) : "",
+      medium: (els.etMediumFilter?.value || "").trim(),
+      input_method: (els.etInputMethodFilter?.value || "").trim(),
+      prompt_condition: (els.etPromptConditionFilter?.value || "").trim().toLowerCase(),
+      formality_label: (els.etFormalityLabelFilter?.value || "").trim(),
+      row_role: (els.etRowRoleFilter?.value || "").trim(),
+      date_from: (els.etDateFromFilter?.value || "").trim(),
+      date_to: (els.etDateToFilter?.value || "").trim(),
+      schema_version: (els.etSchemaVersionFilter?.value || "").trim(),
+      include_generated: !!els.etIncludeGeneratedFilter?.checked,
+    };
+  }
+
+  function etUpdatePageControls() {
+    const maxPage = Math.max(1, Math.ceil(etBrowseTotal / etBrowsePageSize) || 1);
+    if (etBrowsePage > maxPage) etBrowsePage = maxPage;
+    if (els.etPageInfo) {
+      els.etPageInfo.textContent = `Page ${etBrowsePage} / ${maxPage} · ${etBrowseTotal} matching row(s)`;
+    }
+    if (els.etPagePrevBtn) els.etPagePrevBtn.disabled = etBrowsePage <= 1;
+    if (els.etPageNextBtn) els.etPageNextBtn.disabled = etBrowsePage >= maxPage || etBrowseTotal === 0;
+  }
+
+  function etRenderDetail(trace) {
+    if (!els.etDetailInner || !trace) return;
+    const sv = trace.schema_version != null ? trace.schema_version : "—";
+    const keys = trace.key_events || [];
+    const muts = trace.text_mutations || [];
+    const snaps = trace.snapshots || [];
+    const legacy = trace.events || [];
+    const met = trace.metrics || {};
+    const j = JSON.stringify(trace, null, 2);
+    const pre = (obj) =>
+      `<pre class="pex-admin-trace-pre">${escapeHtml(JSON.stringify(obj, null, 2))}</pre>`;
+    els.etDetailInner.innerHTML = `
+      <div class="pex-admin-detail-block">
+        <h3 class="pex-admin-detail-subhd">Selection</h3>
+        <dl class="pex-admin-detail-meta">
+          <dt>schema_version</dt><dd>${escapeHtml(String(sv))}</dd>
+          <dt>log_row_id</dt><dd><code>${escapeHtml(String(trace.log_row_id || ""))}</code></dd>
+        </dl>
+      </div>
+      <div class="pex-admin-trace-layers">
+        <details open>
+          <summary>Summary (metrics)</summary>
+          ${pre(met)}
+        </details>
+        <details>
+          <summary>Key events (${Array.isArray(keys) ? keys.length : 0})</summary>
+          ${pre(keys)}
+        </details>
+        <details>
+          <summary>Text mutations (${Array.isArray(muts) ? muts.length : 0})</summary>
+          ${pre(muts)}
+        </details>
+        <details>
+          <summary>Snapshots (${Array.isArray(snaps) ? snaps.length : 0})</summary>
+          ${pre(snaps)}
+        </details>
+        ${
+          legacy.length
+            ? `<details><summary>Legacy events (${legacy.length})</summary>${pre(legacy)}</details>`
+            : ""
+        }
+        <details>
+          <summary>Raw JSON</summary>
+          <pre class="pex-admin-trace-pre">${escapeHtml(j)}</pre>
+        </details>
+      </div>`;
+  }
+
+  function etLoadDetail(participantId, logRowId) {
+    if (!els.etDetailInner || !participantId || !logRowId) return;
+    els.etDetailInner.innerHTML =
+      '<p class="pex-admin-detail-placeholder">Loading trace…</p>';
+    const q = new URLSearchParams({
+      participant_id: participantId,
+      log_row_id: logRowId,
+    });
+    fetchJSON(`/api/admin/edit_trace_json?${q.toString()}`)
+      .then((data) => {
+        if (!data.ok || !data.trace) throw new Error();
+        etRenderDetail(data.trace);
+      })
+      .catch(() => {
+        els.etDetailInner.innerHTML =
+          '<p class="pex-admin-detail-placeholder">Could not load trace JSON (missing file, bad UUID, or server error).</p>';
+      });
+  }
+
+  function etClearSelection() {
+    etSelectedParticipantId = "";
+    etSelectedLogRowId = "";
+    document.querySelectorAll("#etTableBody tr.is-selected").forEach((tr) => {
+      tr.classList.remove("is-selected");
+    });
+    if (els.etDownloadSelectedBtn) els.etDownloadSelectedBtn.disabled = true;
+    if (els.etDetailInner) {
+      els.etDetailInner.innerHTML =
+        '<p class="pex-admin-detail-placeholder">Select a row to load key / mutation layers.</p>';
+    }
+  }
+
+  function etRenderTable(rows) {
+    if (!els.etTableBody) return;
+    els.etTableBody.innerHTML = "";
+    etClearSelection();
+    (rows || []).forEach((r) => {
+      const tr = createEl("tr", "");
+      const pid = (r.participant_id || "").trim();
+      const lid = (r.log_row_id || "").trim();
+      tr.dataset.participantId = pid;
+      tr.dataset.logRowId = lid;
+      const pf = String(r.prompt_formality || "").trim();
+      const pfShort = pf.length > 20 ? `${pf.slice(0, 20)}…` : pf;
+      const sch = r.trace_schema_version != null ? String(r.trace_schema_version) : "—";
+      const kc = r.key_event_count != null ? String(r.key_event_count) : "—";
+      const mc = r.text_mutation_count != null ? String(r.text_mutation_count) : "—";
+      const sc = r.snapshot_count != null ? String(r.snapshot_count) : "—";
+      const lidShort = lid.length > 10 ? `${lid.slice(0, 8)}…` : lid;
+      const traceOk = r.trace_found !== false;
+      const traceCell = traceOk
+        ? '<span style="color:#6bc86b">ok</span>'
+        : '<span style="color:var(--warn,#e8a849)" title="CSV says trace exists but sidecar file was not found">missing</span>';
+      tr.innerHTML = `
+        <td>${escapeHtml((r.timestamp || "").slice(0, 19))}</td>
+        <td>${escapeHtml(participantAliasMap[pid] || pid)}</td>
+        <td>${escapeHtml(r.medium || "")}</td>
+        <td>${escapeHtml(r.input_method || "")}</td>
+        <td title="${escapeHtml(pf)}">${escapeHtml(pfShort || "—")}</td>
+        <td>${escapeHtml(r.reply_preview || "")}</td>
+        <td>${escapeHtml(formatSecondsCell(r.response_time_seconds))}</td>
+        <td>${escapeHtml(String(r.revision_count ?? ""))}</td>
+        <td>${escapeHtml(kc)}</td>
+        <td>${escapeHtml(mc)}</td>
+        <td>${escapeHtml(sc)}</td>
+        <td>${escapeHtml(sch)}</td>
+        <td>${traceCell}</td>
+        <td title="${escapeHtml(lid)}"><code>${escapeHtml(lidShort)}</code></td>`;
+      tr.addEventListener("click", () => {
+        document.querySelectorAll("#etTableBody tr.is-selected").forEach((x) => {
+          x.classList.remove("is-selected");
+        });
+        tr.classList.add("is-selected");
+        etSelectedParticipantId = pid;
+        etSelectedLogRowId = lid;
+        if (els.etDownloadSelectedBtn) els.etDownloadSelectedBtn.disabled = !pid || !lid;
+        etLoadDetail(pid, lid);
+      });
+      els.etTableBody.appendChild(tr);
+    });
+  }
+
+  function loadEditTracesBrowse() {
+    if (!els.etTableBody) return;
+    const filters = etCollectFilters();
+    fetchJSON("/api/admin/edit_traces/browse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...filters,
+        page: etBrowsePage,
+        page_size: etBrowsePageSize,
+      }),
+    })
+      .then((data) => {
+        if (!data || data.ok === false) throw new Error();
+        etBrowseTotal = Number(data.total) || 0;
+        if (els.etBrowseWarnings) {
+          const w = (data.warnings || []).filter(Boolean);
+          if ((data.rows || []).some((x) => x.trace_found === false)) {
+            w.unshift(
+              "Some rows have no JSON on disk (column JSON = missing); detail/ZIP may skip those files."
+            );
+          }
+          els.etBrowseWarnings.textContent = w.join(" · ");
+        }
+        etRenderTable(data.rows || []);
+        etUpdatePageControls();
+      })
+      .catch(() => {
+        etBrowseTotal = 0;
+        if (els.etBrowseWarnings) els.etBrowseWarnings.textContent = "Browse request failed.";
+        etRenderTable([]);
+        etUpdatePageControls();
       });
   }
 
@@ -2831,6 +3261,7 @@ function initAdminUI() {
     els.participantFilter.addEventListener("change", () => {
       if (els.exportParticipantSelect)
         els.exportParticipantSelect.value = els.participantFilter.value;
+      if (els.etParticipantFilter) els.etParticipantFilter.value = els.participantFilter.value;
       loadLogs();
     });
   }
@@ -2841,6 +3272,73 @@ function initAdminUI() {
   }
   if (els.promptConditionFilter) {
     els.promptConditionFilter.addEventListener("change", loadLogs);
+  }
+
+  if (els.etApplyFiltersBtn) {
+    els.etApplyFiltersBtn.addEventListener("click", () => {
+      etBrowsePage = 1;
+      loadEditTracesBrowse();
+    });
+  }
+  if (els.etPagePrevBtn) {
+    els.etPagePrevBtn.addEventListener("click", () => {
+      if (etBrowsePage <= 1) return;
+      etBrowsePage -= 1;
+      loadEditTracesBrowse();
+    });
+  }
+  if (els.etPageNextBtn) {
+    els.etPageNextBtn.addEventListener("click", () => {
+      const maxPage = Math.max(1, Math.ceil(etBrowseTotal / etBrowsePageSize));
+      if (etBrowsePage >= maxPage) return;
+      etBrowsePage += 1;
+      loadEditTracesBrowse();
+    });
+  }
+  if (els.etDownloadSelectedBtn) {
+    els.etDownloadSelectedBtn.addEventListener("click", () => {
+      if (!etSelectedParticipantId || !etSelectedLogRowId) return;
+      const u = `/api/download_edit_trace?participant_id=${encodeURIComponent(
+        etSelectedParticipantId
+      )}&log_row_id=${encodeURIComponent(etSelectedLogRowId)}`;
+      window.open(u, "_blank", "noopener,noreferrer");
+    });
+  }
+  if (els.etDownloadZipBtn) {
+    els.etDownloadZipBtn.addEventListener("click", () => {
+      const filters = etCollectFilters();
+      fetch("/api/admin/edit_traces/export_zip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(filters),
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            let msg = "ZIP export failed.";
+            try {
+              const j = await res.json();
+              if (j && j.error) msg = String(j.error);
+            } catch {
+              /* ignore */
+            }
+            alert(msg);
+            return null;
+          }
+          return res.blob();
+        })
+        .then((blob) => {
+          if (!blob) return;
+          const a = document.createElement("a");
+          const u = URL.createObjectURL(blob);
+          a.href = u;
+          a.download = "edit_traces_export.zip";
+          a.click();
+          URL.revokeObjectURL(u);
+        })
+        .catch(() => {
+          alert("ZIP export failed.");
+        });
+    });
   }
 
   if (els.exportParticipantSelect) {
@@ -2866,17 +3364,24 @@ function initAdminUI() {
     const med = (els.sessionMedium?.value || "SMS").trim();
     const im = (els.sessionInputMethod?.value || "Typing").trim();
     const dev = (els.sessionDevice?.value || "").trim();
+    const pcond = (els.sessionPromptCondition?.value || "auto").trim().toLowerCase();
+    const tpid = (els.sessionTextPromptId?.value || "").trim();
     const sp = new URLSearchParams();
     if (pid) sp.set("participant_id", pid);
     if (med) sp.set("medium", med);
     if (im) sp.set("input_method", im);
     if (dev) sp.set("device", dev);
+    if (pcond === "formal" || pcond === "informal" || pcond === "auto")
+      sp.set("prompt_condition", pcond);
+    if (/^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tpid)) sp.set("text_prompt_id", tpid);
     const q = sp.toString();
     els.sessionParticipantUrl.textContent = q ? `${base}?${q}` : base;
     refreshStudyContextBanner();
   }
 
-  let sessionPlanAdvancing = false;
+  let sessionPlanBusy = false;
+  /** Mirrors server current_index while the table is being edited (0-based). */
+  let sessionPlanLocalCurrentIndex = 0;
 
   function setSessionPlanStatus(msg) {
     if (els.sessionPlanStatus) els.sessionPlanStatus.textContent = msg || "";
@@ -2886,29 +3391,292 @@ function initAdminUI() {
     return normalizeStudyParticipantIdClient((els.sessionParticipantId?.value || "").trim());
   }
 
+  function defaultSessionPlanTask() {
+    return {
+      medium: "SMS",
+      input_method: "Typing",
+      device: "",
+      prompt_condition: "auto",
+      prompt_pick: "random",
+      text_prompt_id: "",
+    };
+  }
+
+  function normalizeSessionPlanTask(t) {
+    const o = { ...defaultSessionPlanTask(), ...(t || {}) };
+    let med = String(o.medium || "SMS").trim();
+    if (!["SMS", "Messenger", "Email", "Voice"].includes(med)) med = "SMS";
+    o.medium = med;
+    const allowedIm = ["Typing", "Swipe typing", "Voice-to-text"];
+    let im = String(o.input_method || "Typing").trim();
+    if (!allowedIm.includes(im)) im = "Typing";
+    o.input_method = im;
+    const dev = String(o.device || "").trim().toLowerCase();
+    o.device = dev === "phone" || dev === "laptop" ? dev : "";
+    let pc = String(o.prompt_condition || "auto").trim().toLowerCase();
+    if (!["formal", "informal", "auto"].includes(pc)) pc = "auto";
+    o.prompt_condition = pc;
+    let pp = String(o.prompt_pick || "random").trim().toLowerCase();
+    if (pp !== "random" && pp !== "selected") pp = "random";
+    o.prompt_pick = pp;
+    let tid = String(o.text_prompt_id || "").trim();
+    if (!/^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tid)) tid = "";
+    if (o.prompt_pick === "random") tid = "";
+    o.text_prompt_id = tid;
+    return o;
+  }
+
+  function describeSessionPlanTask(t) {
+    const d = normalizeSessionPlanTask(t);
+    const devBit = d.device ? ` · ${d.device}` : "";
+    const pickBit =
+      d.prompt_pick === "selected" && d.text_prompt_id
+        ? ` · selected:${d.text_prompt_id}`
+        : ` · ${d.prompt_pick}`;
+    return `${d.medium} · ${d.input_method}${devBit} · ${d.prompt_condition}${pickBit}`;
+  }
+
+  function sessionPlanSelectOptions(selected, choices) {
+    return choices
+      .map(
+        ([val, label]) =>
+          `<option value="${escapeHtml(val)}"${val === selected ? " selected" : ""}>${escapeHtml(
+            label
+          )}</option>`
+      )
+      .join("");
+  }
+
+  function buildSessionPlanPromptIdSelectHtml(selectedId, pick) {
+    let opts = '<option value="">— choose —</option>';
+    lastPromptPoolActiveRows.forEach((p) => {
+      const id = p.id || "";
+      if (!id) return;
+      const sel = id === selectedId ? " selected" : "";
+      opts += `<option value="${escapeHtml(id)}"${sel}>${escapeHtml(id)}</option>`;
+    });
+    const dis = pick === "random" ? " disabled" : "";
+    return `<select class="session-plan-text-prompt-id"${dis}>${opts}</select>`;
+  }
+
+  function buildSessionPlanRowHtml(index, task) {
+    const d = normalizeSessionPlanTask(task);
+    const medChoices = [
+      ["SMS", "SMS"],
+      ["Messenger", "Messenger"],
+      ["Email", "Email"],
+      ["Voice", "Voice"],
+    ];
+    const imChoices = [
+      ["Typing", "Typing"],
+      ["Swipe typing", "Swipe typing"],
+      ["Voice-to-text", "Voice-to-text"],
+    ];
+    const devChoices = [
+      ["", "—"],
+      ["phone", "phone"],
+      ["laptop", "laptop"],
+    ];
+    const pcChoices = [
+      ["auto", "auto"],
+      ["formal", "formal"],
+      ["informal", "informal"],
+    ];
+    const ppChoices = [
+      ["random", "random"],
+      ["selected", "selected library"],
+    ];
+    return `<tr data-plan-row="1" data-task-index="${index}">
+      <td>${index + 1}</td>
+      <td><select class="session-plan-medium" aria-label="Medium">${sessionPlanSelectOptions(
+        d.medium,
+        medChoices
+      )}</select></td>
+      <td><select class="session-plan-input-method" aria-label="Input method">${sessionPlanSelectOptions(
+        d.input_method,
+        imChoices
+      )}</select></td>
+      <td><select class="session-plan-device" aria-label="Device">${sessionPlanSelectOptions(
+        d.device,
+        devChoices
+      )}</select></td>
+      <td><select class="session-plan-prompt-condition" aria-label="Prompt condition">${sessionPlanSelectOptions(
+        d.prompt_condition,
+        pcChoices
+      )}</select></td>
+      <td><select class="session-plan-prompt-pick" aria-label="Prompt pick">${sessionPlanSelectOptions(
+        d.prompt_pick,
+        ppChoices
+      )}</select></td>
+      <td>${buildSessionPlanPromptIdSelectHtml(d.text_prompt_id, d.prompt_pick)}</td>
+      <td><button type="button" class="pex-btn-ghost session-plan-remove" data-remove-index="${index}">Remove</button></td>
+    </tr>`;
+  }
+
+  function renderSessionPlanTable(tasks) {
+    const list = (tasks || []).map(normalizeSessionPlanTask);
+    if (!els.sessionPlanTableBody) return;
+    if (!list.length) {
+      els.sessionPlanTableBody.innerHTML =
+        '<tr><td colspan="8" class="small" style="padding:10px;color:var(--muted);">No tasks yet. Click “Add task”.</td></tr>';
+    } else {
+      els.sessionPlanTableBody.innerHTML = list
+        .map((t, i) => buildSessionPlanRowHtml(i, t))
+        .join("");
+    }
+    syncSessionPlanJsonFromState(list, sessionPlanLocalCurrentIndex);
+    renderSessionPlanSummary(list, sessionPlanLocalCurrentIndex);
+    if (els.sessionPlanCurrentTaskNum) {
+      const n = list.length;
+      els.sessionPlanCurrentTaskNum.disabled = !n;
+      els.sessionPlanCurrentTaskNum.max = n ? String(n) : "1";
+      const show = n ? Math.min(sessionPlanLocalCurrentIndex + 1, n) : 1;
+      els.sessionPlanCurrentTaskNum.value = String(show);
+    }
+  }
+
+  function syncSessionPlanJsonFromState(tasks, idx) {
+    if (!els.sessionPlanJson) return;
+    const plan = { tasks: (tasks || []).map(normalizeSessionPlanTask), current_index: Number(idx) || 0 };
+    els.sessionPlanJson.value = JSON.stringify(plan, null, 2);
+  }
+
+  function collectSessionPlanTasksFromTable() {
+    const tb = els.sessionPlanTableBody;
+    if (!tb) return [];
+    const rows = tb.querySelectorAll("tr[data-plan-row]");
+    if (!rows.length) return [];
+    const out = [];
+    rows.forEach((tr) => {
+      out.push({
+        medium: tr.querySelector(".session-plan-medium")?.value || "SMS",
+        input_method: tr.querySelector(".session-plan-input-method")?.value || "Typing",
+        device: tr.querySelector(".session-plan-device")?.value || "",
+        prompt_condition: tr.querySelector(".session-plan-prompt-condition")?.value || "auto",
+        prompt_pick: tr.querySelector(".session-plan-prompt-pick")?.value || "random",
+        text_prompt_id: tr.querySelector(".session-plan-text-prompt-id")?.value || "",
+      });
+    });
+    return out.map(normalizeSessionPlanTask);
+  }
+
+  function readSessionPlanCurrentIndexForSave(taskCount) {
+    const n = Math.max(0, taskCount | 0);
+    if (!n) return 0;
+    const raw = Number(els.sessionPlanCurrentTaskNum?.value);
+    const oneBased = Number.isFinite(raw) ? raw : 1;
+    const clamped = Math.max(1, Math.min(oneBased, n));
+    return clamped - 1;
+  }
+
+  function renderSessionPlanSummary(tasks, idx) {
+    if (!els.sessionPlanSummary) return;
+    const pid = sessionPlanParticipantId();
+    const n = tasks.length;
+    if (!n) {
+      els.sessionPlanSummary.innerHTML = `<strong>Participant:</strong> ${escapeHtml(
+        pid || "—"
+      )}<br />No tasks in plan.`;
+      return;
+    }
+    const i = Math.max(0, Math.min(Number(idx) || 0, n - 1));
+    const cur = tasks[i];
+    const next = i + 1 < n ? tasks[i + 1] : null;
+    const completed = i;
+    const nextLabel = next ? describeSessionPlanTask(next) : "— (end of plan)";
+    els.sessionPlanSummary.innerHTML = `<strong>Participant:</strong> ${escapeHtml(
+      pid || "—"
+    )}<br />
+<strong>Current task:</strong> ${i + 1} of ${n} — ${escapeHtml(describeSessionPlanTask(cur))}<br />
+<strong>Next task:</strong> ${escapeHtml(nextLabel)}<br />
+<strong>Completed in plan order (before current index):</strong> ${completed}`;
+  }
+
+  function setSessionPlanControlsDisabled(disabled) {
+    const btns = [
+      els.sessionPlanReloadBtn,
+      els.sessionPlanSaveBtn,
+      els.sessionPlanApplyBtn,
+      els.sessionPlanRepeatBtn,
+      els.sessionPlanAdvanceBtn,
+      els.sessionPlanSkipBtn,
+      els.sessionPlanAddTaskBtn,
+      els.sessionPlanImportJsonBtn,
+    ];
+    btns.forEach((b) => {
+      if (b) b.disabled = disabled;
+    });
+    if (els.sessionPlanCurrentTaskNum) els.sessionPlanCurrentTaskNum.disabled = disabled || !collectSessionPlanTasksFromTable().length;
+    document.querySelectorAll(".session-plan-remove").forEach((b) => {
+      b.disabled = disabled;
+    });
+    document.querySelectorAll("#sessionPlanTableBody select").forEach((el) => {
+      el.disabled = disabled;
+    });
+  }
+
+  function applyPlanToLocalState(plan) {
+    const p = plan || { tasks: [], current_index: 0 };
+    const tasks = (p.tasks || []).map(normalizeSessionPlanTask);
+    sessionPlanLocalCurrentIndex = Math.max(
+      0,
+      Math.min(Number(p.current_index || 0), Math.max(0, tasks.length - 1))
+    );
+    renderSessionPlanTable(tasks);
+  }
+
   function loadSessionPlan() {
     const pid = sessionPlanParticipantId();
     if (!pid || !/^P\d{3,}$/i.test(pid)) {
       setSessionPlanStatus("Enter a stable participant ID (P###) first.");
+      if (els.sessionPlanSummary)
+        els.sessionPlanSummary.innerHTML =
+          "<strong>Participant:</strong> —<br />Enter a stable participant ID (P###) to load a plan.";
+      renderSessionPlanTable([]);
       return;
     }
-    fetchJSON(
-      `/api/admin/session_plan?participant_id=${encodeURIComponent(pid)}`
-    )
+    if (sessionPlanBusy) return;
+    sessionPlanBusy = true;
+    setSessionPlanControlsDisabled(true);
+    fetchJSON(`/api/admin/session_plan?participant_id=${encodeURIComponent(pid)}`)
       .then((d) => {
         if (!d?.ok) throw new Error("bad");
         const plan = d.plan || { tasks: [], current_index: 0 };
-        if (els.sessionPlanJson)
-          els.sessionPlanJson.value = JSON.stringify(plan, null, 2);
+        applyPlanToLocalState(plan);
         const t = (plan.tasks || []).length;
         const i = Number(plan.current_index || 0);
-        const labelT = t || 0;
         const labelCur = t ? Math.min(i + 1, t) : 0;
         setSessionPlanStatus(
-          `Loaded: ${labelT} task(s), current_index=${i} (${labelCur} of ${labelT}).`
+          `Loaded: ${t} task(s), current_index=${i} (${labelCur} of ${t}).`
         );
       })
-      .catch(() => setSessionPlanStatus("Could not load session plan."));
+      .catch(() => {
+        setSessionPlanStatus("Could not load session plan.");
+      })
+      .finally(() => {
+        sessionPlanBusy = false;
+        setSessionPlanControlsDisabled(false);
+      });
+  }
+
+  function importSessionPlanFromJsonTextarea() {
+    try {
+      const raw = (els.sessionPlanJson?.value || "").trim();
+      const parsed = raw ? JSON.parse(raw) : {};
+      let tasks = [];
+      if (Array.isArray(parsed)) tasks = parsed;
+      else if (Array.isArray(parsed.tasks)) tasks = parsed.tasks;
+      let cur = Number(parsed.current_index);
+      if (!Number.isFinite(cur)) cur = 0;
+      tasks = tasks.map(normalizeSessionPlanTask);
+      const maxI = Math.max(0, tasks.length - 1);
+      cur = Math.max(0, Math.min(cur, maxI));
+      sessionPlanLocalCurrentIndex = tasks.length ? cur : 0;
+      renderSessionPlanTable(tasks);
+      setSessionPlanStatus("Imported JSON into the task table (not saved to server yet).");
+    } catch {
+      alert("Session plan JSON is invalid.");
+    }
   }
 
   function saveSessionPlan() {
@@ -2917,38 +3685,53 @@ function initAdminUI() {
       alert("Enter a stable participant ID (P###) first.");
       return;
     }
-    let payloadTasks;
-    try {
-      const raw = (els.sessionPlanJson?.value || "").trim();
-      const parsed = raw ? JSON.parse(raw) : {};
-      if (Array.isArray(parsed)) payloadTasks = parsed;
-      else if (Array.isArray(parsed.tasks)) payloadTasks = parsed.tasks;
-      else payloadTasks = [];
-    } catch {
-      alert("Session plan JSON is invalid.");
-      return;
+    if (sessionPlanBusy) return;
+    let payloadTasks = collectSessionPlanTasksFromTable();
+    if (!payloadTasks.length) {
+      try {
+        const raw = (els.sessionPlanJson?.value || "").trim();
+        const parsed = raw ? JSON.parse(raw) : {};
+        if (Array.isArray(parsed)) payloadTasks = parsed.map(normalizeSessionPlanTask);
+        else if (Array.isArray(parsed.tasks))
+          payloadTasks = parsed.tasks.map(normalizeSessionPlanTask);
+      } catch {
+        alert("Session plan JSON is invalid (or table is empty).");
+        return;
+      }
     }
+    const curIdx = readSessionPlanCurrentIndexForSave(payloadTasks.length);
+    sessionPlanBusy = true;
+    setSessionPlanControlsDisabled(true);
     fetchJSON("/api/admin/session_plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ participant_id: pid, tasks: payloadTasks }),
+      body: JSON.stringify({
+        participant_id: pid,
+        tasks: payloadTasks,
+        current_index: curIdx,
+      }),
     })
       .then((d) => {
         if (!d?.ok) throw new Error("bad");
-        if (els.sessionPlanJson) els.sessionPlanJson.value = JSON.stringify(d.plan, null, 2);
+        applyPlanToLocalState(d.plan);
         setSessionPlanStatus("Session plan saved.");
       })
-      .catch(() => setSessionPlanStatus("Save failed."));
+      .catch(() => setSessionPlanStatus("Save failed."))
+      .finally(() => {
+        sessionPlanBusy = false;
+        setSessionPlanControlsDisabled(false);
+      });
   }
 
   function advanceSessionPlan() {
-    if (sessionPlanAdvancing) return;
     const pid = sessionPlanParticipantId();
     if (!pid || !/^P\d{3,}$/i.test(pid)) {
       alert("Enter a stable participant ID (P###) first.");
       return;
     }
-    sessionPlanAdvancing = true;
+    if (sessionPlanBusy) return;
+    sessionPlanBusy = true;
+    setSessionPlanControlsDisabled(true);
     fetchJSON("/api/admin/session_plan/advance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2957,7 +3740,7 @@ function initAdminUI() {
       .then((d) => {
         if (!d?.ok) throw new Error("bad");
         const plan = d.plan || { tasks: [], current_index: 0 };
-        if (els.sessionPlanJson) els.sessionPlanJson.value = JSON.stringify(plan, null, 2);
+        applyPlanToLocalState(plan);
         const t = (plan.tasks || []).length;
         if (d.done)
           setSessionPlanStatus(
@@ -2970,7 +3753,8 @@ function initAdminUI() {
       })
       .catch(() => setSessionPlanStatus("Advance failed."))
       .finally(() => {
-        sessionPlanAdvancing = false;
+        sessionPlanBusy = false;
+        setSessionPlanControlsDisabled(false);
       });
   }
 
@@ -2980,21 +3764,22 @@ function initAdminUI() {
       alert("Enter a stable participant ID (P###) first.");
       return;
     }
-    fetchJSON(
-      `/api/admin/session_plan?participant_id=${encodeURIComponent(pid)}`
-    )
+    if (sessionPlanBusy) return;
+    sessionPlanBusy = true;
+    setSessionPlanControlsDisabled(true);
+    fetchJSON(`/api/admin/session_plan?participant_id=${encodeURIComponent(pid)}`)
       .then((d) => {
         if (!d?.ok) throw new Error("bad");
         const plan = d.plan || { tasks: [], current_index: 0 };
         const tasks = plan.tasks || [];
         if (!tasks.length) {
-          setSessionPlanStatus("No tasks in plan — save a JSON plan first.");
+          setSessionPlanStatus("No tasks in plan — add tasks and save first.");
           return;
         }
         let idx = Number(plan.current_index || 0);
         if (idx < 0) idx = 0;
         if (idx >= tasks.length) idx = tasks.length - 1;
-        const t = tasks[idx] || {};
+        const t = normalizeSessionPlanTask(tasks[idx] || {});
         const med = String(t.medium || "").trim();
         const im = String(t.input_method || "").trim();
         const dev = String(t.device || "").trim().toLowerCase();
@@ -3005,16 +3790,90 @@ function initAdminUI() {
           els.sessionInputMethod.value = im;
         if (els.sessionDevice) {
           if (dev === "phone" || dev === "laptop") els.sessionDevice.value = dev;
+          else els.sessionDevice.value = "";
+        }
+        if (els.sessionPromptCondition) {
+          const pc = t.prompt_condition || "auto";
+          if (["formal", "informal", "auto"].includes(pc)) els.sessionPromptCondition.value = pc;
+        }
+        if (els.sessionTextPromptId) {
+          if (t.prompt_pick === "selected" && t.text_prompt_id)
+            els.sessionTextPromptId.value = t.text_prompt_id;
+          else els.sessionTextPromptId.value = "";
         }
         onSessionFieldsChanged();
         setSessionPlanStatus(`Applied plan task ${idx + 1} of ${tasks.length} to session link.`);
       })
-      .catch(() => setSessionPlanStatus("Could not load plan to apply."));
+      .catch(() => setSessionPlanStatus("Could not load plan to apply."))
+      .finally(() => {
+        sessionPlanBusy = false;
+        setSessionPlanControlsDisabled(false);
+      });
   }
 
   function onSessionFieldsChanged() {
     syncSessionUrlPreview();
     refreshStudyContextBanner();
+  }
+
+  if (els.sessionPlanTableBody) {
+    els.sessionPlanTableBody.addEventListener("click", (ev) => {
+      const btn = ev.target && ev.target.closest && ev.target.closest(".session-plan-remove");
+      if (!btn || sessionPlanBusy) return;
+      const ix = Number(btn.getAttribute("data-remove-index"));
+      if (!Number.isFinite(ix)) return;
+      const tasks = collectSessionPlanTasksFromTable();
+      if (!tasks.length) return;
+      tasks.splice(ix, 1);
+      if (ix < sessionPlanLocalCurrentIndex) sessionPlanLocalCurrentIndex -= 1;
+      else if (sessionPlanLocalCurrentIndex >= tasks.length)
+        sessionPlanLocalCurrentIndex = Math.max(0, tasks.length - 1);
+      renderSessionPlanTable(tasks);
+      setSessionPlanStatus("Row removed (not saved to server until you click Save plan).");
+    });
+    els.sessionPlanTableBody.addEventListener("change", (ev) => {
+      const t = ev.target;
+      if (!t || !t.closest) return;
+      if (t.classList && t.classList.contains("session-plan-prompt-pick")) {
+        const tr = t.closest("tr");
+        const tidSel = tr && tr.querySelector(".session-plan-text-prompt-id");
+        if (tidSel) {
+          if ((t.value || "") === "random") {
+            tidSel.value = "";
+            tidSel.disabled = true;
+          } else {
+            tidSel.disabled = false;
+          }
+        }
+      }
+    });
+  }
+
+  if (els.sessionPlanAddTaskBtn) {
+    els.sessionPlanAddTaskBtn.addEventListener("click", () => {
+      if (sessionPlanBusy) return;
+      const tasks = collectSessionPlanTasksFromTable();
+      tasks.push(defaultSessionPlanTask());
+      renderSessionPlanTable(tasks);
+      setSessionPlanStatus("Task added to table (not saved yet).");
+    });
+  }
+
+  if (els.sessionPlanImportJsonBtn) {
+    els.sessionPlanImportJsonBtn.addEventListener("click", () => {
+      if (sessionPlanBusy) return;
+      importSessionPlanFromJsonTextarea();
+    });
+  }
+
+  if (els.sessionPlanCurrentTaskNum) {
+    els.sessionPlanCurrentTaskNum.addEventListener("change", () => {
+      const tasks = collectSessionPlanTasksFromTable();
+      if (!tasks.length) return;
+      sessionPlanLocalCurrentIndex = readSessionPlanCurrentIndexForSave(tasks.length);
+      renderSessionPlanSummary(tasks, sessionPlanLocalCurrentIndex);
+      syncSessionPlanJsonFromState(tasks, sessionPlanLocalCurrentIndex);
+    });
   }
 
   if (els.sessionPlanReloadBtn) {
@@ -3026,8 +3885,14 @@ function initAdminUI() {
   if (els.sessionPlanAdvanceBtn) {
     els.sessionPlanAdvanceBtn.addEventListener("click", () => advanceSessionPlan());
   }
+  if (els.sessionPlanSkipBtn) {
+    els.sessionPlanSkipBtn.addEventListener("click", () => advanceSessionPlan());
+  }
   if (els.sessionPlanApplyBtn) {
     els.sessionPlanApplyBtn.addEventListener("click", () => applySessionPlanToSessionLink());
+  }
+  if (els.sessionPlanRepeatBtn) {
+    els.sessionPlanRepeatBtn.addEventListener("click", () => applySessionPlanToSessionLink());
   }
 
   if (els.downloadAllBtn) {
@@ -3049,6 +3914,95 @@ function initAdminUI() {
         "/api/download_csv?scope=participant&participant_id=" +
         encodeURIComponent(id) +
         inc;
+    });
+  }
+
+  let plSearchDebounce = null;
+  if (els.plTableBody) {
+    els.plTableBody.addEventListener("click", (ev) => {
+      const ed = ev.target && ev.target.closest && ev.target.closest(".pl-edit-btn");
+      const del = ev.target && ev.target.closest && ev.target.closest(".pl-del-btn");
+      const btn = ed || del;
+      if (!btn) return;
+      const id = (btn.getAttribute("data-pl-id") || "").trim();
+      if (!id) return;
+      if (ed) {
+        fetchJSON(`/api/admin/prompt_library?q=${encodeURIComponent(id)}`)
+          .then((d) => {
+            if (!d?.ok) throw new Error("bad");
+            const rows = d.prompts || [];
+            const row = rows.find((r) => (r.id || "") === id) || rows[0];
+            if (row) plFillLibraryForm(row);
+            else plSetFormStatus("Prompt not found.");
+          })
+          .catch(() => plSetFormStatus("Could not load prompt for edit."));
+      } else {
+        if (
+          !window.confirm(
+            `Delete "${id}" from the library file? Built-in ids fall back to code defaults.`
+          )
+        )
+          return;
+        fetchJSON(`/api/admin/prompt_library/${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        })
+          .then((d) => {
+            if (!d?.ok) throw new Error("bad");
+            loadPromptLibraryTable();
+            loadPromptPool();
+            plSetFormStatus("Deleted.");
+            if ((els.plFieldId?.value || "").trim() === id) plClearLibraryForm();
+          })
+          .catch(() => alert("Delete failed."));
+      }
+    });
+  }
+  if (els.plReloadBtn) els.plReloadBtn.addEventListener("click", () => loadPromptLibraryTable());
+  if (els.plExportBtn)
+    els.plExportBtn.addEventListener("click", () => {
+      window.location.href = "/api/admin/prompt_library/export";
+    });
+  if (els.plNewBtn) els.plNewBtn.addEventListener("click", () => plClearLibraryForm());
+  if (els.plClearFormBtn) els.plClearFormBtn.addEventListener("click", () => plClearLibraryForm());
+  if (els.plIncludeInactive)
+    els.plIncludeInactive.addEventListener("change", () => loadPromptLibraryTable());
+  if (els.plSearchInput) {
+    els.plSearchInput.addEventListener("input", () => {
+      clearTimeout(plSearchDebounce);
+      plSearchDebounce = setTimeout(() => loadPromptLibraryTable(), 320);
+    });
+  }
+  if (els.plSaveBtn) {
+    els.plSaveBtn.addEventListener("click", () => {
+      const body = plPayloadFromForm();
+      if (!body.id) {
+        alert("Prompt id is required.");
+        return;
+      }
+      if (!body.sms && !body.messenger && !body.email_body) {
+        alert("Enter at least one of SMS, Messenger, or email body.");
+        return;
+      }
+      const edit = plLibraryEditMode;
+      const url = edit
+        ? `/api/admin/prompt_library/${encodeURIComponent(body.id)}`
+        : "/api/admin/prompt_library";
+      const method = edit ? "PUT" : "POST";
+      fetchJSON(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then((d) => {
+          if (!d?.ok) throw new Error(d.error || "Save failed");
+          plSetFormStatus("Saved.");
+          loadPromptLibraryTable();
+          loadPromptPool();
+          if (d.prompt) plFillLibraryForm(d.prompt);
+        })
+        .catch((err) => {
+          plSetFormStatus(err?.message || "Save failed.");
+        });
     });
   }
 
@@ -3624,7 +4578,7 @@ function initAdminUI() {
     },
     formality: {
       title: "Reply register (model)",
-      body: "Distribution of reply register labels from the trained classifier (Formal/Informal in the UI; raw LABEL_* only in advanced export). BERT/sentiment are not shown here.",
+      body: "Distribution of reply register labels from the trained classifier (Formal/Informal in the UI; raw LABEL_* only in advanced export).",
     },
     prompt_condition: {
       title: "Prompt condition",
@@ -4009,6 +4963,8 @@ function initAdminUI() {
     els.sessionInputMethod.addEventListener("change", onSessionFieldsChanged);
   if (els.sessionDevice)
     els.sessionDevice.addEventListener("change", onSessionFieldsChanged);
+  if (els.sessionPromptCondition)
+    els.sessionPromptCondition.addEventListener("change", onSessionFieldsChanged);
   if (els.sessionSuggestParticipantBtn) {
     els.sessionSuggestParticipantBtn.addEventListener("click", () => {
       fetchJSON("/api/participants")

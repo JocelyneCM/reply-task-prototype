@@ -5,8 +5,8 @@ analysis_utils.py
 NLP and style‑classification utilities used by the Flask backend.
 
 This module wraps:
-* Formality model (text classification)
-* BERT‑based sentiment from HuggingFace Transformers
+* Formality model (text classification) — primary study classifier
+* Optional HuggingFace star‑rating sentiment (`analyze_bert`) — not used in study logs
 * A simple rule‑based style classifier (formal / informal / neutral)
 
 The app still runs if optional models are missing.
@@ -55,15 +55,11 @@ def _ensure_bert_pipeline() -> None:
 
 def analyze_bert(text: str) -> Dict[str, float or str]:
     """
-    Run BERT‑based sentiment classification using HuggingFace Transformers.
+    Optional HuggingFace pipeline: ``nlptown/bert-base-multilingual-uncased-sentiment``.
 
-    Returns a dictionary:
-        {
-          "label": <string>,
-          "confidence": <float 0..1>
-        }
-
-    If BERT is unavailable, the label "neutral" with confidence 0.0 is used.
+    This produces coarse star labels (e.g. ``5 stars``) — **not** the study
+    formality/register model. Call explicitly for experiments; study logging
+    does not populate CSV BERT columns from this path.
     """
     if not text or not BERT_AVAILABLE:
         return {"label": "neutral", "confidence": 0.0}
@@ -117,8 +113,11 @@ def classify_style(text: str) -> str:
 
 def analyze_full_text(text: str) -> Dict[str, float or str]:
     """
-    Convenience helper that returns formality (from the formality model)
-    and BERT sentiment metadata for a given text.
+    Return formality model outputs for study logging and admin.
+
+    ``bert_label`` / ``bert_raw`` / ``bert_confidence`` keys are kept for
+    backward‑compatible CSV schemas but are left empty for new rows (the old
+    HuggingFace star‑sentiment pipeline is not part of the main study).
     """
     # Formality via the trained model (preferred). Ensure the local
     # `formality_model/` is loaded (if available) before calling the
@@ -144,12 +143,11 @@ def analyze_full_text(text: str) -> Dict[str, float or str]:
             formality_label = ""
             formality_conf = 0.0
 
-    bert_result = analyze_bert(text)
-
     return {
         "formality_label": formality_label,
         "formality_confidence": formality_conf,
-        "bert_label": bert_result["label"],
-        "bert_confidence": bert_result["confidence"],
+        "bert_label": "",
+        "bert_raw": "",
+        "bert_confidence": "",
     }
 

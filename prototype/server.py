@@ -7,14 +7,14 @@ Flask backend for the reply‑writing research prototype.
 Responsibilities:
 * Serve separate participant and admin UIs.
 * Accept text and audio replies from participants.
- * Run NLP analysis (formality model, BERT sentiment, rule‑based style).
+* Run NLP analysis (formality / reply register model and rule‑based style).
 * Transcribe audio replies with Whisper (if available).
 * Log all trials into CSV files under data/logs and data/participants.
 * Expose JSON APIs used by the admin dashboard for filtering and CSV download.
 
 The code is written to be production‑quality for a prototype:
 * All critical paths are guarded with try/except so the app does not crash
-  if optional models are unavailable (e.g., BERT, Whisper).
+  if optional models are unavailable (e.g., Whisper).
 * Optional components clearly report their availability in /api/health.
 """
 
@@ -24,6 +24,7 @@ from datetime import datetime
 from io import BytesIO, StringIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from uuid import uuid4
 
 import csv
 import json
@@ -55,7 +56,17 @@ if __package__:
         normalize_study_participant_id,
         suggest_next_participant_id,
     )
+    from .utils.edit_trace_store import (
+        browse_edit_traces,
+        build_edit_traces_zip,
+        extract_summary_for_csv,
+        is_valid_log_row_uuid,
+        load_edit_trace_json,
+        sanitize_trace_for_storage,
+        write_edit_trace_sidecar,
+    )
     from .utils.session_plan_store import advance_plan, get_plan, set_plan
+    from .utils import prompt_library_store as pls
     from .utils.analysis_utils import (
         analyze_full_text,
         classify_style,
@@ -87,7 +98,17 @@ else:
         normalize_study_participant_id,
         suggest_next_participant_id,
     )
+    from utils.edit_trace_store import (  # type: ignore
+        browse_edit_traces,
+        build_edit_traces_zip,
+        extract_summary_for_csv,
+        is_valid_log_row_uuid,
+        load_edit_trace_json,
+        sanitize_trace_for_storage,
+        write_edit_trace_sidecar,
+    )
     from utils.session_plan_store import advance_plan, get_plan, set_plan  # type: ignore
+    import utils.prompt_library_store as pls  # type: ignore
     from utils.analysis_utils import (  # type: ignore
         analyze_full_text,
         classify_style,
@@ -162,16 +183,63 @@ def has_openai_key_configured() -> bool:
     return False
 
 
-def _pick_prompt_by_id(prompt_id: str) -> Optional[Dict[str, str]]:
-    for p in TEXT_PROMPT_LIBRARY:
-        if p.get("id") == prompt_id:
-            return p
+def _serialize_prompt_for_pool(row: Dict[str, Any]) -> Dict[str, Any]:
+    """JSON-safe row for admin / pool (drops internal keys)."""
+    return {
+        "id": str(row.get("id") or ""),
+        "sms": str(row.get("sms") or ""),
+        "messenger": str(row.get("messenger") or ""),
+        "email_from": str(row.get("email_from") or ""),
+        "email_subject": str(row.get("email_subject") or ""),
+        "email_body": str(row.get("email_body") or ""),
+        "prompt_kind": str(row.get("prompt_kind") or "all"),
+        "prompt_condition": str(row.get("prompt_condition") or "auto"),
+        "notes": str(row.get("notes") or ""),
+        "category": str(row.get("category") or ""),
+        "active": bool(row.get("active", True)),
+    }
+
+
+def _merged_prompt_row_by_id(prompt_id: str) -> Optional[Dict[str, Any]]:
+    pid = (prompt_id or "").strip()
+    if not pid:
+        return None
+    for x in pls.get_merged_library(BASE_DIR, TEXT_PROMPT_LIBRARY, active_only=False):
+        if str(x.get("id")) == pid:
+            return x
     return None
 
 
-def _pick_text_prompt_bundle(consume_override: bool) -> Dict[str, str]:
+def _merged_prompts_active() -> List[Dict[str, Any]]:
+    rows = pls.get_merged_library(BASE_DIR, TEXT_PROMPT_LIBRARY, active_only=True)
+    if rows:
+        return rows
+    return [dict(x) for x in TEXT_PROMPT_LIBRARY]
+
+
+def _pick_prompt_by_id(prompt_id: str) -> Optional[Dict[str, str]]:
+    row = pls.get_by_id_merged(BASE_DIR, TEXT_PROMPT_LIBRARY, prompt_id)
+    if row is not None:
+        return pls.bundle_dict_from_library_row(row, "library_id")
+    for p in TEXT_PROMPT_LIBRARY:
+        if p.get("id") == prompt_id:
+            return dict(p)
+    return None
+
+
+def _pick_text_prompt_bundle(consume_override: bool, url_prompt_id: Optional[str] = None) -> Dict[str, str]:
     """Return one text prompt bundle. Can consume one one-shot admin override."""
     global NEXT_TEXT_PROMPT_ID, NEXT_TEXT_PROMPT_CUSTOM
+    url_tid = (url_prompt_id or "").strip()
+    if url_tid:
+        row = pls.get_by_id_merged(BASE_DIR, TEXT_PROMPT_LIBRARY, url_tid)
+        if row is not None:
+            return pls.bundle_dict_from_library_row(row, "url_param")
+        for p in TEXT_PROMPT_LIBRARY:
+            if p.get("id") == url_tid:
+                out = dict(p)
+                out["source"] = "url_param"
+                return out
     prompt: Optional[Dict[str, str]] = None
     source = "random"
     if NEXT_TEXT_PROMPT_CUSTOM:
@@ -186,10 +254,18 @@ def _pick_text_prompt_bundle(consume_override: bool) -> Dict[str, str]:
         if consume_override:
             NEXT_TEXT_PROMPT_ID = None
     if prompt is None:
-        # Stable fallback if random fails for any reason.
         import random
 
-        prompt = random.choice(TEXT_PROMPT_LIBRARY) if TEXT_PROMPT_LIBRARY else None
+        pool = _merged_prompts_active()
+        choice = random.choice(pool) if pool else None
+        if choice is not None:
+            prompt = pls.bundle_dict_from_library_row(choice, "random")
+        elif TEXT_PROMPT_LIBRARY:
+            p0 = dict(random.choice(TEXT_PROMPT_LIBRARY))
+            p0["source"] = "random"
+            prompt = p0
+        else:
+            prompt = None
     if not prompt:
         return {
             "id": "prompt_default",
@@ -201,36 +277,9 @@ def _pick_text_prompt_bundle(consume_override: bool) -> Dict[str, str]:
             "source": source,
         }
     out = dict(prompt)
-    out["source"] = source
+    if "source" not in out:
+        out["source"] = source
     return out
-
-
-def normalize_bert_label(raw_label: str) -> str:
-    """
-    Keep one stable BERT label set for admin display.
-    """
-    s = (raw_label or "").strip().lower()
-    if not s:
-        return "ok"
-    if "unavailable" in s or s == "ok":
-        return "ok"
-    if "positive" in s:
-        return "positive"
-    if "negative" in s:
-        return "negative"
-    if "neutral" in s:
-        return "neutral"
-    import re
-
-    m = re.search(r"([1-5])\s*star", s)
-    if m:
-        n = int(m.group(1))
-        if n <= 2:
-            return "negative"
-        if n == 3:
-            return "neutral"
-        return "positive"
-    return "ok"
 
 
 def normalize_input_method(raw_input_method: str, medium: str = "") -> str:
@@ -366,6 +415,7 @@ def api_health() -> Response:
     """
     payload = {
         "ok": True,
+        # Optional HF star-sentiment stack (not used in study CSV logging).
         "bert_ok": BERT_AVAILABLE,
         "whisper_ok": WHISPER_AVAILABLE,
         "ffmpeg_ok": FFMPEG_AVAILABLE,
@@ -389,7 +439,7 @@ def api_config() -> Response:
         "allow_voice_medium": False,
         "analysis_models": {
             "formality_model": True,
-            "bert": BERT_AVAILABLE,
+            "legacy_star_sentiment_pipeline_available": BERT_AVAILABLE,
         },
     }
     return jsonify(config)
@@ -400,14 +450,18 @@ def api_prompt_bundle() -> Response:
     """
     Return one text prompt bundle plus current voice prompt pool.
 
-    Query parameter:
+    Query parameters:
         - consume=1 to consume one-shot admin override for next exercise.
+        - text_prompt_id=<id> optional; when set, return that library prompt and do not consume globals.
     """
     consume = request.args.get("consume", "0") == "1"
+    url_tid = (request.args.get("text_prompt_id") or "").strip()
     return jsonify(
         {
             "ok": True,
-            "text_bundle": _pick_text_prompt_bundle(consume_override=consume),
+            "text_bundle": _pick_text_prompt_bundle(
+                consume_override=consume, url_prompt_id=url_tid or None
+            ),
             "voice_prompts": collect_voice_prompts(),
         }
     )
@@ -416,10 +470,12 @@ def api_prompt_bundle() -> Response:
 @app.get("/api/prompt_pool")
 def api_prompt_pool() -> Response:
     """Admin-facing prompt pool and current one-shot override state."""
+    merged = pls.get_merged_library(BASE_DIR, TEXT_PROMPT_LIBRARY, active_only=False)
+    text_prompts = [_serialize_prompt_for_pool(x) for x in merged]
     return jsonify(
         {
             "ok": True,
-            "text_prompts": TEXT_PROMPT_LIBRARY,
+            "text_prompts": text_prompts,
             "next_text_prompt_id": NEXT_TEXT_PROMPT_ID or "",
             "next_text_prompt_custom": NEXT_TEXT_PROMPT_CUSTOM or {},
             "voice_prompts": collect_voice_prompts(),
@@ -477,6 +533,130 @@ def api_prompt_pool_next() -> Response:
             "next_text_prompt_id": NEXT_TEXT_PROMPT_ID,
             "next_text_prompt_custom": {},
         }
+    )
+
+
+def _admin_prompt_library_filter_rows(
+    rows: List[Dict[str, Any]], q: str, hide_inactive: bool
+) -> List[Dict[str, Any]]:
+    out = []
+    for r in rows:
+        if hide_inactive and not r.get("active", True):
+            continue
+        if not q:
+            out.append(r)
+            continue
+        blob = " ".join(
+            str(r.get(k) or "")
+            for k in (
+                "id",
+                "sms",
+                "messenger",
+                "email_subject",
+                "email_body",
+                "notes",
+                "category",
+                "prompt_kind",
+                "prompt_condition",
+            )
+        ).lower()
+        if q in blob:
+            out.append(r)
+    return out
+
+
+@app.get("/api/admin/prompt_library")
+def api_admin_prompt_library_get() -> Response:
+    """List merged prompts (built-in + file) for researcher CRUD UI."""
+    hide_inactive = (request.args.get("active_only", "0") == "1") or (
+        request.args.get("include_inactive", "1") == "0"
+    )
+    q = (request.args.get("q") or "").strip().lower()
+    merged = pls.get_merged_library(BASE_DIR, TEXT_PROMPT_LIBRARY, active_only=False)
+    rows = [_serialize_prompt_for_pool(x) for x in merged]
+    rows = _admin_prompt_library_filter_rows(rows, q, hide_inactive)
+    return jsonify({"ok": True, "prompts": rows})
+
+
+@app.post("/api/admin/prompt_library")
+def api_admin_prompt_library_post() -> Response:
+    """Create a new library prompt (must not already exist in merged library)."""
+    try:
+        payload: Dict[str, Any] = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid JSON body."}), 400
+    pid = str(payload.get("id") or "").strip()
+    if not pid:
+        return jsonify({"ok": False, "error": "id is required."}), 400
+    merged_ids = {
+        str(x.get("id"))
+        for x in pls.get_merged_library(BASE_DIR, TEXT_PROMPT_LIBRARY, active_only=False)
+        if x.get("id")
+    }
+    if pid in merged_ids:
+        return jsonify({"ok": False, "error": "A prompt with this id already exists."}), 400
+    try:
+        pls.upsert_prompt(BASE_DIR, TEXT_PROMPT_LIBRARY, payload)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    row = _merged_prompt_row_by_id(pid)
+    if row is None:
+        return jsonify({"ok": False, "error": "Could not load prompt after save."}), 500
+    return jsonify({"ok": True, "prompt": _serialize_prompt_for_pool(row)})
+
+
+@app.put("/api/admin/prompt_library/<prompt_id>")
+def api_admin_prompt_library_put(prompt_id: str) -> Response:
+    """Update an existing prompt (upsert by id)."""
+    try:
+        payload: Dict[str, Any] = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid JSON body."}), 400
+    pid = (prompt_id or "").strip()
+    if not pid:
+        return jsonify({"ok": False, "error": "Missing id."}), 400
+    payload = {**payload, "id": pid}
+    merged_ids = {
+        str(x.get("id"))
+        for x in pls.get_merged_library(BASE_DIR, TEXT_PROMPT_LIBRARY, active_only=False)
+        if x.get("id")
+    }
+    if pid not in merged_ids:
+        return jsonify({"ok": False, "error": "Unknown prompt id."}), 404
+    try:
+        pls.upsert_prompt(BASE_DIR, TEXT_PROMPT_LIBRARY, payload)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    row = _merged_prompt_row_by_id(pid)
+    if row is None:
+        return jsonify({"ok": False, "error": "Could not load prompt after save."}), 404
+    return jsonify({"ok": True, "prompt": _serialize_prompt_for_pool(row)})
+
+
+@app.delete("/api/admin/prompt_library/<prompt_id>")
+def api_admin_prompt_library_delete(prompt_id: str) -> Response:
+    """Remove prompt from disk; built-in ids fall back to code defaults."""
+    pid = (prompt_id or "").strip()
+    if not pid:
+        return jsonify({"ok": False, "error": "Missing id."}), 400
+    ok = pls.delete_prompt_by_id(BASE_DIR, TEXT_PROMPT_LIBRARY, pid)
+    if not ok:
+        return jsonify({"ok": False, "error": "Prompt not found in library file."}), 404
+    return jsonify({"ok": True})
+
+
+@app.get("/api/admin/prompt_library/export")
+def api_admin_prompt_library_export() -> Response:
+    """Download raw prompt_library.json (same-origin admin use)."""
+    pls.seed_file_from_builtins_if_missing(BASE_DIR, TEXT_PROMPT_LIBRARY)
+    p = BASE_DIR / "data" / "prompt_library.json"
+    if not p.is_file():
+        return jsonify({"ok": False, "error": "Library file not found."}), 404
+    return send_file(
+        p,
+        mimetype="application/json",
+        as_attachment=True,
+        download_name="prompt_library.json",
     )
 
 
@@ -596,13 +776,16 @@ def api_log_reply() -> Response:
           "paste_used": bool,
           "correction_applied": bool,
           "prompt_style": str,
-          "ui_style_label": str        # style based only on heuristics
+          "ui_style_label": str,       # style based only on heuristics
+          "log_row_id": str,           # optional UUID; server fills if absent
+          "edit_trace": { }           # optional bounded compose trace (SMS/Messenger/Email)
         }
 
     The backend:
         * Optionally runs Whisper on the audio (if transcript was not already
           sent by the front‑end).
-        * Runs the formality model and BERT sentiment models on the final text.
+        * Runs the formality / reply register model on the final text.
+        * Leaves legacy CSV columns bert_label, bert_raw, and bert_confidence empty for new rows.
         * Classifies style (formal / informal / neutral) using rule‑based
           heuristics on the reply text.
         * Logs a single row into data/logs/sentiment_log_web.csv and a
@@ -674,10 +857,8 @@ def api_log_reply() -> Response:
     else:
         final_text_for_analysis = reply_text or transcript
 
-    # Run sentiment analysis.
+    # Run reply analysis (formality / register model — primary study classifier).
     analysis = analyze_full_text(final_text_for_analysis)
-    bert_raw = str(analysis.get("bert_label", "") or "")
-    bert_normalized = normalize_bert_label(bert_raw)
 
     # Use the trained formality model for reply style/formality.
     style_label = analysis.get("formality_label", "")
@@ -754,9 +935,11 @@ def api_log_reply() -> Response:
         or ("upload_api" if client_transcript else ("api_log_reply_fallback" if transcript else "")),
         "formality_label": analysis.get("formality_label", ""),
         "formality_confidence": analysis.get("formality_confidence", 0.0),
-        "bert_label": bert_normalized,
-        "bert_raw": bert_raw,
-        "bert_confidence": analysis["bert_confidence"],
+        "bert_label": analysis.get("bert_label") or "",
+        "bert_raw": analysis.get("bert_raw") or "",
+        "bert_confidence": analysis.get("bert_confidence")
+        if analysis.get("bert_confidence") not in (None, "")
+        else "",
         "audio_filename": audio_filename,
     }
 
@@ -766,8 +949,8 @@ def api_log_reply() -> Response:
         row["reply_style"] = ""
         row["formality_label"] = ""
         row["formality_confidence"] = ""
-        row["bert_label"] = "ok"
-        row["bert_raw"] = "unavailable"
+        row["bert_label"] = ""
+        row["bert_raw"] = ""
         row["bert_confidence"] = ""
 
     # Persist to global + per‑participant CSV files.
@@ -790,6 +973,57 @@ def api_log_reply() -> Response:
     except Exception:
         row["formality_match_prompt_reply"] = ""
 
+    # Hybrid edit-trace: lightweight CSV columns + optional JSON sidecar (Phase 1).
+    lid_client = str(payload.get("log_row_id") or "").strip().lower()
+    raw_trace = payload.get("edit_trace")
+
+    row["log_row_id"] = ""
+    row["edit_trace_available"] = "no"
+    row["revision_count"] = ""
+    row["inserted_chars_est"] = ""
+    row["deleted_chars_est"] = ""
+    row["net_char_change"] = ""
+    row["manual_edit_chars_after_transcript_est"] = ""
+    row["voice_transcript_initial_chars"] = ""
+    row["edit_trace_path"] = ""
+
+    if input_method == "LLM":
+        row["log_row_id"] = (
+            lid_client.lower() if is_valid_log_row_uuid(lid_client) else str(uuid4())
+        )
+    elif medium == "Voice":
+        row["log_row_id"] = (
+            lid_client.lower() if is_valid_log_row_uuid(lid_client) else str(uuid4())
+        )
+    else:
+        wants_trace = isinstance(raw_trace, dict) and bool(raw_trace)
+        if wants_trace:
+            safe_trace, _san = sanitize_trace_for_storage(raw_trace)
+            lid = lid_client if is_valid_log_row_uuid(lid_client) else ""
+            if not lid:
+                cand = str(safe_trace.get("log_row_id") or "").strip().lower()
+                lid = cand if is_valid_log_row_uuid(cand) else str(uuid4())
+            lid = lid.lower()
+            safe_trace["log_row_id"] = lid
+            safe_trace.setdefault("participant_id", participant_id)
+            rel = write_edit_trace_sidecar(BASE_DIR, participant_id, lid, safe_trace)
+            summ = extract_summary_for_csv(safe_trace)
+            row["log_row_id"] = lid
+            row["edit_trace_available"] = "yes" if rel else "no"
+            row["edit_trace_path"] = rel or ""
+            row["revision_count"] = summ["revision_count"]
+            row["inserted_chars_est"] = summ["inserted_chars_est"]
+            row["deleted_chars_est"] = summ["deleted_chars_est"]
+            row["net_char_change"] = summ["net_char_change"]
+            row["manual_edit_chars_after_transcript_est"] = summ[
+                "manual_edit_chars_after_transcript_est"
+            ]
+            row["voice_transcript_initial_chars"] = summ["voice_transcript_initial_chars"]
+        else:
+            row["log_row_id"] = (
+                lid_client.lower() if is_valid_log_row_uuid(lid_client) else str(uuid4())
+            )
+
     log_trial_row(BASE_DIR, row)
 
     return jsonify({"ok": True, "analysis": analysis, "style_label": style_label})
@@ -797,7 +1031,7 @@ def api_log_reply() -> Response:
 
 @app.post("/api/analyze_formality")
 def api_analyze_formality() -> Response:
-    """Analyze multiple pieces of text for formality and BERT sentiment.
+    """Analyze multiple pieces of text for formality (reply register model).
 
     Expected JSON keys (all optional): `prompt_text`, `reply_text`, `llm_reply_text`, `final_text`.
     Returns individual analyses and simple formality-match flags.
@@ -988,7 +1222,7 @@ def api_log_run() -> Response:
     paste_used = bool(payload.get("paste_used") or False)
     correction_applied = bool(payload.get("correction_applied") or False)
 
-    # Analyze each text for formality / BERT.
+    # Analyze each text for formality (reply register model).
     try:
         prompt_analysis = analyze_full_text(prompt_text)
     except Exception:
@@ -1084,7 +1318,14 @@ def api_admin_post_session_plan() -> Response:
     tasks = payload.get("tasks") or []
     if not isinstance(tasks, list):
         return jsonify({"ok": False, "error": "tasks must be a JSON array."}), 400
-    plan = set_plan(BASE_DIR, pid, tasks)
+    raw_idx = payload.get("current_index")
+    cur_arg: Optional[int] = None
+    if raw_idx is not None and raw_idx != "":
+        try:
+            cur_arg = int(raw_idx)
+        except (TypeError, ValueError):
+            cur_arg = None
+    plan = set_plan(BASE_DIR, pid, tasks, current_index=cur_arg)
     return jsonify({"ok": True, "plan": plan})
 
 
@@ -1215,7 +1456,6 @@ def api_admin_summary() -> Response:
 
     medium_breakdown = dict(
         Counter((r.get("medium") or "—").strip() or "—" for r in rows))
-    bert_breakdown: Dict[str, int] = {}
 
     input_keys = ["Typing", "Swipe typing", "Voice-to-text"]
     rt_sum = {k: 0.0 for k in input_keys}
@@ -1246,7 +1486,6 @@ def api_admin_summary() -> Response:
             "participant_count": len(participant_stats),
             "participant_stats": participant_stats,
             "medium_breakdown": medium_breakdown,
-            "bert_breakdown": bert_breakdown,
             "avg_rt_by_input_method": avg_rt_by_input_method,
             "avg_rt_input_meta": avg_rt_input_meta,
         }
@@ -1311,6 +1550,7 @@ def _formality_label_display(raw: str) -> str:
 _STUDY_CSV_BASE_HEADERS = [
     "timestamp",
     "participant_id",
+    "log_row_id",
     "medium",
     "input_method",
     "prompt_text",
@@ -1326,6 +1566,13 @@ _STUDY_CSV_BASE_HEADERS = [
     "keystrokes_per_character",
     "backspaces_per_word",
     "edit_activity_compact",
+    "edit_trace_available",
+    "revision_count",
+    "inserted_chars_est",
+    "deleted_chars_est",
+    "net_char_change",
+    "manual_edit_chars_after_transcript_est",
+    "voice_transcript_initial_chars",
     "prompt_condition",
     "reply_register",
     "formality_confidence",
@@ -1333,9 +1580,6 @@ _STUDY_CSV_BASE_HEADERS = [
 
 _STUDY_CSV_ADVANCED_HEADERS = [
     "formality_model_label_raw",
-    "bert_label",
-    "bert_raw",
-    "bert_confidence",
     "transcript_source",
     "reply_analysis_basis",
     "llm_provider",
@@ -1354,6 +1598,7 @@ _STUDY_CSV_ADVANCED_HEADERS = [
     "transcript_status",
     "audio_filename",
     "correction_applied",
+    "edit_trace_path",
 ]
 
 
@@ -1374,6 +1619,7 @@ def _study_csv_row(
     out: Dict[str, str] = {
         "timestamp": (row.get("timestamp") or "").strip(),
         "participant_id": (row.get("participant_id") or "").strip(),
+        "log_row_id": (row.get("log_row_id") or "").strip(),
         "medium": (row.get("medium") or "").strip(),
         "input_method": (row.get("input_method") or "").strip(),
         "prompt_text": row.get("prompt_text") or "",
@@ -1389,6 +1635,15 @@ def _study_csv_row(
         "keystrokes_per_character": _fmt_num(row.get("keystrokes_per_character"), 4),
         "backspaces_per_word": _fmt_num(row.get("backspaces_per_word"), 4),
         "edit_activity_compact": (row.get("edit_activity_compact") or "").strip(),
+        "edit_trace_available": (row.get("edit_trace_available") or "").strip(),
+        "revision_count": (row.get("revision_count") or "").strip(),
+        "inserted_chars_est": (row.get("inserted_chars_est") or "").strip(),
+        "deleted_chars_est": (row.get("deleted_chars_est") or "").strip(),
+        "net_char_change": (row.get("net_char_change") or "").strip(),
+        "manual_edit_chars_after_transcript_est": (
+            row.get("manual_edit_chars_after_transcript_est") or ""
+        ).strip(),
+        "voice_transcript_initial_chars": (row.get("voice_transcript_initial_chars") or "").strip(),
         "prompt_condition": prompt_condition_readable(row.get("prompt_formality") or ""),
         "reply_register": _formality_label_display(raw_fl),
         "formality_confidence": _fmt_num(row.get("formality_confidence"), 3),
@@ -1458,7 +1713,7 @@ def api_download_csv() -> Response:
             * "study" — export-only: human rows, readable headers, friendly formality labels;
               LLM rows are never included. Use study_advanced for extra analysis columns.
         - include_generated — raw layout only: if "1" / true / yes, full on-disk rows.
-        - study_advanced — layout=study: append secondary columns (BERT, transcript_source, …).
+        - study_advanced — layout=study: append secondary columns (transcript_source, row metadata, …).
     """
     scope = request.args.get("scope", "all")
     participant_id = request.args.get("participant_id", "").strip()
@@ -1538,6 +1793,147 @@ def api_download_csv() -> Response:
     )
 
 
+@app.get("/api/download_edit_trace")
+def api_download_edit_trace() -> Response:
+    """
+    Download one bounded JSON edit-trace sidecar.
+
+    Query: participant_id=P001&log_row_id=<uuid>
+    Join to CSV rows using the log_row_id column and edit_trace_path when present.
+    """
+    participant_id = normalize_study_participant_id(
+        (request.args.get("participant_id") or "").strip()
+    )
+    log_row_id = (request.args.get("log_row_id") or "").strip().lower()
+    if not is_stable_study_participant_id(participant_id):
+        return jsonify(
+            {"ok": False, "error": "participant_id must be a stable study id like P005."}
+        ), 400
+    if not is_valid_log_row_uuid(log_row_id):
+        return jsonify({"ok": False, "error": "log_row_id must be a UUID."}), 400
+    data = load_edit_trace_json(BASE_DIR, participant_id, log_row_id)
+    if not data:
+        return jsonify({"ok": False, "error": "Edit trace not found."}), 404
+    raw = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+    fname = f"edit_trace_{participant_id}_{log_row_id}.json"
+    return send_file(
+        BytesIO(raw),
+        mimetype="application/json; charset=utf-8",
+        as_attachment=True,
+        download_name=fname,
+    )
+
+
+@app.post("/api/admin/edit_traces/browse")
+def api_admin_edit_traces_browse() -> Response:
+    """
+    Paginated rows from the global CSV with edit_trace_available=yes, plus optional
+    filters. Enrich current page with sidecar schema_version and layer counts.
+    """
+    try:
+        payload: Dict[str, Any] = request.get_json(force=True) or {}
+    except Exception:
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+
+    def _int(v: Any, default: int) -> int:
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return default
+
+    filters = {
+        "participant_id": str(payload.get("participant_id") or "").strip(),
+        "medium": str(payload.get("medium") or "").strip(),
+        "input_method": str(payload.get("input_method") or "").strip(),
+        "prompt_condition": str(payload.get("prompt_condition") or "").strip(),
+        "formality_label": str(payload.get("formality_label") or "").strip(),
+        "row_role": str(payload.get("row_role") or "").strip(),
+        "date_from": str(payload.get("date_from") or "").strip(),
+        "date_to": str(payload.get("date_to") or "").strip(),
+        "schema_version": str(payload.get("schema_version") or "").strip(),
+        "include_generated": bool(payload.get("include_generated")),
+    }
+    page = max(1, _int(payload.get("page"), 1))
+    page_size = max(1, min(80, _int(payload.get("page_size"), 25)))
+
+    if filters["participant_id"]:
+        filters["participant_id"] = normalize_study_participant_id(filters["participant_id"])
+
+    rows, total, warnings = browse_edit_traces(BASE_DIR, filters, page, page_size)
+    return jsonify(
+        {
+            "ok": True,
+            "rows": rows,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "warnings": warnings,
+        }
+    )
+
+
+@app.get("/api/admin/edit_trace_json")
+def api_admin_edit_trace_json() -> Response:
+    """Return one edit-trace sidecar as JSON (for admin explorer detail panel)."""
+    participant_id = normalize_study_participant_id(
+        (request.args.get("participant_id") or "").strip()
+    )
+    log_row_id = (request.args.get("log_row_id") or "").strip().lower()
+    if not is_stable_study_participant_id(participant_id):
+        return jsonify({"ok": False, "error": "participant_id must be a stable study id."}), 400
+    if not is_valid_log_row_uuid(log_row_id):
+        return jsonify({"ok": False, "error": "log_row_id must be a UUID."}), 400
+    data = load_edit_trace_json(BASE_DIR, participant_id, log_row_id)
+    if not data:
+        return jsonify({"ok": False, "error": "Edit trace not found."}), 404
+    return jsonify({"ok": True, "trace": data})
+
+
+@app.post("/api/admin/edit_traces/export_zip")
+def api_admin_edit_traces_export_zip() -> Response:
+    """ZIP bounded set of edit-trace JSON files matching the same filters as browse."""
+    try:
+        payload: Dict[str, Any] = request.get_json(force=True) or {}
+    except Exception:
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    filters = {
+        "participant_id": str(payload.get("participant_id") or "").strip(),
+        "medium": str(payload.get("medium") or "").strip(),
+        "input_method": str(payload.get("input_method") or "").strip(),
+        "prompt_condition": str(payload.get("prompt_condition") or "").strip(),
+        "formality_label": str(payload.get("formality_label") or "").strip(),
+        "row_role": str(payload.get("row_role") or "").strip(),
+        "date_from": str(payload.get("date_from") or "").strip(),
+        "date_to": str(payload.get("date_to") or "").strip(),
+        "schema_version": str(payload.get("schema_version") or "").strip(),
+        "include_generated": bool(payload.get("include_generated")),
+    }
+    if filters["participant_id"]:
+        filters["participant_id"] = normalize_study_participant_id(filters["participant_id"])
+    blob, fname, warnings = build_edit_traces_zip(BASE_DIR, filters)
+    if not blob:
+        return (
+            jsonify(
+                {
+                    "ok": False,
+                    "error": "No trace JSON files matched or exported.",
+                    "warnings": warnings,
+                }
+            ),
+            400,
+        )
+    return send_file(
+        BytesIO(blob),
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=fname or "edit_traces_export.zip",
+    )
+
+
 @app.post("/api/admin/delete_trial")
 def api_admin_delete_trial() -> Response:
     """Delete one matching trial row from global and participant CSV files."""
@@ -1613,6 +2009,17 @@ def api_admin_trial_detail() -> Response:
     row["formality_label_display"] = _formality_label_display(
         str(row.get("formality_label") or "")
     )
+
+    edit_trace_data = None
+    if str(row.get("edit_trace_available") or "").strip().lower() == "yes":
+        pid = str(row.get("participant_id") or "").strip()
+        lid = str(row.get("log_row_id") or "").strip().lower()
+        if pid and lid and is_valid_log_row_uuid(lid):
+            try:
+                edit_trace_data = load_edit_trace_json(BASE_DIR, pid, lid)
+            except Exception:
+                edit_trace_data = None
+    row["edit_trace_data"] = edit_trace_data
 
     # Render a small Jinja template fragment so HTML generation happens server-side.
     return render_template("trial_detail_snippet.html", row=row)

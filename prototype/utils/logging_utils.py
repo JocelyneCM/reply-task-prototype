@@ -112,6 +112,15 @@ def _csv_headers() -> List[str]:
         "bert_raw",
         "bert_confidence",
         "audio_filename",
+        "log_row_id",
+        "edit_trace_available",
+        "revision_count",
+        "inserted_chars_est",
+        "deleted_chars_est",
+        "net_char_change",
+        "manual_edit_chars_after_transcript_est",
+        "voice_transcript_initial_chars",
+        "edit_trace_path",
     ]
 
 

@@ -59,6 +59,10 @@
             <span class="pex-admin-nav-label">Log rows &amp; charts</span>
             <span class="pex-admin-nav-hint">Filter &amp; inspect</span>
           </button>
+          <button type="button" class="pex-admin-nav-item" data-admin-view="editTraces">
+            <span class="pex-admin-nav-label">Keystrokes / Edit Traces</span>
+            <span class="pex-admin-nav-hint">Trace JSON explorer</span>
+          </button>
           <button type="button" class="pex-admin-nav-item" data-admin-view="visualizations">
             <span class="pex-admin-nav-label">Visualizations</span>
             <span class="pex-admin-nav-hint">Build charts</span>
@@ -164,7 +168,7 @@
             <div class="pex-admin-card">
               <h2 class="pex-admin-card-title">Study session</h2>
               <p class="pex-admin-card-desc">
-                Build a link for the participant device. The participant page reads the query string once when it loads (medium, input method, participant ID). Prompt text still comes from the server pool unless you set a <strong>next prompt</strong> under <strong>Prompts</strong>.
+                Build a participant link (query string) and an ordered <strong>task plan</strong> per participant ID. The participant page reads the URL once on load (medium, input method, device, prompt condition). Prompt <em>text</em> still comes from the server pool unless you set a <strong>next prompt</strong> under <strong>Prompts</strong> (Phase 3 will add per-task library picks).
               </p>
               <div class="pex-admin-filters-grid" style="margin-top:12px;">
                 <div class="pex-admin-field">
@@ -201,6 +205,18 @@
                   </select>
                   <p class="small" style="margin-top:6px;color:var(--muted);">Shown as a label on the participant UI only (not logged as its own column).</p>
                 </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="sessionPromptCondition">Prompt condition (URL)</label>
+                  <select id="sessionPromptCondition">
+                    <option value="auto">auto</option>
+                    <option value="formal">formal</option>
+                    <option value="informal">informal</option>
+                  </select>
+                  <p class="small" style="margin-top:6px;color:var(--muted);">
+                    Sent as <code>prompt_condition</code> on the participant link; overrides bundle formality for this session load (logged as <code>prompt_formality</code>).
+                  </p>
+                </div>
+                <input type="hidden" id="sessionTextPromptId" value="" />
               </div>
               <div class="pex-admin-field" style="margin-top:16px;">
                 <label class="pex-admin-label">Participant link</label>
@@ -211,24 +227,71 @@
                 </div>
               </div>
               <div class="pex-admin-field" style="margin-top:16px;">
-                <label class="pex-admin-label" for="sessionPlanJson">Session plan (JSON)</label>
+                <label class="pex-admin-label">Task order (session plan)</label>
                 <p class="small" style="color:var(--muted);margin:6px 0 8px;line-height:1.5;">
-                  Lightweight ordered task list for the participant ID above. Each task is one <strong>task/run</strong> (full two-turn exercise). Fields used when you click <strong>Apply current task to link</strong>:
-                  <code>medium</code>, <code>input_method</code>, <code>device</code> (optional). Example: <code>[{"medium":"SMS","input_method":"Typing","device":"laptop"}]</code>
+                  Ordered list of <strong>tasks</strong> (one full two-turn exercise each). Use <strong>Apply current task to link</strong>, then <strong>Open participant UI</strong>. The participant page does not auto-advance; click <strong>Advance</strong> when they finish a task.
                 </p>
-                <textarea
-                  id="sessionPlanJson"
-                  rows="8"
-                  spellcheck="false"
-                  style="width:100%;max-width:640px;font-family:ui-monospace,monospace;font-size:12px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);"
-                  placeholder='{"tasks":[{"medium":"SMS","input_method":"Typing","device":"laptop"}],"current_index":0}'
-                ></textarea>
+                <div
+                  id="sessionPlanSummary"
+                  class="small"
+                  style="margin-bottom:10px;padding:10px 12px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);line-height:1.5;"
+                  aria-live="polite"
+                ></div>
+                <div class="pex-admin-table-scroll" style="max-width:960px;">
+                  <table class="pex-admin-table" id="sessionPlanTaskTable">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Medium</th>
+                        <th>Input method</th>
+                        <th>Device</th>
+                        <th>Prompt condition</th>
+                        <th>Prompt pick</th>
+                        <th>Library prompt</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="sessionPlanTableBody"></tbody>
+                  </table>
+                </div>
+                <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center;">
+                  <button type="button" class="pex-btn-ghost" id="sessionPlanAddTaskBtn">Add task</button>
+                  <label class="small" style="display:inline-flex;align-items:center;gap:6px;margin:0;">
+                    Current task #
+                    <input
+                      type="number"
+                      id="sessionPlanCurrentTaskNum"
+                      min="1"
+                      step="1"
+                      value="1"
+                      style="width:64px;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);"
+                    />
+                  </label>
+                </div>
                 <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center;">
                   <button type="button" class="pex-btn-ghost" id="sessionPlanReloadBtn">Reload plan</button>
                   <button type="button" class="pex-btn-primary" id="sessionPlanSaveBtn">Save plan</button>
                   <button type="button" class="pex-btn-primary" id="sessionPlanApplyBtn">Apply current task to link</button>
+                  <button type="button" class="pex-btn-ghost" id="sessionPlanRepeatBtn">Repeat task (re-apply link)</button>
                   <button type="button" class="pex-btn-ghost" id="sessionPlanAdvanceBtn">Advance one task</button>
+                  <button type="button" class="pex-btn-ghost" id="sessionPlanSkipBtn">Skip to next task</button>
                 </div>
+                <details class="small" style="margin-top:14px;color:var(--muted);">
+                  <summary style="cursor:pointer;color:var(--text);">Advanced: raw JSON</summary>
+                  <p style="margin:8px 0;line-height:1.5;">
+                    Same data as the table. Use <strong>Import JSON into table</strong> after editing, then <strong>Save plan</strong>.
+                  </p>
+                  <textarea
+                    id="sessionPlanJson"
+                    rows="8"
+                    spellcheck="false"
+                    style="width:100%;max-width:640px;font-family:ui-monospace,monospace;font-size:12px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);"
+                    placeholder='{"tasks":[{"medium":"SMS","input_method":"Typing","device":"laptop","prompt_condition":"auto","prompt_pick":"random","text_prompt_id":""}],"current_index":0}'
+                  ></textarea>
+                  <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px;">
+                    <button type="button" class="pex-btn-ghost" id="sessionPlanImportJsonBtn">Import JSON into table</button>
+                  </div>
+                </details>
                 <p class="small" id="sessionPlanStatus" style="margin-top:8px;color:var(--muted);" aria-live="polite"></p>
               </div>
             </div>
@@ -413,6 +476,145 @@
             </details>
           </section>
 
+          <!-- Keystrokes / Edit Traces explorer -->
+          <section
+            id="adminViewEditTraces"
+            class="pex-admin-view"
+            data-admin-view-panel="editTraces"
+            hidden
+          >
+            <div class="pex-admin-card pex-admin-filters">
+              <h2 class="pex-admin-card-title">Filters</h2>
+              <p class="pex-admin-card-desc">
+                Only rows with <code>edit_trace_available = yes</code> are listed. Layer counts come from each sidecar (v1 uses approximate legacy counts). Schema filter may scan many files — capped server-side.
+                <strong>JSON</strong> column: <em>ok</em> = sidecar readable; <em>missing</em> = CSV points to a file that is absent.
+                Sidecar <code>inserted_chars_est</code> / <code>deleted_chars_est</code> are <strong>cumulative edit-churn</strong> on the active compose field, not copy-typing error rates.
+              </p>
+              <div class="pex-admin-filters-grid">
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="etParticipantFilter">Participant</label>
+                  <select id="etParticipantFilter">
+                    <option value="">All participants</option>
+                  </select>
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="etMediumFilter">Medium</label>
+                  <select id="etMediumFilter">
+                    <option value="">All</option>
+                    <option>SMS</option>
+                    <option>Messenger</option>
+                    <option>Email</option>
+                  </select>
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="etInputMethodFilter">Input method</label>
+                  <select id="etInputMethodFilter">
+                    <option value="">All</option>
+                    <option>Typing</option>
+                    <option>Swipe typing</option>
+                    <option>Voice-to-text</option>
+                  </select>
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="etPromptConditionFilter">Prompt condition (bucket)</label>
+                  <select id="etPromptConditionFilter">
+                    <option value="">All</option>
+                    <option value="formal">Formal (incl. auto formal)</option>
+                    <option value="informal">Informal (incl. auto informal)</option>
+                  </select>
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="etFormalityLabelFilter">Reply register (raw)</label>
+                  <select id="etFormalityLabelFilter">
+                    <option value="">All</option>
+                    <option>LABEL_0</option>
+                    <option>LABEL_1</option>
+                  </select>
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="etRowRoleFilter">Row role</label>
+                  <input id="etRowRoleFilter" type="text" placeholder="e.g. participant_reply" autocomplete="off" />
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="etDateFromFilter">Date from</label>
+                  <input id="etDateFromFilter" type="date" />
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="etDateToFilter">Date to</label>
+                  <input id="etDateToFilter" type="date" />
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="etSchemaVersionFilter">Schema version</label>
+                  <select id="etSchemaVersionFilter">
+                    <option value="">All</option>
+                    <option value="1">1 (legacy events)</option>
+                    <option value="2">2 (key / mutation layers)</option>
+                  </select>
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="etIncludeGeneratedFilter">Include LLM rows</label>
+                  <label class="small" style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <input id="etIncludeGeneratedFilter" type="checkbox" />
+                    Include generated (LLM) rows
+                  </label>
+                </div>
+                <div class="pex-admin-field" style="align-self:end;">
+                  <button type="button" class="pex-btn-primary" id="etApplyFiltersBtn">Apply filters</button>
+                </div>
+              </div>
+              <p class="small" id="etBrowseWarnings" style="margin-top:10px;color:var(--muted);min-height:1.2em;"></p>
+            </div>
+
+            <div class="pex-admin-trials-split" style="margin-top:16px;">
+              <div class="pex-admin-trials-left">
+                <div class="pex-admin-card pex-admin-card--flush">
+                  <div class="pex-admin-card-header" style="flex-wrap:wrap;gap:10px;">
+                    <h2 class="pex-admin-card-title" style="margin:0;">Matching rows</h2>
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                      <span class="small" id="etPageInfo" style="color:var(--muted);">—</span>
+                      <button type="button" class="pex-btn-ghost" id="etPagePrevBtn" disabled>Previous</button>
+                      <button type="button" class="pex-btn-ghost" id="etPageNextBtn" disabled>Next</button>
+                    </div>
+                  </div>
+                  <div class="pex-admin-table-scroll">
+                    <table class="pex-admin-table pex-admin-table--dense" style="font-size:0.78rem;">
+                      <thead>
+                        <tr>
+                          <th>Time</th>
+                          <th>Participant</th>
+                          <th>Medium</th>
+                          <th>Input</th>
+                          <th>Prompt</th>
+                          <th>Preview</th>
+                          <th>RT (s)</th>
+                          <th>Rev</th>
+                          <th>Keys</th>
+                          <th>Mut</th>
+                          <th>Snap</th>
+                          <th>Sch</th>
+                          <th>JSON</th>
+                          <th>log_row_id</th>
+                        </tr>
+                      </thead>
+                      <tbody id="etTableBody"></tbody>
+                    </table>
+                  </div>
+                  <div class="pex-admin-card-header" style="padding-top:12px;gap:10px;flex-wrap:wrap;">
+                    <button type="button" class="pex-btn-ghost" id="etDownloadSelectedBtn" disabled>
+                      Download selected JSON
+                    </button>
+                    <button type="button" class="pex-btn-primary" id="etDownloadZipBtn">Download filtered traces (ZIP)</button>
+                  </div>
+                </div>
+              </div>
+              <aside class="pex-admin-detail-panel" id="etDetailPanel" aria-live="polite">
+                <div class="pex-admin-detail-inner" id="etDetailInner">
+                  <p class="pex-admin-detail-placeholder">Select a row to load key / mutation layers.</p>
+                </div>
+              </aside>
+            </div>
+          </section>
+
           <!-- Visualizations -->
           <section
             id="adminViewVisualizations"
@@ -542,12 +744,25 @@
               </p>
               <label class="pex-admin-checkbox-label" style="margin:12px 0;">
                 <input id="studyExportAdvancedCols" type="checkbox" />
-                Include advanced fields (BERT, raw model codes, transcript source, …)
+                Include advanced fields (raw register codes, transcript source, row metadata, …)
               </label>
               <div class="pex-admin-export-actions" style="display:flex;flex-wrap:wrap;gap:10px;">
                 <button type="button" class="pex-btn-ghost" id="downloadStudyAllBtn">Download simplified — all participants</button>
                 <button type="button" class="pex-btn-ghost" id="downloadStudyParticipantBtn">Download simplified — selected participant</button>
               </div>
+            </article>
+            <article class="pex-admin-card" style="max-width:720px;margin-top:16px;">
+              <h2 class="pex-admin-card-title">Edit traces (JSON sidecars)</h2>
+              <p class="pex-admin-card-desc">
+                Text compose replies may store a bounded JSON trace under
+                <code>prototype/data/edit_traces/&lt;participant_id&gt;/&lt;log_row_id&gt;.json</code>.
+                Join to CSV rows using the <code>log_row_id</code> column (and <code>edit_trace_path</code> when present).
+                <strong>schema_version 2</strong> files separate <code>key_events</code>, <code>text_mutations</code>, and
+                <code>snapshots</code> (fingerprints); older traces use one <code>events</code> array.
+                Inspect layers from a log row: open <strong>Advanced</strong> in the trial detail panel, then the collapsible “Keystrokes / edit trace” section.
+                Single-file download (authenticated same-origin as this admin page):
+                <code>/api/download_edit_trace?participant_id=P001&amp;log_row_id=&lt;uuid from CSV&gt;</code>
+              </p>
             </article>
           </section>
 
@@ -559,9 +774,114 @@
             hidden
           >
             <div class="pex-admin-card">
+              <h2 class="pex-admin-card-title">Prompt library</h2>
+              <p class="pex-admin-card-desc">
+                Persistent prompts live in <code>prototype/data/prompt_library.json</code> (created on first use from built-in defaults). Built-ins in code remain a fallback if the file is missing. Inactive prompts are excluded from random selection and from the “next preset” list.
+              </p>
+              <div class="pex-admin-filters-grid" style="margin-top:12px;align-items:end;">
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" for="plSearchInput">Search</label>
+                  <input id="plSearchInput" type="search" placeholder="id, text, notes…" autocomplete="off" style="width:100%;max-width:280px;" />
+                </div>
+                <div class="pex-admin-field">
+                  <label class="pex-admin-label" style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" id="plIncludeInactive" checked />
+                    Include inactive
+                  </label>
+                </div>
+                <div class="row" style="flex-wrap:wrap;gap:8px;">
+                  <button type="button" class="pex-btn-ghost" id="plReloadBtn">Reload table</button>
+                  <button type="button" class="pex-btn-ghost" id="plExportBtn">Download JSON</button>
+                </div>
+              </div>
+              <div class="pex-admin-table-scroll" style="margin-top:12px;">
+                <table class="pex-admin-table">
+                  <thead>
+                    <tr>
+                      <th>Active</th>
+                      <th>ID</th>
+                      <th>Condition</th>
+                      <th>Kind</th>
+                      <th>SMS preview</th>
+                      <th>Notes</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="plLibraryTableBody"></tbody>
+                </table>
+              </div>
+              <div class="pex-admin-card" style="margin-top:16px;background:var(--surface-2);">
+                <h3 class="pex-admin-card-title" style="font-size:1rem;">Create / edit prompt</h3>
+                <p class="small" id="plFormStatus" style="color:var(--muted);margin-bottom:10px;"></p>
+                <div class="pex-admin-filters-grid">
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="plFieldId">Prompt id</label>
+                    <input id="plFieldId" type="text" placeholder="e.g. prompt_004" autocomplete="off" style="max-width:220px;" />
+                  </div>
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="plPromptKind">Medium / kind</label>
+                    <select id="plPromptKind">
+                      <option value="all">SMS + Messenger + Email bundle</option>
+                      <option value="sms_messenger">SMS / Messenger (metadata)</option>
+                      <option value="email">Email (metadata)</option>
+                    </select>
+                  </div>
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="plPromptCondition">Prompt condition</label>
+                    <select id="plPromptCondition">
+                      <option value="auto">auto (model at log time)</option>
+                      <option value="formal">formal</option>
+                      <option value="informal">informal</option>
+                    </select>
+                  </div>
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" style="display:flex;align-items:center;gap:8px;">
+                      <input type="checkbox" id="plActive" checked />
+                      Active
+                    </label>
+                  </div>
+                </div>
+                <div class="pex-admin-field" style="margin-top:10px;">
+                  <label class="pex-admin-label" for="plSms">SMS text</label>
+                  <textarea id="plSms" rows="2" style="width:100%;max-width:640px;"></textarea>
+                </div>
+                <div class="pex-admin-field" style="margin-top:10px;">
+                  <label class="pex-admin-label" for="plMessenger">Messenger text</label>
+                  <textarea id="plMessenger" rows="2" style="width:100%;max-width:640px;"></textarea>
+                </div>
+                <div class="pex-admin-field" style="margin-top:10px;">
+                  <label class="pex-admin-label" for="plEmailFrom">Email from</label>
+                  <input id="plEmailFrom" type="text" style="width:100%;max-width:400px;" />
+                </div>
+                <div class="pex-admin-field" style="margin-top:10px;">
+                  <label class="pex-admin-label" for="plEmailSubject">Email subject</label>
+                  <input id="plEmailSubject" type="text" style="width:100%;max-width:400px;" />
+                </div>
+                <div class="pex-admin-field" style="margin-top:10px;">
+                  <label class="pex-admin-label" for="plEmailBody">Email body</label>
+                  <textarea id="plEmailBody" rows="4" style="width:100%;max-width:640px;"></textarea>
+                </div>
+                <div class="pex-admin-filters-grid" style="margin-top:10px;">
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="plCategory">Category</label>
+                    <input id="plCategory" type="text" style="width:100%;max-width:280px;" />
+                  </div>
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="plNotes">Notes</label>
+                    <input id="plNotes" type="text" style="width:100%;max-width:400px;" />
+                  </div>
+                </div>
+                <div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px;">
+                  <button type="button" class="pex-btn-primary" id="plSaveBtn">Save prompt</button>
+                  <button type="button" class="pex-btn-ghost" id="plNewBtn">New prompt</button>
+                  <button type="button" class="pex-btn-ghost" id="plClearFormBtn">Clear form</button>
+                </div>
+              </div>
+            </div>
+            <div class="pex-admin-card">
               <h2 class="pex-admin-card-title">Prompt manager</h2>
               <p class="pex-admin-card-desc">
-                Control the <strong>next</strong> text prompt participants receive (SMS, Messenger, and Email stay aligned). Presets come from the built-in pool; custom text is one-shot until used or cleared.
+                Control the <strong>next</strong> text prompt participants receive (global one-shot until used or cleared). Presets come from the <strong>active</strong> prompt library; custom text is one-shot until used or cleared.
               </p>
               <div class="pex-admin-field" style="margin-top:12px">
                 <label class="pex-admin-label" for="adminNextPromptSelect">Next prompt — preset from pool</label>
@@ -643,7 +963,27 @@
               <p>Relay records short reply tasks in SMS, Messenger, Email, or Voice-style UIs. Each <strong>log row</strong> is one saved CSV event (e.g. participant first reply, AI reply, participant final reply). A full two-turn interaction is one <strong>task / trial / exercise run</strong> and produces several log rows plus an optional per-run export under <code>prototype/data/runs/</code>.</p>
               <p>Rows include timing, input method, writing-behaviour counters, optional transcription, and a <strong>reply register</strong> classifier on participant text (<code>formality_label</code> → shown as Formal/Informal in the console). Study <strong>prompt condition</strong> is chosen by the researcher (<code>prompt_formality</code>: formal, informal, or auto:…).</p>
               <p>Data is written under <code>prototype/data/logs/</code> and per-participant folders. Use <strong>Exports</strong> for CSV downloads (full raw file first; simplified “study” layout is optional).</p>
-              <p class="small" style="color:var(--muted);">BERT sentiment in logs is exploratory only — not the primary register measure. Prefer the study export without advanced columns for clean analysis.</p>
+              <p class="small" style="color:var(--muted);">The primary automated outcome for register is the <strong>formality / reply register model</strong> (<code>formality_label</code>, <code>formality_confidence</code>). Legacy CSV columns <code>bert_label</code> / <code>bert_raw</code> / <code>bert_confidence</code> remain for file compatibility but are <strong>not populated</strong> on new rows (they previously held an unrelated HuggingFace star-rating sentiment demo, not Jakob’s classifier).</p>
+              <p class="small" style="margin-top:10px;color:var(--muted);">Use the <strong>Field dictionary</strong> below for searchable definitions of CSV columns, study export names, admin labels, and sidecar keys.</p>
+            </div>
+            <div class="pex-admin-card pex-fielddict-card" id="fieldDictionaryMount" style="margin-top:16px">
+              <h2 class="pex-admin-card-title">Field dictionary</h2>
+              <p class="small pex-fielddict-legend" style="color:var(--muted);margin-bottom:10px;">
+                <span class="pex-fielddict-badge pex-fielddict-badge--exact">exact</span> logged as recorded
+                <span class="pex-fielddict-badge pex-fielddict-badge--heuristic" style="margin-left:10px;">heuristic</span> derived / estimated
+                <span class="pex-fielddict-badge pex-fielddict-badge--legacy" style="margin-left:10px;">legacy</span> deprecated or blank on new rows
+              </p>
+                <input
+                  type="search"
+                  id="fieldDictionarySearch"
+                  class="pex-fielddict-search"
+                  placeholder="Filter by field name, label, or text…"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-label="Filter field dictionary"
+                />
+              <p id="fieldDictionaryStatus" class="small pex-fielddict-status" style="color:var(--muted);margin:6px 0 10px;"></p>
+              <div id="fieldDictionaryBody" class="pex-fielddict-body"></div>
             </div>
             <details class="pex-admin-card" style="margin-top:16px">
               <summary class="pex-admin-card-title" style="cursor:pointer;">Raw CSV — text columns</summary>
@@ -653,6 +993,7 @@
                 <li><code>llm_reply_text</code> — same text on LLM rows; empty on participant rows.</li>
                 <li><code>final_reply_text</code> — participant&apos;s <strong>second</strong> reply in a two-turn task/run only (empty on first participant row and on LLM rows).</li>
                 <li><code>prompt_tone</code> / <code>prompt_seriousness</code> — optional; no longer back-filled from heuristics. Prefer <code>prompt_formality</code> (formal / informal / auto:…).</li>
+                <li><code>bert_label</code> / <code>bert_raw</code> / <code>bert_confidence</code> — legacy columns; new rows leave them blank (older rows may still show an old HuggingFace star-sentiment demo).</li>
               </ul>
             </details>
             <div class="pex-admin-card" style="margin-top:16px">
@@ -663,9 +1004,9 @@
               <summary class="pex-admin-card-title" style="cursor:pointer;">Metrics &amp; interpretation</summary>
               <ul class="pex-admin-about-list" style="margin-top:12px;">
                 <li><strong>response_time_seconds</strong> — wall time from the relevant prompt being shown until the participant presses Send. For the <strong>first</strong> participant reply this anchors on the initial study prompt; for the <strong>final</strong> reply (SMS/Messenger) it re-anchors when Alex&apos;s follow-up appears, so reading/thinking after Alex is included. <strong>LLM generation time is not added</strong> to the participant&apos;s seconds (assistant rows use response_time_seconds for model latency only).</li>
-                <li><strong>Typing</strong> — keystrokes/backspaces = literal <code>keydown</code> events.</li>
+                <li><strong>Typing</strong> — keystrokes/backspaces = literal <code>keydown</code> events (including Enter if it fires on the compose field, Shift, punctuation, etc.).</li>
                 <li><strong>Swipe typing</strong> — counts are approximate OS/keyboard interaction events, not physical keys; do not compare KSPC to laptop typing.</li>
-                <li><strong>Voice-to-text</strong> — keystrokes reflect manual edits after dictation, not full production effort.</li>
+                <li><strong>Voice-to-text</strong> — keystrokes reflect manual edits after dictation, not full production effort; every qualifying <code>keydown</code> in the compose box is counted the same way as typing (so e.g. Shift + “1” for “!” yields multiple key events plus backspace for a deleted character).</li>
                 <li><strong>WPM</strong> — <code>(word_count / response_time_seconds) × 60</code> on that row, using the same response window as above (prompt shown → Send), not first-keypress → Send.</li>
                 <li><strong>keystrokes_per_character (KSPC)</strong> — <code>keypress_count / len(reply_text)</code> for non-LLM rows. Interpretation is <strong>input-method-specific</strong>; do not treat KSPC as comparable across typing vs swipe vs voice.</li>
                 <li><strong>manual_edit_count</strong> — heuristic: <code>backspace_count + (1 if paste) + (1 if browser autocomplete)</code>. The CSV column <code>correction_applied</code> is only browser autocomplete / IME correction, not “the participant rewrote their message.”</li>
@@ -700,5 +1041,6 @@
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/admin_ui.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/field_dictionary.js') }}"></script>
   </body>
 </html>
