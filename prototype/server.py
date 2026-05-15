@@ -923,6 +923,8 @@ def api_log_reply() -> Response:
         "prompt_tone": (payload.get("prompt_tone") or "").strip(),
         "prompt_seriousness": (payload.get("prompt_seriousness") or "").strip(),
         "prompt_formality": resolved_prompt_formality,
+        "prompt_id": (payload.get("prompt_id") or "").strip(),
+        "prompt_source": (payload.get("prompt_source") or "").strip(),
         "reply_style": style_label,
         "reply_analysis_status": "ok",
         "reply_analysis_basis": (
@@ -1428,6 +1430,11 @@ def api_admin_summary() -> Response:
         inputs_set: set[str] = set()
         formal_rows = 0
         informal_rows = 0
+        prompt_ids_seen: set[str] = set()
+        last_prompt_id = ""
+        last_prompt_source = ""
+        last_prompt_text = ""
+        last_prompt_preview = ""
         for r in pr:
             m = (r.get("medium") or "").strip()
             if m:
@@ -1440,6 +1447,20 @@ def api_admin_summary() -> Response:
                 formal_rows += 1
             elif pf_bucket == "informal":
                 informal_rows += 1
+            pid_val = (r.get("prompt_id") or "").strip()
+            if pid_val:
+                prompt_ids_seen.add(pid_val)
+        sorted_pr = sorted(pr, key=lambda x: (x.get("timestamp") or ""))
+        if sorted_pr:
+            last_row = sorted_pr[-1]
+            last_prompt_id = (last_row.get("prompt_id") or "").strip()
+            last_prompt_source = (last_row.get("prompt_source") or "").strip()
+            pt = (last_row.get("prompt_text") or "").strip()
+            last_prompt_preview = pt[:80] + ("…" if len(pt) > 80 else "")
+        ids_sorted = sorted(prompt_ids_seen)
+        prompt_ids_summary = ", ".join(ids_sorted[:6])
+        if len(ids_sorted) > 6:
+            prompt_ids_summary += f" (+{len(ids_sorted) - 6} more)"
         participant_stats.append(
             {
                 "participant_id": pid,
@@ -1451,6 +1472,12 @@ def api_admin_summary() -> Response:
                 "input_methods": ", ".join(sorted(inputs_set)),
                 "formal_prompt_rows": formal_rows,
                 "informal_prompt_rows": informal_rows,
+                "last_prompt_id": last_prompt_id,
+                "last_prompt_source": last_prompt_source,
+                "last_prompt_source_label": prompt_source_readable(last_prompt_source),
+                "last_prompt_preview": last_prompt_preview,
+                "last_prompt_text": last_prompt_text,
+                "prompt_ids_seen": prompt_ids_summary,
             }
         )
 
@@ -1517,6 +1544,20 @@ def classify_prompt_condition_bucket(pf: str) -> str:
     return "other"
 
 
+def prompt_source_readable(source: str) -> str:
+    """Human-readable label for how the prompt bundle was chosen (debugging)."""
+    key = (source or "").strip().lower()
+    labels = {
+        "url_param": "Library (URL text_prompt_id)",
+        "random": "Library (random draw)",
+        "library_id": "Library (next preset)",
+        "admin_selected_next": "Next preset (library id)",
+        "admin_custom_next": "Next custom (one-shot)",
+        "local": "Built-in fallback",
+    }
+    return labels.get(key, (source or "").strip() or "—")
+
+
 def prompt_condition_readable(pf: str) -> str:
     """Short human-readable prompt condition for study exports."""
     x = (pf or "").strip().lower()
@@ -1574,6 +1615,8 @@ _STUDY_CSV_BASE_HEADERS = [
     "manual_edit_chars_after_transcript_est",
     "voice_transcript_initial_chars",
     "prompt_condition",
+    "prompt_id",
+    "prompt_source",
     "reply_register",
     "formality_confidence",
 ]
@@ -1645,6 +1688,8 @@ def _study_csv_row(
         ).strip(),
         "voice_transcript_initial_chars": (row.get("voice_transcript_initial_chars") or "").strip(),
         "prompt_condition": prompt_condition_readable(row.get("prompt_formality") or ""),
+        "prompt_id": (row.get("prompt_id") or "").strip(),
+        "prompt_source": prompt_source_readable(row.get("prompt_source") or ""),
         "reply_register": _formality_label_display(raw_fl),
         "formality_confidence": _fmt_num(row.get("formality_confidence"), 3),
     }
@@ -2009,6 +2054,7 @@ def api_admin_trial_detail() -> Response:
     row["formality_label_display"] = _formality_label_display(
         str(row.get("formality_label") or "")
     )
+    row["prompt_source_label"] = prompt_source_readable(str(row.get("prompt_source") or ""))
 
     edit_trace_data = None
     if str(row.get("edit_trace_available") or "").strip().lower() == "yes":

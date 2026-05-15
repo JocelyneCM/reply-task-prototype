@@ -308,8 +308,9 @@
               <div class="pex-admin-card-header">
                 <h2 class="pex-admin-card-title">Participant directory</h2>
                 <p class="pex-admin-card-desc">
-                  Log row counts from the global CSV. Open <strong>Log rows &amp; charts</strong> to filter by
-                  person.
+                  Summary is built from <strong>logged CSV rows</strong> (<code>prompt_formality</code>,
+                  <code>prompt_id</code>), not live Prompt Library or Study session settings. Open
+                  <strong>Log rows &amp; charts</strong> to inspect each message.
                 </p>
               </div>
               <div class="pex-admin-table-scroll">
@@ -323,6 +324,7 @@
                       <th>Last activity</th>
                       <th>Mediums</th>
                       <th>Input methods</th>
+                      <th>Last prompt (logged)</th>
                       <th>Prompt condition (rows)</th>
                       <th></th>
                     </tr>
@@ -411,7 +413,8 @@
                   <div class="pex-admin-card-header">
                     <h2 class="pex-admin-card-title">Log rows</h2>
                     <p class="pex-admin-card-desc">
-                      One row per logged event. Combined exercise bundles are written under <code>prototype/data/runs/</code>.
+                      One row per logged event. Each row stores <code>prompt_id</code>, <code>prompt_source</code>,
+                      <code>prompt_text</code>, and <code>prompt_formality</code> (condition at send time).
                     </p>
                   </div>
                   <div class="pex-admin-table-scroll">
@@ -422,6 +425,8 @@
                           <th>Participant</th>
                           <th>Medium</th>
                           <th>Input</th>
+                          <th>Prompt ID</th>
+                          <th>Condition</th>
                           <th>Preview</th>
                           <th>Response (s)</th>
                           <th>Reply register</th>
@@ -455,7 +460,7 @@
                   <div class="pex-admin-table-scroll">
                     <table class="pex-admin-table pex-admin-table--dense" style="font-size:.82rem;">
                       <thead><tr>
-                        <th>Medium</th><th>Input</th><th>Prompt condition</th><th>Prompt</th><th>Reply</th><th>Response time (s)</th><th>Reply register</th><th>Confidence</th><th>Keystrokes</th><th>Backspaces</th>
+                        <th>Medium</th><th>Input</th><th>Prompt ID</th><th>Condition</th><th>Prompt text</th><th>Reply</th><th>Response time (s)</th><th>Reply register</th><th>Confidence</th><th>Keystrokes</th><th>Backspaces</th>
                       </tr></thead>
                       <tbody id="formalTasksBody"></tbody>
                     </table>
@@ -466,7 +471,7 @@
                   <div class="pex-admin-table-scroll">
                     <table class="pex-admin-table pex-admin-table--dense" style="font-size:.82rem;">
                       <thead><tr>
-                        <th>Medium</th><th>Input</th><th>Prompt condition</th><th>Prompt</th><th>Reply</th><th>Response time (s)</th><th>Reply register</th><th>Confidence</th><th>Keystrokes</th><th>Backspaces</th>
+                        <th>Medium</th><th>Input</th><th>Prompt ID</th><th>Condition</th><th>Prompt text</th><th>Reply</th><th>Response time (s)</th><th>Reply register</th><th>Confidence</th><th>Keystrokes</th><th>Backspaces</th>
                       </tr></thead>
                       <tbody id="informalTasksBody"></tbody>
                     </table>
@@ -777,6 +782,7 @@
               <h2 class="pex-admin-card-title">Prompt library</h2>
               <p class="pex-admin-card-desc">
                 Persistent prompts live in <code>prototype/data/prompt_library.json</code> (created on first use from built-in defaults). Built-ins in code remain a fallback if the file is missing. Inactive prompts are excluded from random selection and from the “next preset” list.
+                <strong>Prompt condition</strong> here is saved on the library row and copied into CSV as <code>prompt_formality</code> when a participant sends (unless the Study session URL overrides it). The Participants table only updates after those log rows exist.
               </p>
               <div class="pex-admin-filters-grid" style="margin-top:12px;align-items:end;">
                 <div class="pex-admin-field">
@@ -896,7 +902,7 @@
                   <option value="formal">Formal</option>
                   <option value="informal">Informal</option>
                 </select>
-                <p class="small" style="margin-top:4px;color:var(--muted);">Not shown to participants.</p>
+                <p class="small" style="margin-top:4px;color:var(--muted);">Applies to the <strong>next custom</strong> one-shot prompt only (not the library form above). Saving a library prompt does not change this control.</p>
               </div>
               <fieldset class="pex-admin-field" style="border:none;margin:0;padding:0;margin-top:12px;">
                 <legend class="pex-admin-label">Or write a custom next prompt</legend>

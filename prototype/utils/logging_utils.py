@@ -100,6 +100,8 @@ def _csv_headers() -> List[str]:
         "prompt_tone",
         "prompt_seriousness",
         "prompt_formality",
+        "prompt_id",
+        "prompt_source",
         "reply_style",
         "reply_analysis_status",
         "reply_analysis_basis",

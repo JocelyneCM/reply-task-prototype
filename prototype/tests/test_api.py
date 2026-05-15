@@ -122,6 +122,8 @@ def test_log_reply_final_reply_and_metrics(monkeypatch, client):
             "correction_applied": True,
             "participant_turn": "final",
             "prompt_formality": "formal",
+            "prompt_id": "prompt_002",
+            "prompt_source": "url_param",
         },
     )
     assert r.status_code == 200
@@ -130,6 +132,8 @@ def test_log_reply_final_reply_and_metrics(monkeypatch, client):
     assert row["participant_id"] == "P007"
     assert row["final_reply_text"] == "Sounds good."
     assert row["prompt_formality"] == "formal"
+    assert row["prompt_id"] == "prompt_002"
+    assert row["prompt_source"] == "url_param"
     assert row["prompt_tone"] == ""
     assert int(row["manual_edit_count"]) >= 3
     assert row["keystrokes_per_character"] != ""
@@ -250,6 +254,10 @@ def test_admin_prompt_library_crud(client, tmp_path, monkeypatch):
         },
     )
     assert r3.status_code == 200
+    lib_path = tmp_path / "data" / "prompt_library.json"
+    saved = json.loads(lib_path.read_text(encoding="utf-8"))
+    zeta = next(p for p in saved["prompts"] if p["id"] == "prompt_zeta")
+    assert zeta["prompt_condition"] == "informal"
     r4 = client.delete("/api/admin/prompt_library/prompt_zeta")
     assert r4.status_code == 200
 

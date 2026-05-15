@@ -9,7 +9,9 @@
     <dd{% if row.participant_id %} title="{{ row.participant_id }}"{% endif %}>{{ row.participant_display or row.participant_id or "" }}</dd>
     <dt>Medium</dt><dd>{{ row.medium or "" }}</dd>
     <dt>Input method</dt><dd>{{ imethod }}</dd>
-    {% if row.prompt_formality %}<dt>Prompt condition</dt><dd>{{ row.prompt_formality }}</dd>{% endif %}
+    {% if row.prompt_id %}<dt>Prompt ID</dt><dd><code>{{ row.prompt_id }}</code></dd>{% endif %}
+    {% if row.prompt_source %}<dt>Prompt source</dt><dd>{{ row.prompt_source_label or row.prompt_source }}</dd>{% endif %}
+    {% if row.prompt_formality %}<dt>Prompt condition (logged)</dt><dd>{{ row.prompt_formality }}</dd>{% endif %}
     <dt>Row type</dt>
     <dd>
       {% if imethod == "LLM" or ((row.row_role or "") | lower | replace("-", "_")) == "system_generated" %}

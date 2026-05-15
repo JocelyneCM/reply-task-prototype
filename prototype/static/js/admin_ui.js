@@ -61,7 +61,9 @@ function buildTrialDetailHtml(row) {
         <dt>Participant</dt><dd title="${pidRaw ? `Logged ID: ${pidRaw}` : ""}">${pidDisp}</dd>
         <dt>Medium</dt><dd>${escapeHtml(row.medium || "")}</dd>
         <dt>Input method</dt><dd>${escapeHtml(imethod)}</dd>
-        ${row.prompt_formality ? `<dt>Prompt condition</dt><dd>${escapeHtml(row.prompt_formality)}</dd>` : ""}
+        ${row.prompt_id ? `<dt>Prompt ID</dt><dd><code>${escapeHtml(row.prompt_id)}</code></dd>` : ""}
+        ${row.prompt_source ? `<dt>Prompt source</dt><dd>${escapeHtml(row.prompt_source_label || formatPromptSourceLabel(row.prompt_source))}</dd>` : ""}
+        ${row.prompt_formality ? `<dt>Prompt condition (logged)</dt><dd>${escapeHtml(row.prompt_formality)}</dd>` : ""}
         <dt>Row type</dt><dd>${escapeHtml(String(rowType))}</dd>
         ${llmDd}
       </dl>

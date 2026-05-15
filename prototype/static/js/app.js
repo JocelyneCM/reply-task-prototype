@@ -49,6 +49,30 @@ function promptConditionBucket(pf) {
   return "other";
 }
 
+/** Participants table: last prompt id, or short text preview when id missing on older rows. */
+function formatLastPromptLoggedCell(stats) {
+  const id = String(stats?.last_prompt_id || "").trim();
+  if (id) return id;
+  const text = String(stats?.last_prompt_text || stats?.last_prompt_preview || "").trim();
+  if (!text) return "—";
+  const max = 36;
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+/** How the prompt bundle was chosen (matches server prompt_source_readable). */
+function formatPromptSourceLabel(source) {
+  const key = String(source || "").trim().toLowerCase();
+  const labels = {
+    url_param: "Library (URL id)",
+    random: "Library (random)",
+    library_id: "Library (next preset)",
+    admin_selected_next: "Next preset",
+    admin_custom_next: "Next custom",
+    local: "Built-in fallback",
+  };
+  return labels[key] || (String(source || "").trim() || "—");
+}
+
 /** Map formality model class labels to short study-facing text (raw codes stay in CSV / advanced). */
 function displayFormalityRegisterLabel(raw) {
   const s = String(raw || "").trim();
@@ -1228,6 +1252,8 @@ function initParticipantUI() {
       prompt_tone: promptMetaForPayload.prompt_tone || "",
       prompt_seriousness: promptMetaForPayload.prompt_seriousness || "",
       prompt_formality: promptMetaForPayload.prompt_formality || "",
+      prompt_id: promptMetaForPayload.prompt_id || "",
+      prompt_source: promptMetaForPayload.prompt_source || "",
       transcript_status: lastTranscriptStatus || "",
       transcript_source: lastTranscriptSource || "",
       ui_style_label: "",
@@ -2635,6 +2661,20 @@ function initAdminUI() {
       const tdIm = document.createElement("td");
       tdIm.textContent = (s.input_methods || "").trim() || "—";
       tdIm.className = "small";
+      const tdPrompt = document.createElement("td");
+      const lastPid = (s.last_prompt_id || "").trim();
+      const lastText = (s.last_prompt_text || s.last_prompt_preview || "").trim();
+      const srcLbl = (s.last_prompt_source_label || formatPromptSourceLabel(s.last_prompt_source)).trim();
+      tdPrompt.className = "small";
+      tdPrompt.textContent = formatLastPromptLoggedCell(s);
+      const tipParts = [];
+      if (lastPid) tipParts.push(`Last prompt id: ${lastPid}`);
+      else if (lastText) tipParts.push("No prompt_id on log row (older data); showing last prompt text.");
+      if (srcLbl && srcLbl !== "—") tipParts.push(`Bundle source: ${srcLbl}`);
+      if (s.prompt_ids_seen) tipParts.push(`Prompt ids in logs: ${s.prompt_ids_seen}`);
+      if (lastText) tipParts.push(`Last prompt text: ${lastText}`);
+      if (tipParts.length) tdPrompt.title = tipParts.join("\n");
+
       const tdReg = document.createElement("td");
       const fr = Number(s.formal_prompt_rows || 0);
       const ir = Number(s.informal_prompt_rows || 0);
@@ -2643,6 +2683,8 @@ function initAdminUI() {
       if (ir) bits.push(`Informal ${ir}`);
       tdReg.textContent = bits.length ? bits.join(" · ") : "—";
       tdReg.className = "small";
+      tdReg.title =
+        "Counts from logged prompt_formality on CSV rows (not live Prompt Library settings).";
 
       const tdAct = document.createElement("td");
       const btn = document.createElement("button");
@@ -2683,6 +2725,7 @@ function initAdminUI() {
       tr.appendChild(tdLast);
       tr.appendChild(tdMed);
       tr.appendChild(tdIm);
+      tr.appendChild(tdPrompt);
       tr.appendChild(tdReg);
       tr.appendChild(tdAct);
       tbody.appendChild(tr);
@@ -2863,7 +2906,10 @@ function initAdminUI() {
     el.textContent = lines.filter(Boolean).join("\n\n");
   }
 
-  function loadPromptPool() {
+  function loadPromptPool(opts) {
+    const preserveFormality = !!(opts && opts.preserveFormalitySelect);
+    const pfSel = document.getElementById("adminPromptFormality");
+    const prevPf = preserveFormality && pfSel ? pfSel.value : null;
     fetchJSON("/api/prompt_pool")
       .then((data) => {
         const prompts = data.text_prompts || [];
@@ -2874,11 +2920,14 @@ function initAdminUI() {
         if (els.customEmailSubject)
           els.customEmailSubject.value = custom.email_subject || "";
         if (els.customEmailBody) els.customEmailBody.value = custom.email_body || "";
-        const pf = (custom.prompt_formality || "").trim().toLowerCase();
-        const pfSel = document.getElementById("adminPromptFormality");
         if (pfSel) {
-          if (pf === "formal" || pf === "informal") pfSel.value = pf;
-          else pfSel.value = "";
+          if (preserveFormality && prevPf !== null) {
+            pfSel.value = prevPf;
+          } else {
+            const pf = (custom.prompt_formality || "").trim().toLowerCase();
+            if (pf === "formal" || pf === "informal") pfSel.value = pf;
+            else pfSel.value = "";
+          }
         }
 
         if (els.promptPoolList) {
@@ -3997,7 +4046,7 @@ function initAdminUI() {
           if (!d?.ok) throw new Error(d.error || "Save failed");
           plSetFormStatus("Saved.");
           loadPromptLibraryTable();
-          loadPromptPool();
+          loadPromptPool({ preserveFormalitySelect: true });
           if (d.prompt) plFillLibraryForm(d.prompt);
         })
         .catch((err) => {
@@ -4288,12 +4337,18 @@ function initAdminUI() {
           : pidRaw
             ? escapeHtml(`Participant ID: ${pidRaw}`)
             : "";
+      const promptId = String(row.prompt_id || "").trim();
+      const pcond = String(row.prompt_formality || "").trim() || "—";
+      const psrc = formatPromptSourceLabel(row.prompt_source);
+      const promptText = String(row.prompt_text || "").trim();
       tr.innerHTML = `
         <td>${escapeHtml((row.timestamp || "").slice(0, 19))}</td>
         <td title="${pidTitle}">${escapeHtml(pidDisp)}</td>
         <td>${escapeHtml(row.medium || "")}</td>
         <td>${escapeHtml(row.input_method || "")}</td>
-        <td>${escapeHtml(previewWithRole.slice(0, 72))}${previewWithRole.length > 72 ? "…" : ""}</td>
+        <td title="${escapeHtml([promptId && `id: ${promptId}`, psrc && `source: ${psrc}`].filter(Boolean).join(" · "))}"><code class="small">${escapeHtml(promptId || "—")}</code></td>
+        <td title="${escapeHtml(pcond)}">${escapeHtml(pcond.length > 18 ? `${pcond.slice(0, 18)}…` : pcond)}</td>
+        <td title="${escapeHtml(promptText)}">${escapeHtml(previewWithRole.slice(0, 56))}${previewWithRole.length > 56 ? "…" : ""}</td>
         <td>${escapeHtml(formatSecondsCell(row.response_time_seconds))}</td>
         <td title="${escapeHtml((row.formality_label || "").trim() || "—")}">${escapeHtml(
           displayFormalityRegisterLabel((row.formality_label || "").trim())
@@ -4337,7 +4392,7 @@ function initAdminUI() {
       tbody.innerHTML = "";
       if (!rows.length) {
         tbody.innerHTML =
-          '<tr><td colspan="10" style="text-align:center;color:var(--muted);">No matching log rows</td></tr>';
+          '<tr><td colspan="11" style="text-align:center;color:var(--muted);">No matching log rows</td></tr>';
         return;
       }
       rows.forEach((row) => {
@@ -4345,9 +4400,11 @@ function initAdminUI() {
         const reply = (row.reply_text || row.participant_reply_text || "").toString();
         const prompt = (row.prompt_text || "").toString();
         const pcond = String(row.prompt_formality || "").trim() || "—";
+        const promptId = String(row.prompt_id || "").trim() || "—";
         tr.innerHTML = `
           <td>${escapeHtml(row.medium || "")}</td>
           <td>${escapeHtml(row.input_method || "")}</td>
+          <td><code class="small">${escapeHtml(promptId)}</code></td>
           <td title="${escapeHtml(pcond)}">${escapeHtml(pcond.slice(0, 24))}${pcond.length > 24 ? "…" : ""}</td>
           <td title="${escapeHtml(prompt)}">${escapeHtml(prompt.slice(0, 40))}${prompt.length > 40 ? "…" : ""}</td>
           <td title="${escapeHtml(reply)}">${escapeHtml(reply.slice(0, 40))}${reply.length > 40 ? "…" : ""}</td>
