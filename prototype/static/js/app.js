@@ -29,6 +29,33 @@ function normalizeStudyParticipantIdClient(raw) {
   return `P${String(n).padStart(3, "0")}`;
 }
 
+/** Match server normalize_input_method for participant URL params and logging. */
+function normalizeInputMethodClient(rawInputMethod, medium = "") {
+  const value = String(rawInputMethod || "").trim().toLowerCase();
+  const mediumNorm = String(medium || "").trim().toLowerCase();
+  let normalized;
+  if (value === "typing" || value === "keyboard") normalized = "Typing";
+  else if (value === "swipe" || value === "swipe typing" || value === "swipetyping")
+    normalized = "Swipe typing";
+  else if (
+    value === "voice" ||
+    value === "speech" ||
+    value === "speech-to-text" ||
+    value === "speech to text" ||
+    value === "voice-to-text" ||
+    value === "voice to text"
+  )
+    normalized = "Voice-to-text";
+  else if (!value) normalized = "Typing";
+  else {
+    const exact = String(rawInputMethod || "").trim();
+    const allowed = ["Typing", "Swipe typing", "Voice-to-text"];
+    normalized = allowed.includes(exact) ? exact : "Typing";
+  }
+  if (mediumNorm === "voice" && normalized !== "LLM") return "Voice-to-text";
+  return normalized;
+}
+
 function formatSecondsCell(v) {
   const x = parseFloat(String(v ?? ""));
   if (!Number.isFinite(x)) return String(v ?? "");
@@ -2140,11 +2167,8 @@ function initParticipantUI() {
       } else {
         showMode("SMS");
       }
-      const im = (sp.get("input_method") || "").trim();
-      if (els.studyInputMethod) {
-        const allowed = ["Typing", "Swipe typing", "Voice-to-text"];
-        if (allowed.includes(im)) els.studyInputMethod.value = im;
-      }
+      const im = normalizeInputMethodClient(sp.get("input_method") || "", med);
+      if (els.studyInputMethod) els.studyInputMethod.value = im;
       const dev = (sp.get("device") || "").trim().toLowerCase();
       if (els.studyDeviceContext) {
         if (dev === "phone") els.studyDeviceContext.textContent = "Session note: phone";
