@@ -181,10 +181,10 @@
                 <div class="pex-admin-field">
                   <label class="pex-admin-label" for="sessionMedium">Medium</label>
                   <select id="sessionMedium">
-                    <option value="SMS">SMS</option>
                     <option value="Messenger">Messenger</option>
                     <option value="Email">Email</option>
                     <option value="Voice">Voice</option>
+                    <option value="SMS">SMS (legacy)</option>
                   </select>
                 </div>
                 <div class="pex-admin-field">
@@ -195,6 +195,9 @@
                     <option value="Voice-to-text">Voice-to-text</option>
                   </select>
                   <p class="small" style="margin-top:6px;color:var(--muted);">Swipe typing is typically phone-only; assignment is up to the study protocol.</p>
+                  <p class="small" style="margin-top:6px;color:var(--muted);">
+                    After <strong>Save plan</strong>, an open participant page with the same <code>P###</code> id updates within a few seconds (no new link required). <strong>Apply current task to link</strong> still refreshes the URL preview for new tabs.
+                  </p>
                 </div>
                 <div class="pex-admin-field">
                   <label class="pex-admin-label" for="sessionDevice">Device context</label>
@@ -286,7 +289,7 @@
                     rows="8"
                     spellcheck="false"
                     style="width:100%;max-width:640px;font-family:ui-monospace,monospace;font-size:12px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);"
-                    placeholder='{"tasks":[{"medium":"SMS","input_method":"Typing","device":"laptop","prompt_condition":"auto","prompt_pick":"random","text_prompt_id":""}],"current_index":0}'
+                    placeholder='{"tasks":[{"medium":"Messenger","input_method":"Typing","device":"laptop","prompt_condition":"auto","prompt_pick":"random","text_prompt_id":""}],"current_index":0}'
                   ></textarea>
                   <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px;">
                     <button type="button" class="pex-btn-ghost" id="sessionPlanImportJsonBtn">Import JSON into table</button>

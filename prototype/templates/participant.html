@@ -38,6 +38,8 @@
         </button>
       </header>
 
+      <div class="pex-mic-banner hidden" id="pexMicBanner" role="status" aria-live="polite"></div>
+
       <!-- Drawer: mobile-style navigation between modes -->
       <div
         class="pex-drawer-backdrop"
@@ -63,15 +65,15 @@
           </button>
         </div>
         <ul class="pex-nav">
-          <li>
+          <li class="pex-nav-legacy-sms hidden" hidden aria-hidden="true">
             <button type="button" class="pex-nav-btn is-active" data-medium="SMS">
               <span class="pex-nav-icon" aria-hidden="true">💬</span>
               <span class="pex-nav-label">Messages</span>
-              <span class="pex-nav-desc">SMS-style thread</span>
+              <span class="pex-nav-desc">SMS-style thread (legacy)</span>
             </button>
           </li>
           <li>
-            <button type="button" class="pex-nav-btn" data-medium="Messenger">
+            <button type="button" class="pex-nav-btn is-active" data-medium="Messenger">
               <span class="pex-nav-icon" aria-hidden="true">✉️</span>
               <span class="pex-nav-label">Chats</span>
               <span class="pex-nav-desc">Messenger-style</span>

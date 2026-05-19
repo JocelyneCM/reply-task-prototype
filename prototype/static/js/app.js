@@ -56,6 +56,69 @@ function normalizeInputMethodClient(rawInputMethod, medium = "") {
   return normalized;
 }
 
+/** Normalize session-plan task fields (participant polling + admin plan table). */
+function normalizeStudyTaskClient(t) {
+  const defaults = {
+    medium: "Messenger",
+    input_method: "Typing",
+    device: "",
+    prompt_condition: "auto",
+    prompt_pick: "random",
+    text_prompt_id: "",
+  };
+  const o = { ...defaults, ...(t || {}) };
+  let med = String(o.medium || "Messenger").trim();
+  if (!["SMS", "Messenger", "Email", "Voice"].includes(med)) med = "Messenger";
+  o.medium = med;
+  const allowedIm = ["Typing", "Swipe typing", "Voice-to-text"];
+  let im = String(o.input_method || "Typing").trim();
+  if (!allowedIm.includes(im)) im = "Typing";
+  o.input_method = im;
+  const dev = String(o.device || "").trim().toLowerCase();
+  o.device = dev === "phone" || dev === "laptop" ? dev : "";
+  let pc = String(o.prompt_condition || "auto").trim().toLowerCase();
+  if (!["formal", "informal", "auto"].includes(pc)) pc = "auto";
+  o.prompt_condition = pc;
+  let pp = String(o.prompt_pick || "random").trim().toLowerCase();
+  if (pp !== "random" && pp !== "selected") pp = "random";
+  o.prompt_pick = pp;
+  let tid = String(o.text_prompt_id || "").trim();
+  if (!/^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tid)) tid = "";
+  if (o.prompt_pick === "random") tid = "";
+  o.text_prompt_id = tid;
+  return o;
+}
+
+function micAccessHelpMessage() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return "This browser does not support microphone recording. Try Chrome or Safari on a recent version.";
+  }
+  if (window.isSecureContext) return "";
+  const host = (location.hostname || "").toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1") return "";
+  return (
+    "Microphone access usually requires HTTPS (or localhost). " +
+    "Opening the study via http:// on a phone or LAN IP often blocks the mic. " +
+    "Ask your researcher to use https:// or test on this computer's localhost."
+  );
+}
+
+function formatMicrophoneError(err) {
+  const name = String(err?.name || "");
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Microphone blocked. Allow mic access in browser site settings, then reload.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No microphone found on this device.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "Microphone is in use by another app. Close it and try again.";
+  }
+  const secureHint = micAccessHelpMessage();
+  if (secureHint) return secureHint;
+  return "Could not access microphone.";
+}
+
 function formatSecondsCell(v) {
   const x = parseFloat(String(v ?? ""));
   if (!Number.isFinite(x)) return String(v ?? "");
@@ -176,6 +239,7 @@ function initParticipantUI() {
     tagline: document.getElementById("pexScreenTagline"),
     themeToggleBtn: document.getElementById("themeToggleBtn"),
     toast: document.getElementById("pexToast"),
+    micBanner: document.getElementById("pexMicBanner"),
     participantId: document.getElementById("participantId"),
     studyCondition: document.querySelector(".pex-study-condition"),
     studyDeviceContext: document.getElementById("studyDeviceContext"),
@@ -353,6 +417,8 @@ function initParticipantUI() {
   let urlStudyPromptCondition = null;
   /** When set, participant loads this bundle id via /api/prompt_bundle (does not use global next). */
   let urlTextPromptId = null;
+  /** Server session plan version last applied (participant polling). */
+  let lastAppliedPlanVersion = "";
   /** How we got the transcript for voice rows. */
   let lastTranscriptStatus = "";
   let lastTranscriptSource = "";
@@ -402,6 +468,96 @@ function initParticipantUI() {
       return;
     }
     els.studyInputInstruction.textContent = "Type your reply normally.";
+  }
+
+  function syncMicrophoneBanner() {
+    if (!els.micBanner) return;
+    const needsMic =
+      getSelectedInputMethod() === "Voice-to-text" || currentMedium === "Voice";
+    const msg = needsMic ? micAccessHelpMessage() : "";
+    if (!msg) {
+      els.micBanner.classList.add("hidden");
+      els.micBanner.textContent = "";
+      return;
+    }
+    els.micBanner.textContent = msg;
+    els.micBanner.classList.remove("hidden");
+  }
+
+  function syncStudyDeviceLayout(device) {
+    const dev = (device || "").trim().toLowerCase();
+    if (els.app) {
+      if (dev === "phone" || dev === "laptop") els.app.dataset.studyDevice = dev;
+      else delete els.app.dataset.studyDevice;
+    }
+    if (els.studyDeviceContext) {
+      if (dev === "phone") els.studyDeviceContext.textContent = "Session note: phone";
+      else if (dev === "laptop") els.studyDeviceContext.textContent = "Session note: laptop";
+      else els.studyDeviceContext.textContent = "";
+    }
+  }
+
+  function applyStudyTaskSettings(task, opts = {}) {
+    const t = normalizeStudyTaskClient(task);
+    const med = t.medium;
+    if (["SMS", "Messenger", "Email", "Voice"].includes(med)) {
+      if (med === "SMS") {
+        const smsNav = document.querySelector(".pex-nav-legacy-sms");
+        if (smsNav) {
+          smsNav.classList.remove("hidden");
+          smsNav.hidden = false;
+          smsNav.setAttribute("aria-hidden", "false");
+        }
+      }
+      showMode(med);
+    }
+    if (els.studyInputMethod) {
+      els.studyInputMethod.value = normalizeInputMethodClient(t.input_method, med);
+    }
+    syncStudyDeviceLayout(t.device);
+    urlStudyPromptCondition = t.prompt_condition;
+    urlTextPromptId =
+      t.prompt_pick === "selected" && t.text_prompt_id ? t.text_prompt_id : null;
+    syncMicButtonVisibilityForInputMethod();
+    syncStudyInstruction();
+    syncMicrophoneBanner();
+    const reloadPrompts = opts.reloadPrompts !== false;
+    if (reloadPrompts && !currentRun) {
+      assignRandomTextPrompts();
+    } else if (reloadPrompts && currentRun) {
+      currentPromptMeta.prompt_formality = t.prompt_condition;
+    }
+  }
+
+  async function pollSessionPlanCurrent() {
+    const pid = normalizeStudyParticipantIdClient(els.participantId?.value || "");
+    if (!/^P\d{3,}$/i.test(pid)) return;
+    try {
+      const d = await fetchJSON(
+        `/api/session_plan/current?participant_id=${encodeURIComponent(pid)}`
+      );
+      if (!d?.ok) return;
+      const version = String(d.plan_version || "").trim();
+      if (!version) return;
+      if (!d.task) {
+        lastAppliedPlanVersion = version;
+        return;
+      }
+      if (version === lastAppliedPlanVersion) return;
+      const isFirst = !lastAppliedPlanVersion;
+      const sp = new URLSearchParams(window.location.search);
+      const hadUrlTask =
+        sp.has("medium") || sp.has("input_method") || sp.has("prompt_condition");
+      if (isFirst && hadUrlTask) {
+        lastAppliedPlanVersion = version;
+        return;
+      }
+      lastAppliedPlanVersion = version;
+      applyStudyTaskSettings(d.task, { reloadPrompts: !currentRun });
+      if (!isFirst) showToast("Session task updated by researcher.");
+    } catch {
+      /* polling is best-effort */
+    }
   }
 
   function pickRandom(list) {
@@ -808,6 +964,7 @@ function initParticipantUI() {
       });
       assignVoicePrompt();
       if (els.studyInputMethod) syncStudyInstruction();
+      syncMicrophoneBanner();
       closeDrawer();
       resetTrialState();
       return;
@@ -837,6 +994,7 @@ function initParticipantUI() {
       }
     }
     if (els.studyInputMethod) syncStudyInstruction();
+    syncMicrophoneBanner();
     closeDrawer();
     resetTrialState();
   }
@@ -849,6 +1007,7 @@ function initParticipantUI() {
     els.studyInputMethod.addEventListener("change", () => {
       syncStudyInstruction();
       syncMicButtonVisibilityForInputMethod();
+      syncMicrophoneBanner();
     });
   }
 
@@ -1144,7 +1303,8 @@ function initParticipantUI() {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
       console.error(e);
-      showToast("Could not access microphone.");
+      showToast(formatMicrophoneError(e));
+      syncMicrophoneBanner();
       return;
     }
 
@@ -1903,7 +2063,8 @@ function initParticipantUI() {
         stream = await getMicStream();
       } catch (e) {
         console.error(e);
-        els.voiceStatus.textContent = "Could not access microphone.";
+        els.voiceStatus.textContent = formatMicrophoneError(e);
+        syncMicrophoneBanner();
         return;
       }
 
@@ -2161,39 +2322,37 @@ function initParticipantUI() {
           /* optional */
         }
       }
-      const med = (sp.get("medium") || "").trim();
-      if (["SMS", "Messenger", "Email", "Voice"].includes(med)) {
-        showMode(med);
-      } else {
-        showMode("SMS");
-      }
-      const im = normalizeInputMethodClient(sp.get("input_method") || "", med);
-      if (els.studyInputMethod) els.studyInputMethod.value = im;
-      const dev = (sp.get("device") || "").trim().toLowerCase();
-      if (els.studyDeviceContext) {
-        if (dev === "phone") els.studyDeviceContext.textContent = "Session note: phone";
-        else if (dev === "laptop") els.studyDeviceContext.textContent = "Session note: laptop";
-        else els.studyDeviceContext.textContent = "";
-      }
+      const medRaw = (sp.get("medium") || "").trim();
+      const med = ["SMS", "Messenger", "Email", "Voice"].includes(medRaw)
+        ? medRaw
+        : "Messenger";
       const pcRaw = (sp.get("prompt_condition") || sp.get("prompt_formality") || "")
         .trim()
         .toLowerCase();
-      if (pcRaw === "formal" || pcRaw === "informal" || pcRaw === "auto")
-        urlStudyPromptCondition = pcRaw;
-      else urlStudyPromptCondition = null;
       const tpid = (sp.get("text_prompt_id") || "").trim();
-      urlTextPromptId = /^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tpid) ? tpid : null;
-      syncMicButtonVisibilityForInputMethod();
+      const taskFromUrl = {
+        medium: med,
+        input_method: sp.get("input_method") || "",
+        device: sp.get("device") || "",
+        prompt_condition:
+          pcRaw === "formal" || pcRaw === "informal" || pcRaw === "auto" ? pcRaw : "auto",
+        prompt_pick: /^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tpid) ? "selected" : "random",
+        text_prompt_id: tpid,
+      };
+      applyStudyTaskSettings(taskFromUrl, { reloadPrompts: false });
     } catch {
-      showMode("SMS");
+      applyStudyTaskSettings({ medium: "Messenger" }, { reloadPrompts: false });
     }
   }
 
   applyParticipantUrlParams();
   refreshTextVoiceButtons();
   syncStudyInstruction();
+  syncMicrophoneBanner();
   assignRandomTextPrompts();
   ensureParticipantIdInitialized();
+  pollSessionPlanCurrent();
+  setInterval(pollSessionPlanCurrent, 4000);
 }
 
 // -----------------------------------------------------------------------------
@@ -3465,38 +3624,18 @@ function initAdminUI() {
   }
 
   function defaultSessionPlanTask() {
-    return {
-      medium: "SMS",
+    return normalizeStudyTaskClient({
+      medium: "Messenger",
       input_method: "Typing",
       device: "",
       prompt_condition: "auto",
       prompt_pick: "random",
       text_prompt_id: "",
-    };
+    });
   }
 
   function normalizeSessionPlanTask(t) {
-    const o = { ...defaultSessionPlanTask(), ...(t || {}) };
-    let med = String(o.medium || "SMS").trim();
-    if (!["SMS", "Messenger", "Email", "Voice"].includes(med)) med = "SMS";
-    o.medium = med;
-    const allowedIm = ["Typing", "Swipe typing", "Voice-to-text"];
-    let im = String(o.input_method || "Typing").trim();
-    if (!allowedIm.includes(im)) im = "Typing";
-    o.input_method = im;
-    const dev = String(o.device || "").trim().toLowerCase();
-    o.device = dev === "phone" || dev === "laptop" ? dev : "";
-    let pc = String(o.prompt_condition || "auto").trim().toLowerCase();
-    if (!["formal", "informal", "auto"].includes(pc)) pc = "auto";
-    o.prompt_condition = pc;
-    let pp = String(o.prompt_pick || "random").trim().toLowerCase();
-    if (pp !== "random" && pp !== "selected") pp = "random";
-    o.prompt_pick = pp;
-    let tid = String(o.text_prompt_id || "").trim();
-    if (!/^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tid)) tid = "";
-    if (o.prompt_pick === "random") tid = "";
-    o.text_prompt_id = tid;
-    return o;
+    return normalizeStudyTaskClient(t);
   }
 
   function describeSessionPlanTask(t) {
@@ -3535,10 +3674,10 @@ function initAdminUI() {
   function buildSessionPlanRowHtml(index, task) {
     const d = normalizeSessionPlanTask(task);
     const medChoices = [
-      ["SMS", "SMS"],
       ["Messenger", "Messenger"],
       ["Email", "Email"],
       ["Voice", "Voice"],
+      ["SMS", "SMS (legacy)"],
     ];
     const imChoices = [
       ["Typing", "Typing"],

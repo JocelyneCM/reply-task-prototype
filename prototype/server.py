@@ -65,7 +65,12 @@ if __package__:
         sanitize_trace_for_storage,
         write_edit_trace_sidecar,
     )
-    from .utils.session_plan_store import advance_plan, get_plan, set_plan
+    from .utils.session_plan_store import (
+        advance_plan,
+        get_current_task_payload,
+        get_plan,
+        set_plan,
+    )
     from .utils import prompt_library_store as pls
     from .utils.analysis_utils import (
         analyze_full_text,
@@ -107,7 +112,12 @@ else:
         sanitize_trace_for_storage,
         write_edit_trace_sidecar,
     )
-    from utils.session_plan_store import advance_plan, get_plan, set_plan  # type: ignore
+    from utils.session_plan_store import (  # type: ignore
+        advance_plan,
+        get_current_task_payload,
+        get_plan,
+        set_plan,
+    )
     import utils.prompt_library_store as pls  # type: ignore
     from utils.analysis_utils import (  # type: ignore
         analyze_full_text,
@@ -1344,6 +1354,20 @@ def api_admin_session_plan_advance() -> Response:
     if ent is None:
         return jsonify({"ok": True, "done": True, "plan": get_plan(BASE_DIR, pid)})
     return jsonify({"ok": True, "done": False, "plan": ent})
+
+
+@app.get("/api/session_plan/current")
+def api_session_plan_current() -> Response:
+    """
+    Participant-facing read of the researcher's current plan task.
+    Used for lightweight polling so an open participant page can follow
+    Save plan / Apply without reopening the link.
+    """
+    pid = normalize_study_participant_id((request.args.get("participant_id") or "").strip())
+    if not is_stable_study_participant_id(pid):
+        return jsonify({"ok": False, "error": "Stable participant_id (e.g. P001) required."}), 400
+    payload = get_current_task_payload(BASE_DIR, pid)
+    return jsonify({"ok": True, **payload})
 
 
 @app.get("/api/logs")

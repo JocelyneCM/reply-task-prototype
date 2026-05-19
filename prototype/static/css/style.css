@@ -805,12 +805,53 @@ body[data-role="participant"]{
   box-shadow:0 0 0 1px var(--line);
 }
 
+/* Laptop study sessions: wider shell so Email reads like desktop mail, not a phone column. */
+.pex-app[data-study-device="laptop"]{
+  max-width:min(920px, 96vw);
+}
+
+.pex-app[data-study-device="laptop"] .pex-mail-toolbar-title{
+  font-size:26px;
+}
+
+.pex-app[data-study-device="laptop"] .pex-mail-read-subject{
+  font-size:22px;
+}
+
+.pex-app[data-study-device="laptop"] .pex-mail-read-body,
+.pex-app[data-study-device="laptop"] .pex-mail-compose-body{
+  font-size:15px;
+  line-height:1.55;
+  max-width:min(720px, 100%);
+}
+
+.pex-app[data-study-device="laptop"] .pex-mail-row{
+  padding:14px 20px;
+}
+
+.pex-mic-banner{
+  margin:0 12px 8px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid color-mix(in srgb, var(--warn, #e8b84a) 45%, var(--line));
+  background:color-mix(in srgb, var(--warn, #e8b84a) 12%, var(--surface));
+  color:var(--text);
+  font-size:12px;
+  line-height:1.4;
+}
+
 @media (min-width:600px){
   .pex-app{
     margin:12px auto;
     min-height:calc(100dvh - 24px);
     border-radius:20px;
     overflow:hidden;
+  }
+
+  .pex-app[data-study-device="laptop"]{
+    margin:16px auto;
+    min-height:calc(100dvh - 32px);
+    border-radius:12px;
   }
 }
 
