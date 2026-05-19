@@ -878,13 +878,16 @@ function initParticipantUI() {
   }
 
   function openDrawer() {
+    if (els.app?.classList.contains("pex-study-controlled")) return;
     setDrawerOpen(true);
   }
   function closeDrawer() {
     setDrawerOpen(false);
   }
 
-  if (els.menuBtn) els.menuBtn.addEventListener("click", openDrawer);
+  if (els.menuBtn && !els.app?.classList.contains("pex-study-controlled")) {
+    els.menuBtn.addEventListener("click", openDrawer);
+  }
   if (els.drawerClose) els.drawerClose.addEventListener("click", closeDrawer);
   if (els.backdrop) els.backdrop.addEventListener("click", closeDrawer);
   document.addEventListener("keydown", (e) => {
@@ -3676,7 +3679,7 @@ function initAdminUI() {
     const medChoices = [
       ["Messenger", "Messenger"],
       ["Email", "Email"],
-      ["Voice", "Voice"],
+      ["Voice", "Voice (audio reply)"],
       ["SMS", "SMS (legacy)"],
     ];
     const imChoices = [
@@ -3840,10 +3843,10 @@ function initAdminUI() {
   function loadSessionPlan() {
     const pid = sessionPlanParticipantId();
     if (!pid || !/^P\d{3,}$/i.test(pid)) {
-      setSessionPlanStatus("Enter a stable participant ID (P###) first.");
+      setSessionPlanStatus("Enter a participant ID (e.g. P010) first.");
       if (els.sessionPlanSummary)
         els.sessionPlanSummary.innerHTML =
-          "<strong>Participant:</strong> —<br />Enter a stable participant ID (P###) to load a plan.";
+          "<strong>Participant:</strong> —<br />Enter a participant ID (e.g. P010) to load a plan.";
       renderSessionPlanTable([]);
       return;
     }
@@ -3894,7 +3897,7 @@ function initAdminUI() {
   function saveSessionPlan() {
     const pid = sessionPlanParticipantId();
     if (!pid || !/^P\d{3,}$/i.test(pid)) {
-      alert("Enter a stable participant ID (P###) first.");
+      alert("Enter a participant ID (e.g. P010) first.");
       return;
     }
     if (sessionPlanBusy) return;
@@ -3938,7 +3941,7 @@ function initAdminUI() {
   function advanceSessionPlan() {
     const pid = sessionPlanParticipantId();
     if (!pid || !/^P\d{3,}$/i.test(pid)) {
-      alert("Enter a stable participant ID (P###) first.");
+      alert("Enter a participant ID (e.g. P010) first.");
       return;
     }
     if (sessionPlanBusy) return;
@@ -3973,7 +3976,7 @@ function initAdminUI() {
   function applySessionPlanToSessionLink() {
     const pid = sessionPlanParticipantId();
     if (!pid || !/^P\d{3,}$/i.test(pid)) {
-      alert("Enter a stable participant ID (P###) first.");
+      alert("Enter a participant ID (e.g. P010) first.");
       return;
     }
     if (sessionPlanBusy) return;

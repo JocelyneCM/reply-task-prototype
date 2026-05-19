@@ -829,6 +829,18 @@ body[data-role="participant"]{
   padding:14px 20px;
 }
 
+.pex-topbar-spacer{
+  width:40px;
+  height:40px;
+  flex-shrink:0;
+}
+
+.pex-study-controlled .pex-hamburger,
+.pex-study-controlled .pex-drawer,
+.pex-study-controlled .pex-drawer-backdrop{
+  display:none !important;
+}
+
 .pex-mic-banner{
   margin:0 12px 8px;
   padding:10px 12px;

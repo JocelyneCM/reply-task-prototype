@@ -168,22 +168,25 @@
             <div class="pex-admin-card">
               <h2 class="pex-admin-card-title">Study session</h2>
               <p class="pex-admin-card-desc">
-                Build a participant link (query string) and an ordered <strong>task plan</strong> per participant ID. The participant page reads the URL once on load (medium, input method, device, prompt condition). Prompt <em>text</em> still comes from the server pool unless you set a <strong>next prompt</strong> under <strong>Prompts</strong> (Phase 3 will add per-task library picks).
+                Set up each participant with an ID (e.g. <strong>P010</strong>), a <strong>task plan</strong>, and a link. The participant UI follows the <strong>current task</strong> from the saved plan (updates within a few seconds after <strong>Save plan</strong>). Prompt wording comes from the library row you pick in the plan, or from random pool / <strong>Prompts → next prompt</strong> when set to random.
               </p>
               <div class="pex-admin-filters-grid" style="margin-top:12px;">
                 <div class="pex-admin-field">
                   <label class="pex-admin-label" for="sessionParticipantId">Participant ID</label>
                   <input id="sessionParticipantId" type="text" placeholder="e.g. P006" autocomplete="off" style="width:100%;max-width:280px;" />
                   <button type="button" class="pex-btn-ghost" id="sessionSuggestParticipantBtn" style="margin-top:8px;">
-                    Suggest next ID (stable P### only)
+                    Suggest next participant ID
                   </button>
+                  <p class="small" style="margin-top:6px;color:var(--muted);line-height:1.45;">
+                    Use the same ID on every link for that person (format <strong>P001</strong>, <strong>P010</strong>, …). The participant page must use this ID so logs and live task updates stay matched.
+                  </p>
                 </div>
                 <div class="pex-admin-field">
                   <label class="pex-admin-label" for="sessionMedium">Medium</label>
                   <select id="sessionMedium">
                     <option value="Messenger">Messenger</option>
                     <option value="Email">Email</option>
-                    <option value="Voice">Voice</option>
+                    <option value="Voice">Voice (audio reply — not voice-to-text)</option>
                     <option value="SMS">SMS (legacy)</option>
                   </select>
                 </div>
@@ -195,8 +198,8 @@
                     <option value="Voice-to-text">Voice-to-text</option>
                   </select>
                   <p class="small" style="margin-top:6px;color:var(--muted);">Swipe typing is typically phone-only; assignment is up to the study protocol.</p>
-                  <p class="small" style="margin-top:6px;color:var(--muted);">
-                    After <strong>Save plan</strong>, an open participant page with the same <code>P###</code> id updates within a few seconds (no new link required). <strong>Apply current task to link</strong> still refreshes the URL preview for new tabs.
+                  <p class="small" style="margin-top:6px;color:var(--muted);line-height:1.45;">
+                    <strong>Voice-to-text</strong> = mic in the chat/email compose box. Phones usually need an <strong>HTTPS</strong> link for the mic to work (see guidance below). <strong>Typing</strong> and <strong>Swipe typing</strong> work on ordinary <code>http://</code> LAN links.
                   </p>
                 </div>
                 <div class="pex-admin-field">
@@ -215,8 +218,8 @@
                     <option value="formal">formal</option>
                     <option value="informal">informal</option>
                   </select>
-                  <p class="small" style="margin-top:6px;color:var(--muted);">
-                    Sent as <code>prompt_condition</code> on the participant link; overrides bundle formality for this session load (logged as <code>prompt_formality</code>).
+                  <p class="small" style="margin-top:6px;color:var(--muted);line-height:1.45;">
+                    Formal / informal / auto for this task (saved in logs as prompt formality).
                   </p>
                 </div>
                 <input type="hidden" id="sessionTextPromptId" value="" />
@@ -232,7 +235,7 @@
               <div class="pex-admin-field" style="margin-top:16px;">
                 <label class="pex-admin-label">Task order (session plan)</label>
                 <p class="small" style="color:var(--muted);margin:6px 0 8px;line-height:1.5;">
-                  Ordered list of <strong>tasks</strong> (one full two-turn exercise each). Use <strong>Apply current task to link</strong>, then <strong>Open participant UI</strong>. The participant page does not auto-advance; click <strong>Advance</strong> when they finish a task.
+                  One row = one full two-turn exercise. Edit the current row → <strong>Save plan</strong> (open participant pages update automatically). Use <strong>Advance one task</strong> when moving to the next condition. <strong>Apply current task to link</strong> refreshes the URL for new browser tabs.
                 </p>
                 <div
                   id="sessionPlanSummary"
@@ -298,6 +301,28 @@
                 <p class="small" id="sessionPlanStatus" style="margin-top:8px;color:var(--muted);" aria-live="polite"></p>
               </div>
             </div>
+            <details class="pex-admin-card" style="margin-top:16px;">
+              <summary class="pex-admin-card-title" style="cursor:pointer;list-style-position:outside;">
+                Phone microphone (voice-to-text on HTTPS)
+              </summary>
+              <div class="pex-admin-prose" style="margin-top:12px;">
+                <p>
+                  <strong>Problem:</strong> On phones, Chrome often blocks the mic on <code>http://192.168.x.x:8000</code> links. The participant may see a yellow warning and no permission prompt.
+                </p>
+                <p>
+                  <strong>Fix (recommended for lab sessions):</strong> expose the same Flask app through an <strong>HTTPS tunnel</strong>, then use that URL on the phone.
+                </p>
+                <ol style="margin:8px 0;padding-left:1.25rem;line-height:1.55;">
+                  <li>Start Relay as usual on the researcher laptop (<code>flask run --host=0.0.0.0 --port=8000</code>).</li>
+                  <li>Install <a href="https://ngrok.com/" target="_blank" rel="noopener">ngrok</a> (or use Cloudflare Tunnel).</li>
+                  <li>Run <code>ngrok http 8000</code> and copy the <strong>https://</strong> forwarding URL.</li>
+                  <li>Open admin at that HTTPS URL, build the participant link, and send it to the phone (same <code>participant_id=</code> query params).</li>
+                </ol>
+                <p class="small" style="color:var(--muted);margin-top:10px;">
+                  <strong>Laptop-only typing/swipe</strong> can keep using a plain LAN <code>http://</code> link. <strong>Voice-to-text on a phone</strong> should use HTTPS. Local <code>https://</code> with mkcert is possible but requires installing a trust certificate on each phone.
+                </p>
+              </div>
+            </details>
           </section>
 
           <!-- Participants -->
@@ -969,11 +994,9 @@
           >
             <div class="pex-admin-card pex-admin-prose">
               <h2 class="pex-admin-card-title">About Relay</h2>
-              <p>Relay records short reply tasks in SMS, Messenger, Email, or Voice-style UIs. Each <strong>log row</strong> is one saved CSV event (e.g. participant first reply, AI reply, participant final reply). A full two-turn interaction is one <strong>task / trial / exercise run</strong> and produces several log rows plus an optional per-run export under <code>prototype/data/runs/</code>.</p>
-              <p>Rows include timing, input method, writing-behaviour counters, optional transcription, and a <strong>reply register</strong> classifier on participant text (<code>formality_label</code> → shown as Formal/Informal in the console). Study <strong>prompt condition</strong> is chosen by the researcher (<code>prompt_formality</code>: formal, informal, or auto:…).</p>
-              <p>Data is written under <code>prototype/data/logs/</code> and per-participant folders. Use <strong>Exports</strong> for CSV downloads (full raw file first; simplified “study” layout is optional).</p>
-              <p class="small" style="color:var(--muted);">The primary automated outcome for register is the <strong>formality / reply register model</strong> (<code>formality_label</code>, <code>formality_confidence</code>). Legacy CSV columns <code>bert_label</code> / <code>bert_raw</code> / <code>bert_confidence</code> remain for file compatibility but are <strong>not populated</strong> on new rows (they previously held an unrelated HuggingFace star-rating sentiment demo, not Jakob’s classifier).</p>
-              <p class="small" style="margin-top:10px;color:var(--muted);">Use the <strong>Field dictionary</strong> below for searchable definitions of CSV columns, study export names, admin labels, and sidecar keys.</p>
+              <p>Relay runs short reply exercises in app-style UIs (<strong>Messenger</strong>, <strong>Email</strong>, optional legacy SMS, or audio <strong>Voice</strong> mode). Each <strong>log row</strong> is one saved event (participant message, AI reply, etc.). One full back-and-forth is a <strong>task</strong> and usually produces several rows.</p>
+              <p>Use <strong>Study session</strong> to set the participant ID and current task; use <strong>Exports</strong> to download CSVs. The <strong>Field dictionary</strong> below lists column meanings for analysis.</p>
+              <p class="small" style="color:var(--muted);margin-top:10px;">Reply register (Formal / Informal) comes from the trained formality model on participant text. Older <code>bert_*</code> columns in CSVs are legacy and stay empty on new rows.</p>
             </div>
             <div class="pex-admin-card pex-fielddict-card" id="fieldDictionaryMount" style="margin-top:16px">
               <h2 class="pex-admin-card-title">Field dictionary</h2>

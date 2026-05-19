@@ -12,15 +12,18 @@
       Participant shell: one cohesive app. No research metrics or admin copy.
       Modes: SMS, Messenger, Email (inbox → read → compose), Voice (prompt + record).
     -->
-    <div class="pex-app" id="participantApp">
+    <div class="pex-app pex-study-controlled" id="participantApp">
       <header class="pex-topbar">
+        <span class="pex-topbar-spacer" aria-hidden="true"></span>
         <button
           type="button"
-          class="pex-icon-btn pex-hamburger"
+          class="pex-icon-btn pex-hamburger hidden"
           id="pexMenuBtn"
           aria-label="Open menu"
           aria-expanded="false"
           aria-controls="pexDrawer"
+          hidden
+          tabindex="-1"
         >
           <span class="pex-hamburger-lines" aria-hidden="true"></span>
         </button>
@@ -40,16 +43,17 @@
 
       <div class="pex-mic-banner hidden" id="pexMicBanner" role="status" aria-live="polite"></div>
 
-      <!-- Drawer: mobile-style navigation between modes -->
+      <!-- Drawer disabled: medium is set by the researcher (link + live plan sync). -->
       <div
-        class="pex-drawer-backdrop"
+        class="pex-drawer-backdrop hidden"
         id="pexDrawerBackdrop"
         hidden
         aria-hidden="true"
       ></div>
       <nav
-        class="pex-drawer"
+        class="pex-drawer hidden"
         id="pexDrawer"
+        hidden
         aria-hidden="true"
         aria-label="Conversation modes"
       >
