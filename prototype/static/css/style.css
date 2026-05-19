@@ -835,6 +835,433 @@ body[data-role="participant"]{
   flex-shrink:0;
 }
 
+.pex-session-live{
+  margin-top:14px;
+}
+
+.pex-session-live-strip{
+  margin-bottom:14px;
+  padding:10px 14px;
+  border-radius:10px;
+  border:1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  background:color-mix(in srgb, var(--accent) 8%, var(--surface));
+  font-size:13px;
+  line-height:1.45;
+  font-weight:550;
+}
+
+.pex-session-live-grid{
+  display:grid;
+  grid-template-columns:minmax(220px, 1fr) minmax(280px, 1.4fr);
+  gap:16px;
+  align-items:start;
+}
+
+@media (max-width:860px){
+  .pex-session-live-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+.pex-session-live-col{
+  padding:12px 14px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:color-mix(in srgb, var(--surface) 90%, transparent);
+}
+
+.pex-session-id-input{
+  width:100%;
+  max-width:320px;
+}
+
+.pex-session-id-actions{
+  margin-top:8px;
+}
+
+.pex-session-link-preview{
+  display:block;
+  margin-top:6px;
+  padding:8px 10px;
+  border-radius:8px;
+  background:var(--surface-2);
+  word-break:break-all;
+}
+
+.pex-session-link-actions{
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:8px;
+}
+
+.pex-session-plan-summary{
+  margin:8px 0 10px;
+  padding:10px 12px;
+  border-radius:8px;
+  background:var(--surface-2);
+  border:1px solid var(--line);
+  font-size:12px;
+  line-height:1.5;
+}
+
+.pex-session-primary-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+  margin-bottom:6px;
+}
+
+.pex-session-secondary-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:12px 0 4px;
+}
+
+.pex-session-task-num{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin:0;
+}
+
+.pex-session-task-num input{
+  width:64px;
+  padding:6px 8px;
+  border-radius:6px;
+  border:1px solid var(--line);
+  background:var(--surface-2);
+  color:var(--text);
+}
+
+.pex-session-status-line{
+  margin:0 0 10px;
+  color:var(--muted);
+  min-height:1.2em;
+}
+
+.pex-session-task-fields{
+  margin-top:4px;
+}
+
+.pex-inline-hint{
+  margin:6px 0 0;
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.45;
+}
+
+.pex-inline-help{
+  margin-top:8px;
+  font-size:12px;
+}
+
+.pex-inline-help details{
+  border:1px dashed var(--line);
+  border-radius:8px;
+  padding:6px 10px;
+  background:var(--surface);
+}
+
+.pex-inline-help summary{
+  cursor:pointer;
+  font-weight:600;
+  color:var(--muted);
+}
+
+.pex-btn-ghost--compact{
+  padding:6px 10px;
+  font-size:12px;
+}
+
+#sessionLibraryPromptField.is-muted{
+  opacity:0.72;
+}
+
+#sessionLibraryPromptField.is-muted select{
+  pointer-events:none;
+}
+
+.pex-prompts-layout{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.pex-prompts-library-header,
+.pex-prompts-editor-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+
+.pex-prompts-library-toolbar{
+  margin-bottom:12px;
+}
+
+.pex-prompts-toolbar-actions{
+  align-items:flex-end;
+  gap:8px;
+}
+
+.pex-prompts-table tbody tr.pex-prompts-row{
+  cursor:pointer;
+}
+
+.pex-prompts-table tbody tr.pex-prompts-row:hover{
+  background:color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+
+.pex-prompts-editor-card[hidden]{
+  display:none !important;
+}
+
+.pex-prompts-editor-body .pex-admin-field textarea,
+.pex-prompts-editor-body .pex-admin-field input[type="text"]{
+  width:100%;
+  max-width:640px;
+}
+
+.pex-prompts-form-status{
+  color:var(--muted);
+  margin:0 0 12px;
+}
+
+.pex-prompts-editor-actions,
+.pex-prompts-override-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:14px;
+}
+
+.pex-prompts-override-card{
+  padding:0;
+}
+
+.pex-prompts-override-card > summary{
+  list-style:none;
+  cursor:pointer;
+  padding:16px 18px;
+}
+
+.pex-prompts-override-summary{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.pex-prompts-override-summary .pex-admin-card-title{
+  margin:0;
+  font-size:1.05rem;
+}
+
+.pex-prompts-override-body{
+  padding:0 18px 18px;
+  border-top:1px solid var(--line);
+}
+
+.pex-prompts-preview{
+  margin-top:8px;
+  white-space:pre-wrap;
+  line-height:1.45;
+}
+
+.pex-admin-viz-caption{
+  margin:0 0 10px;
+  color:var(--muted);
+  padding:0 4px;
+}
+
+.pex-help-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:22px;
+  height:22px;
+  margin-left:6px;
+  padding:0;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:var(--surface);
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+  line-height:1;
+  cursor:pointer;
+  vertical-align:middle;
+  flex-shrink:0;
+}
+
+.pex-help-btn:hover{
+  color:var(--text);
+  border-color:color-mix(in srgb, var(--accent) 40%, var(--line));
+  background:color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.pex-page-help-bar{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:0 0 14px;
+  padding:8px 12px;
+  border-radius:8px;
+  background:var(--surface-2);
+  border:1px solid var(--line);
+}
+
+.pex-help-dialog{
+  border:none;
+  padding:0;
+  max-width:min(520px, calc(100vw - 32px));
+  width:100%;
+  border-radius:14px;
+  background:var(--card);
+  color:var(--text);
+  box-shadow:0 20px 50px rgba(0,0,0,0.35);
+}
+
+.pex-help-dialog::backdrop{
+  background:rgba(0,0,0,0.55);
+}
+
+.pex-help-dialog-inner{
+  padding:18px 20px 20px;
+}
+
+.pex-help-dialog-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+
+.pex-help-dialog-title{
+  margin:0;
+  font-size:1.15rem;
+}
+
+.pex-help-dialog-close{
+  border:none;
+  background:transparent;
+  color:var(--muted);
+  font-size:1.5rem;
+  line-height:1;
+  cursor:pointer;
+  padding:0 4px;
+}
+
+.pex-help-dialog-close:hover{
+  color:var(--text);
+}
+
+.pex-help-dialog-body{
+  font-size:14px;
+  line-height:1.5;
+  color:var(--text);
+}
+
+.pex-help-dialog-body p{
+  margin:0 0 10px;
+  color:var(--muted);
+}
+
+.pex-help-dialog-body p:last-child{
+  margin-bottom:0;
+}
+
+.pex-help-dialog-body code{
+  font-size:12px;
+}
+
+.pex-mic-help-block{
+  margin-top:8px;
+  padding:8px 10px;
+  border-left:3px solid var(--warn, #e8b84a);
+}
+
+.pex-mic-help-lead{
+  margin:0 0 8px;
+  line-height:1.45;
+}
+
+.pex-mic-help-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:4px;
+}
+
+.pex-mic-external-link{
+  text-decoration:none;
+  display:inline-flex;
+  align-items:center;
+}
+
+.pex-help-dialog-actions{
+  margin-top:14px;
+  padding-top:12px;
+  border-top:1px solid var(--line);
+}
+
+.pex-help-dialog-links{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.pex-viz-custom-panel{
+  margin:12px 0 16px;
+  padding:12px 12px 4px;
+  border-radius:10px;
+  border:1px dashed var(--line);
+  background:var(--surface-2);
+}
+
+.pex-viz-custom-panel[hidden]{
+  display:none !important;
+}
+
+.pex-session-live-strip .pex-help-btn{
+  margin-left:0;
+  margin-right:8px;
+  vertical-align:middle;
+}
+
+.pex-session-panel{
+  margin-top:18px;
+  padding:14px 14px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.pex-session-panel-title{
+  margin:0 0 4px;
+  font-size:14px;
+  font-weight:650;
+  letter-spacing:-0.01em;
+}
+
+.pex-session-details{
+  margin-top:8px;
+  padding:10px 12px;
+  border:1px dashed var(--line);
+  border-radius:10px;
+  background:var(--surface);
+}
+
+.pex-session-details > summary{
+  cursor:pointer;
+  font-weight:600;
+  color:var(--text);
+}
+
 .pex-study-controlled .pex-hamburger,
 .pex-study-controlled .pex-drawer,
 .pex-study-controlled .pex-drawer-backdrop{
@@ -2187,11 +2614,41 @@ body[data-theme="light"] .pex-admin-sidebar{
   line-height:1.45;
 }
 
-.pex-admin-topbar-actions{
+.pex-admin-topbar-actions,
+.pex-admin-topbar-toolbar{
   display:flex;
   align-items:center;
-  gap:10px;
+  gap:8px;
+  flex-shrink:0;
+}
+
+.pex-admin-topbar-toolbar .pex-icon-btn{
+  border:1px solid var(--line);
+  background:var(--surface);
+}
+
+.pex-admin-status-footer{
+  display:flex;
+  align-items:center;
   flex-wrap:wrap;
+  gap:8px;
+  padding:10px 24px 14px;
+  border-top:1px solid var(--line);
+  margin-top:auto;
+  font-size:12px;
+  color:var(--muted);
+}
+
+.pex-admin-pill--footer{
+  font-size:11px;
+}
+
+.pex-admin-status-sep{
+  opacity:0.5;
+}
+
+.pex-admin-status-refresh{
+  color:var(--muted);
 }
 
 .pex-admin-context-banner{

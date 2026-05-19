@@ -19,6 +19,18 @@ Then open **[http://localhost:8000](http://localhost:8000)** (participant UI) or
 
 From the admin **Exports** page you can download a **study CSV** (readable columns and register labels, participant rows only) or a **full archive CSV** (same column names as the on-disk log). Raw logging paths and behaviour are unchanged.
 
+### Phone voice-to-text (HTTPS)
+
+Mobile browsers usually **block the microphone** on `http://192.168.x.x:8000`. For **voice-to-text** on a participant phone, use an **HTTPS** URL (e.g. [ngrok](https://ngrok.com/)) pointing at the same Flask port.
+
+1. Start Relay: `python -m prototype.server` (use `--host=0.0.0.0` if phones are on the same Wi‑Fi).
+2. In another terminal: `ngrok http 8000`
+3. Open **admin** at the `https://….ngrok-free.app` URL (not the LAN IP).
+4. In **Study session**, build the participant link with **Voice-to-text** and copy it to the phone.
+5. Verify: `python prototype/scripts/check_study_https_mic.py --base https://YOUR.ngrok-host`
+
+**Typing** and **Swipe typing** can still use a plain `http://` LAN link. See **Study session → Phone microphone** in admin for full steps.
+
 Use a virtual environment if you prefer (example):
 
 ```bash

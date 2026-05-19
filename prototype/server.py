@@ -423,6 +423,10 @@ def api_health() -> Response:
     Also reports availability of optional NLP / audio components so the UI
     can toggle related controls.
     """
+    forwarded = (request.headers.get("X-Forwarded-Proto") or "").split(",")[0].strip().lower()
+    host = (request.host or "").split(":")[0].lower()
+    is_secure = bool(request.is_secure) or forwarded == "https"
+    mic_likely = is_secure or host in {"localhost", "127.0.0.1"}
     payload = {
         "ok": True,
         # Optional HF star-sentiment stack (not used in study CSV logging).
@@ -431,6 +435,8 @@ def api_health() -> Response:
         "ffmpeg_ok": FFMPEG_AVAILABLE,
         "whisper_error": WHISPER_ERROR,
         "openai_configured": has_openai_key_configured(),
+        "request_is_secure": is_secure,
+        "mic_likely_available": mic_likely,
     }
     return jsonify(payload)
 
@@ -444,8 +450,8 @@ def api_config() -> Response:
     (e.g., per‑study settings loaded from a JSON file).
     """
     config = {
-        "media_types": ["SMS", "Messenger", "Email"],
-        "default_medium": "SMS",
+        "media_types": ["Messenger", "Email", "SMS"],
+        "default_medium": "Messenger",
         "allow_voice_medium": False,
         "analysis_models": {
             "formality_model": True,

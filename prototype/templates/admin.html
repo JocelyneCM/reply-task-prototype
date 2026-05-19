@@ -81,12 +81,6 @@
           </button>
         </nav>
 
-        <div class="pex-admin-sidebar-footer">
-          <a class="pex-admin-participant-link" href="/">← Participant experience</a>
-          <p class="pex-admin-sidebar-note">
-            Same study session as the Relay UI at <code>/</code>
-          </p>
-        </div>
       </aside>
 
       <div class="pex-admin-shell">
@@ -97,13 +91,24 @@
               Snapshot of log rows and participants.
             </p>
           </div>
-          <div class="pex-admin-topbar-actions">
-            <span class="pex-admin-pill" id="serverPill">Checking…</span>
-            <button type="button" class="pex-btn-ghost" id="themeToggleBtn">
-              Light mode
+          <div class="pex-admin-topbar-toolbar" aria-label="App actions">
+            <button
+              type="button"
+              class="pex-icon-btn pex-theme-btn"
+              id="themeToggleBtn"
+              aria-label="Toggle light or dark theme"
+              title="Toggle theme"
+            >
+              <span class="pex-theme-icon" aria-hidden="true">◐</span>
             </button>
-            <button type="button" class="pex-btn-primary" id="adminRefreshBtn">
-              Refresh data
+            <button
+              type="button"
+              class="pex-icon-btn"
+              id="adminRefreshBtn"
+              aria-label="Refresh data"
+              title="Refresh data"
+            >
+              <span aria-hidden="true">↻</span>
             </button>
           </div>
         </header>
@@ -123,6 +128,10 @@
             data-admin-view-panel="overview"
             aria-labelledby="pexAdminPageTitle"
           >
+            <p class="pex-page-help-bar">
+              <button type="button" class="pex-help-btn" data-help-id="overview" aria-label="Help: Overview">?</button>
+              <span class="small">Study snapshot and quick charts</span>
+            </p>
             <div class="pex-admin-kpi-grid" id="adminKpiGrid">
               <article class="pex-admin-kpi">
                 <div class="pex-admin-kpi-label">Total log rows</div>
@@ -143,7 +152,7 @@
             <div class="pex-admin-card-grid">
               <div class="pex-admin-card">
                 <h2 class="pex-admin-card-title">Log rows by medium</h2>
-                <p class="pex-admin-card-desc">Participant replies in each interface</p>
+                <p class="pex-admin-card-desc">Participant replies (Messenger, Email; legacy SMS/Voice if present)</p>
                 <div class="pex-admin-chart-wrap">
                   <canvas id="overviewMediumChart" height="220"></canvas>
                 </div>
@@ -166,163 +175,196 @@
             hidden
           >
             <div class="pex-admin-card">
-              <h2 class="pex-admin-card-title">Study session</h2>
+              <h2 class="pex-admin-card-title">Study session
+                <button type="button" class="pex-help-btn" data-help-id="session" aria-label="Help: Study session">?</button>
+              </h2>
               <p class="pex-admin-card-desc">
-                Set up each participant with an ID (e.g. <strong>P010</strong>), a <strong>task plan</strong>, and a link. The participant UI follows the <strong>current task</strong> from the saved plan (updates within a few seconds after <strong>Save plan</strong>). Prompt wording comes from the library row you pick in the plan, or from random pool / <strong>Prompts → next prompt</strong> when set to random.
+                Set the <strong>participant</strong> and <strong>active task</strong>, then <strong>Save plan</strong> so open phones pick up changes within a few seconds.
               </p>
-              <div class="pex-admin-filters-grid" style="margin-top:12px;">
-                <div class="pex-admin-field">
-                  <label class="pex-admin-label" for="sessionParticipantId">Participant ID</label>
-                  <input id="sessionParticipantId" type="text" placeholder="e.g. P006" autocomplete="off" style="width:100%;max-width:280px;" />
-                  <button type="button" class="pex-btn-ghost" id="sessionSuggestParticipantBtn" style="margin-top:8px;">
-                    Suggest next participant ID
-                  </button>
-                  <p class="small" style="margin-top:6px;color:var(--muted);line-height:1.45;">
-                    Use the same ID on every link for that person (format <strong>P001</strong>, <strong>P010</strong>, …). The participant page must use this ID so logs and live task updates stay matched.
-                  </p>
+
+              <div class="pex-session-live" id="sessionLiveShell">
+                <div class="pex-session-live-strip" id="sessionLiveNextAction" aria-live="polite"><button type="button" class="pex-help-btn" data-help-id="session-live-update" aria-label="Help: Live updates">?</button> 
+                  Enter a participant ID to begin.
                 </div>
-                <div class="pex-admin-field">
-                  <label class="pex-admin-label" for="sessionMedium">Medium</label>
-                  <select id="sessionMedium">
-                    <option value="Messenger">Messenger</option>
-                    <option value="Email">Email</option>
-                    <option value="Voice">Voice (audio reply — not voice-to-text)</option>
-                    <option value="SMS">SMS (legacy)</option>
-                  </select>
-                </div>
-                <div class="pex-admin-field">
-                  <label class="pex-admin-label" for="sessionInputMethod">Input method</label>
-                  <select id="sessionInputMethod">
-                    <option value="Typing">Typing</option>
-                    <option value="Swipe typing">Swipe typing</option>
-                    <option value="Voice-to-text">Voice-to-text</option>
-                  </select>
-                  <p class="small" style="margin-top:6px;color:var(--muted);">Swipe typing is typically phone-only; assignment is up to the study protocol.</p>
-                  <p class="small" style="margin-top:6px;color:var(--muted);line-height:1.45;">
-                    <strong>Voice-to-text</strong> = mic in the chat/email compose box. Phones usually need an <strong>HTTPS</strong> link for the mic to work (see guidance below). <strong>Typing</strong> and <strong>Swipe typing</strong> work on ordinary <code>http://</code> LAN links.
-                  </p>
-                </div>
-                <div class="pex-admin-field">
-                  <label class="pex-admin-label" for="sessionDevice">Device context</label>
-                  <select id="sessionDevice">
-                    <option value="">Not specified</option>
-                    <option value="phone">Phone</option>
-                    <option value="laptop">Laptop</option>
-                  </select>
-                  <p class="small" style="margin-top:6px;color:var(--muted);">Shown as a label on the participant UI only (not logged as its own column).</p>
-                </div>
-                <div class="pex-admin-field">
-                  <label class="pex-admin-label" for="sessionPromptCondition">Prompt condition (URL)</label>
-                  <select id="sessionPromptCondition">
-                    <option value="auto">auto</option>
-                    <option value="formal">formal</option>
-                    <option value="informal">informal</option>
-                  </select>
-                  <p class="small" style="margin-top:6px;color:var(--muted);line-height:1.45;">
-                    Formal / informal / auto for this task (saved in logs as prompt formality).
-                  </p>
-                </div>
-                <input type="hidden" id="sessionTextPromptId" value="" />
-              </div>
-              <div class="pex-admin-field" style="margin-top:16px;">
-                <label class="pex-admin-label">Participant link</label>
-                <div class="row" style="flex-wrap:wrap;gap:10px;align-items:center;">
-                  <code id="sessionParticipantUrl" class="small" style="word-break:break-all;flex:1;min-width:200px;padding:8px 10px;border-radius:8px;background:var(--surface-2);"></code>
-                  <button type="button" class="pex-btn-primary" id="sessionOpenParticipantBtn">Open participant UI</button>
-                  <button type="button" class="pex-btn-ghost" id="sessionCopyLinkBtn">Copy link</button>
-                </div>
-              </div>
-              <div class="pex-admin-field" style="margin-top:16px;">
-                <label class="pex-admin-label">Task order (session plan)</label>
-                <p class="small" style="color:var(--muted);margin:6px 0 8px;line-height:1.5;">
-                  One row = one full two-turn exercise. Edit the current row → <strong>Save plan</strong> (open participant pages update automatically). Use <strong>Advance one task</strong> when moving to the next condition. <strong>Apply current task to link</strong> refreshes the URL for new browser tabs.
-                </p>
-                <div
-                  id="sessionPlanSummary"
-                  class="small"
-                  style="margin-bottom:10px;padding:10px 12px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);line-height:1.5;"
-                  aria-live="polite"
-                ></div>
-                <div class="pex-admin-table-scroll" style="max-width:960px;">
-                  <table class="pex-admin-table" id="sessionPlanTaskTable">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Medium</th>
-                        <th>Input method</th>
-                        <th>Device</th>
-                        <th>Prompt condition</th>
-                        <th>Prompt pick</th>
-                        <th>Library prompt</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody id="sessionPlanTableBody"></tbody>
-                  </table>
-                </div>
-                <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center;">
-                  <button type="button" class="pex-btn-ghost" id="sessionPlanAddTaskBtn">Add task</button>
-                  <label class="small" style="display:inline-flex;align-items:center;gap:6px;margin:0;">
-                    Current task #
-                    <input
-                      type="number"
-                      id="sessionPlanCurrentTaskNum"
-                      min="1"
-                      step="1"
-                      value="1"
-                      style="width:64px;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);"
-                    />
-                  </label>
-                </div>
-                <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center;">
-                  <button type="button" class="pex-btn-ghost" id="sessionPlanReloadBtn">Reload plan</button>
-                  <button type="button" class="pex-btn-primary" id="sessionPlanSaveBtn">Save plan</button>
-                  <button type="button" class="pex-btn-primary" id="sessionPlanApplyBtn">Apply current task to link</button>
-                  <button type="button" class="pex-btn-ghost" id="sessionPlanRepeatBtn">Repeat task (re-apply link)</button>
-                  <button type="button" class="pex-btn-ghost" id="sessionPlanAdvanceBtn">Advance one task</button>
-                  <button type="button" class="pex-btn-ghost" id="sessionPlanSkipBtn">Skip to next task</button>
-                </div>
-                <details class="small" style="margin-top:14px;color:var(--muted);">
-                  <summary style="cursor:pointer;color:var(--text);">Advanced: raw JSON</summary>
-                  <p style="margin:8px 0;line-height:1.5;">
-                    Same data as the table. Use <strong>Import JSON into table</strong> after editing, then <strong>Save plan</strong>.
-                  </p>
-                  <textarea
-                    id="sessionPlanJson"
-                    rows="8"
-                    spellcheck="false"
-                    style="width:100%;max-width:640px;font-family:ui-monospace,monospace;font-size:12px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);"
-                    placeholder='{"tasks":[{"medium":"Messenger","input_method":"Typing","device":"laptop","prompt_condition":"auto","prompt_pick":"random","text_prompt_id":""}],"current_index":0}'
-                  ></textarea>
-                  <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px;">
-                    <button type="button" class="pex-btn-ghost" id="sessionPlanImportJsonBtn">Import JSON into table</button>
+
+                <div class="pex-session-live-grid">
+                  <div class="pex-session-live-col">
+                    <h3 class="pex-session-panel-title">Participant</h3> <button type="button" class="pex-help-btn" data-help-id="session-participant" aria-label="Help: Participant ID">?</button>
+                    <div class="pex-admin-field">
+                      <label class="pex-admin-label" for="sessionParticipantId">Participant ID</label>
+                      <input
+                        id="sessionParticipantId"
+                        type="text"
+                        list="sessionParticipantIdList"
+                        placeholder="Type P006 or pick existing…"
+                        autocomplete="off"
+                        class="pex-session-id-input"
+                      />
+                      <datalist id="sessionParticipantIdList"></datalist>
+                      <div class="pex-session-id-actions">
+                        <button type="button" class="pex-btn-ghost pex-btn-ghost--compact" id="sessionSuggestParticipantBtn">
+                          Suggest next ID
+                        </button>
+                      </div>
+                      <p class="pex-inline-hint">
+                        Same ID on every link (<strong>P001</strong>, <strong>P010</strong>, …). Type a new ID or choose from suggestions.
+                      </p>
+                    </div>
+                    <div class="pex-admin-field" style="margin-top:14px;">
+                      <label class="pex-admin-label">Participant link</label>
+                      <code id="sessionParticipantUrl" class="pex-session-link-preview small"></code>
+                      <div class="row pex-session-link-actions">
+                        <button type="button" class="pex-btn-primary" id="sessionOpenParticipantBtn">Open UI</button>
+                        <button type="button" class="pex-btn-ghost" id="sessionCopyLinkBtn">Copy link</button>
+                      </div>
+                    </div>
                   </div>
-                </details>
-                <p class="small" id="sessionPlanStatus" style="margin-top:8px;color:var(--muted);" aria-live="polite"></p>
+
+                  <div class="pex-session-live-col pex-session-live-col--task">
+                    <h3 class="pex-session-panel-title">Active task &amp; controls</h3> <button type="button" class="pex-help-btn" data-help-id="session-active-task" aria-label="Help: Active task">?</button>
+                    <div
+                      id="sessionPlanSummary"
+                      class="pex-session-plan-summary"
+                      aria-live="polite"
+                    ></div>
+
+                    <div class="pex-session-primary-actions">
+                      <button type="button" class="pex-help-btn" data-help-id="session-save-plan" aria-label="Help: Save plan">?</button>
+                      <button type="button" class="pex-btn-primary" id="sessionPlanSaveBtn">Save plan</button>
+                      <button type="button" class="pex-btn-ghost" id="sessionPlanAdvanceBtn">Advance task</button>
+                      <label class="pex-session-task-num small">
+                        Task #
+                        <input
+                          type="number"
+                          id="sessionPlanCurrentTaskNum"
+                          min="1"
+                          step="1"
+                          value="1"
+                        />
+                      </label>
+                    </div>
+                    <p class="small pex-session-status-line" id="sessionPlanStatus" aria-live="polite"></p>
+
+                    <div class="pex-admin-filters-grid pex-session-task-fields">
+                      <div class="pex-admin-field">
+                        <label class="pex-admin-label" for="sessionMedium">Medium</label>
+                        <select id="sessionMedium">
+                          <option value="Messenger">Messenger</option>
+                          <option value="Email">Email</option>
+                        </select>
+                      </div>
+                      <div class="pex-admin-field">
+                        <label class="pex-admin-label" for="sessionInputMethod">Input method</label>
+                        <select id="sessionInputMethod">
+                          <option value="Typing">Typing</option>
+                          <option value="Swipe typing">Swipe typing</option>
+                          <option value="Voice-to-text">Voice-to-text</option>
+                        </select>
+                                                <div id="sessionVttMicHint" class="pex-inline-help pex-mic-help-block" hidden>
+                          <p class="small pex-mic-help-lead">
+                            <strong>Phones on Wi‑Fi HTTP cannot use the mic</strong> — browsers block it. Use HTTPS (ngrok) for voice-to-text, or use typing/swipe on HTTP.
+                          </p>
+                          <div class="pex-mic-help-actions">
+                            <button type="button" class="pex-btn-ghost pex-btn-ghost--compact" id="sessionPhoneMicHelpBtn">
+                              Phone mic help
+                            </button>
+                            <button type="button" class="pex-btn-ghost pex-btn-ghost--compact" id="sessionPhoneMicQuickBtn">
+                              Quick HTTPS checklist
+                            </button>
+                            <a
+                              href="https://ngrok.com/download"
+                              class="pex-btn-ghost pex-btn-ghost--compact pex-mic-external-link"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >Open ngrok download</a>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="pex-admin-field">
+                        <label class="pex-admin-label" for="sessionDevice">Device</label>
+                        <select id="sessionDevice">
+                          <option value="">Not specified</option>
+                          <option value="phone">Phone</option>
+                          <option value="laptop">Laptop</option>
+                        </select>
+                      </div>
+                      <div class="pex-admin-field">
+                        <label class="pex-admin-label" for="sessionPromptCondition">Prompt condition <button type="button" class="pex-help-btn" data-help-id="session-prompt-condition" aria-label="Help: session-prompt-condition">?</button></label>
+                        <select id="sessionPromptCondition">
+                          <option value="auto">auto</option>
+                          <option value="formal">formal</option>
+                          <option value="informal">informal</option>
+                        </select>
+                      </div>
+                      <div class="pex-admin-field">
+                        <label class="pex-admin-label" for="sessionPromptPick">Prompt pick <button type="button" class="pex-help-btn" data-help-id="session-prompt-pick" aria-label="Help: session-prompt-pick">?</button></label>
+                        <select id="sessionPromptPick">
+                          <option value="random">Random from library</option>
+                          <option value="selected">Specific library prompt</option>
+                        </select>
+                      </div>
+                      <div class="pex-admin-field" id="sessionLibraryPromptField">
+                        <label class="pex-admin-label" for="sessionTextPromptId">Library prompt <button type="button" class="pex-help-btn" data-help-id="session-library-prompt" aria-label="Help: session-library-prompt">?</button></label>
+                        <select id="sessionTextPromptId" disabled>
+                          <option value="">— choose prompt —</option>
+                        </select>
+                        <p class="pex-inline-hint">Applies to this task after you click Save plan.</p>
+                      </div>
+                    </div>
+
+                    <div class="pex-session-secondary-actions">
+                      <button type="button" class="pex-btn-ghost pex-btn-ghost--compact" id="sessionPlanReloadBtn">Reload plan</button>
+                      <button type="button" class="pex-btn-ghost pex-btn-ghost--compact" id="sessionPlanApplyBtn">Apply to link</button>
+                      <button type="button" class="pex-btn-ghost pex-btn-ghost--compact" id="sessionPlanRepeatBtn">Repeat task</button>
+                      <button type="button" class="pex-btn-ghost pex-btn-ghost--compact" id="sessionPlanSkipBtn">Skip task</button>
+                    </div>
+
+                    <details class="pex-session-details">
+                      <summary>Full task list (multi-task protocols)</summary>
+                      <p class="pex-inline-hint">
+                        For one condition reused across trials, keep a single row and edit fields above between saves.
+                      </p>
+                      <div class="row" style="flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                        <button type="button" class="pex-btn-ghost" id="sessionPlanAddTaskBtn">Add task</button>
+                      </div>
+                      <div class="pex-admin-table-scroll" style="max-width:960px;">
+                        <table class="pex-admin-table" id="sessionPlanTaskTable">
+                          <thead>
+                            <tr>
+                              <th>#</th>
+                              <th>Medium</th>
+                              <th>Input method</th>
+                              <th>Device</th>
+                              <th>Prompt condition</th>
+                              <th>Prompt pick</th>
+                              <th>Library prompt</th>
+                              <th></th>
+                            </tr>
+                          </thead>
+                          <tbody id="sessionPlanTableBody"></tbody>
+                        </table>
+                      </div>
+                      <details class="small" style="margin-top:14px;color:var(--muted);">
+                        <summary style="cursor:pointer;color:var(--text);">Advanced: raw JSON</summary>
+                        <p style="margin:8px 0;line-height:1.5;">
+                          Same data as the table. Import JSON, then <strong>Save plan</strong>.
+                        </p>
+                        <textarea
+                          id="sessionPlanJson"
+                          rows="8"
+                          spellcheck="false"
+                          style="width:100%;max-width:640px;font-family:ui-monospace,monospace;font-size:12px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);"
+                          placeholder='{"tasks":[{"medium":"Messenger","input_method":"Typing","device":"laptop","prompt_condition":"auto","prompt_pick":"random","text_prompt_id":""}],"current_index":0}'
+                        ></textarea>
+                        <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px;">
+                          <button type="button" class="pex-btn-ghost" id="sessionPlanImportJsonBtn">Import JSON into table</button>
+                        </div>
+                      </details>
+                    </details>
+                  </div>
+                </div>
               </div>
             </div>
-            <details class="pex-admin-card" style="margin-top:16px;">
-              <summary class="pex-admin-card-title" style="cursor:pointer;list-style-position:outside;">
-                Phone microphone (voice-to-text on HTTPS)
-              </summary>
-              <div class="pex-admin-prose" style="margin-top:12px;">
-                <p>
-                  <strong>Problem:</strong> On phones, Chrome often blocks the mic on <code>http://192.168.x.x:8000</code> links. The participant may see a yellow warning and no permission prompt.
-                </p>
-                <p>
-                  <strong>Fix (recommended for lab sessions):</strong> expose the same Flask app through an <strong>HTTPS tunnel</strong>, then use that URL on the phone.
-                </p>
-                <ol style="margin:8px 0;padding-left:1.25rem;line-height:1.55;">
-                  <li>Start Relay as usual on the researcher laptop (<code>flask run --host=0.0.0.0 --port=8000</code>).</li>
-                  <li>Install <a href="https://ngrok.com/" target="_blank" rel="noopener">ngrok</a> (or use Cloudflare Tunnel).</li>
-                  <li>Run <code>ngrok http 8000</code> and copy the <strong>https://</strong> forwarding URL.</li>
-                  <li>Open admin at that HTTPS URL, build the participant link, and send it to the phone (same <code>participant_id=</code> query params).</li>
-                </ol>
-                <p class="small" style="color:var(--muted);margin-top:10px;">
-                  <strong>Laptop-only typing/swipe</strong> can keep using a plain LAN <code>http://</code> link. <strong>Voice-to-text on a phone</strong> should use HTTPS. Local <code>https://</code> with mkcert is possible but requires installing a trust certificate on each phone.
-                </p>
-              </div>
-            </details>
           </section>
 
           <!-- Participants -->
@@ -334,7 +376,7 @@
           >
             <div class="pex-admin-card pex-admin-card--flush">
               <div class="pex-admin-card-header">
-                <h2 class="pex-admin-card-title">Participant directory</h2>
+                <h2 class="pex-admin-card-title">Participant directory</h2> <button type="button" class="pex-help-btn" data-help-id="participants" aria-label="Help: participants">?</button>
                 <p class="pex-admin-card-desc">
                   Summary is built from <strong>logged CSV rows</strong> (<code>prompt_formality</code>,
                   <code>prompt_id</code>), not live Prompt Library or Study session settings. Open
@@ -391,9 +433,9 @@
                   <label class="pex-admin-label" for="mediumFilter">Medium</label>
                   <select id="mediumFilter">
                     <option value="">All</option>
-                    <option>SMS</option>
                     <option>Messenger</option>
                     <option>Email</option>
+                    <option>SMS</option>
                   </select>
                 </div>
                 <div class="pex-admin-field">
@@ -419,7 +461,7 @@
             <div class="pex-admin-trials-split">
               <div class="pex-admin-trials-left">
                 <div class="pex-admin-card">
-                  <h2 class="pex-admin-card-title">Charts</h2>
+                  <h2 class="pex-admin-card-title">Charts</h2> <button type="button" class="pex-help-btn" data-help-id="trials" aria-label="Help: trials">?</button>
                   <p class="pex-admin-card-desc">Updates with the filters above</p>
                   <div class="pex-admin-charts-grid">
                     <div class="pex-admin-chart-card">
@@ -517,7 +559,7 @@
             hidden
           >
             <div class="pex-admin-card pex-admin-filters">
-              <h2 class="pex-admin-card-title">Filters</h2>
+              <h2 class="pex-admin-card-title">Filters</h2> <button type="button" class="pex-help-btn" data-help-id="edit-traces" aria-label="Help: edit-traces">?</button>
               <p class="pex-admin-card-desc">
                 Only rows with <code>edit_trace_available = yes</code> are listed. Layer counts come from each sidecar (v1 uses approximate legacy counts). Schema filter may scan many files — capped server-side.
                 <strong>JSON</strong> column: <em>ok</em> = sidecar readable; <em>missing</em> = CSV points to a file that is absent.
@@ -656,7 +698,7 @@
             hidden
           >
             <div class="pex-admin-viz-hero pex-admin-card">
-              <h2 class="pex-admin-card-title">Visualization builder</h2>
+              <h2 class="pex-admin-card-title">Visualization builder</h2> <button type="button" class="pex-help-btn" data-help-id="visualizations" aria-label="Help: visualizations">?</button>
               <p class="pex-admin-card-desc">
                 Choose a chart and filters. This view is display-only and does not change stored logs.
               </p>
@@ -672,9 +714,40 @@
                     <option value="response_time">Response time by log row</option>
                     <option value="avg_rt_input">Avg response time by input method</option>
                     <option value="formality">Reply register distribution</option>
+                    <option value="input_method">Log rows by input method</option>
+                    <option value="custom">Custom chart…</option>
                   </select>
                 </div>
-                <h3 class="pex-admin-viz-h3">Filters</h3>
+                <div id="vizCustomPanel" class="pex-viz-custom-panel" hidden>
+                  <h3 class="pex-admin-viz-h3">Custom chart <button type="button" class="pex-help-btn" data-help-id="viz-custom" aria-label="Help: viz-custom">?</button></h3>
+                  <p class="pex-inline-hint">Group logged rows by a field (X) and choose a measure (Y). Filters below still apply.</p>
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="vizCustomDimension">Group by (X)</label>
+                    <select id="vizCustomDimension">
+                      <option value="medium">Medium</option>
+                      <option value="input_method">Input method</option>
+                      <option value="prompt_formality">Prompt condition (logged)</option>
+                      <option value="participant_id">Participant ID</option>
+                      <option value="log_date">Date (from timestamp)</option>
+                    </select>
+                  </div>
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="vizCustomMetric">Measure (Y)</label>
+                    <select id="vizCustomMetric">
+                      <option value="count">Number of log rows</option>
+                      <option value="avg_rt">Average response time (seconds)</option>
+                    </select>
+                  </div>
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="vizCustomStyle">Chart style</label>
+                    <select id="vizCustomStyle">
+                      <option value="bar">Bar</option>
+                      <option value="line">Line</option>
+                      <option value="doughnut">Doughnut (row counts only)</option>
+                    </select>
+                  </div>
+                </div>
+                <h3 class="pex-admin-viz-h3">Filters <button type="button" class="pex-help-btn" data-help-id="viz-filters" aria-label="Help: viz-filters">?</button></h3>
                 <div class="pex-admin-field">
                   <label class="pex-admin-label" for="vizParticipantFilter">Participant</label>
                   <select id="vizParticipantFilter">
@@ -685,9 +758,9 @@
                   <label class="pex-admin-label" for="vizMediumFilter">Medium</label>
                   <select id="vizMediumFilter">
                     <option value="">All</option>
-                    <option>SMS</option>
                     <option>Messenger</option>
                     <option>Email</option>
+                    <option>SMS</option>
                   </select>
                 </div>
                 <div class="pex-admin-field">
@@ -735,6 +808,7 @@
               <div class="pex-admin-viz-output">
                 <div class="pex-admin-card pex-admin-viz-chart-card">
                   <div id="vizMetaPanel" class="pex-admin-viz-meta hidden" aria-live="polite"></div>
+                  <p id="vizChartCaption" class="pex-admin-viz-caption small" aria-live="polite"></p>
                   <div class="pex-admin-chart-wrap pex-admin-viz-canvas-wrap">
                     <canvas id="vizBuilderChart" height="280"></canvas>
                   </div>
@@ -751,7 +825,9 @@
             hidden
           >
             <article class="pex-admin-card pex-admin-export-card--featured" style="max-width:720px;">
-              <h2 class="pex-admin-card-title">CSV exports</h2>
+              <h2 class="pex-admin-card-title">CSV exports
+                <button type="button" class="pex-help-btn" data-help-id="exports" aria-label="Help: Exports">?</button>
+              </h2>
               <p class="pex-admin-card-desc">
                 <strong>Primary for analysis:</strong> full raw log — every column as stored on disk, including participant rows and AI/LLM rows. Check the box below only if you want the same columns restricted to human replies.
               </p>
@@ -806,181 +882,200 @@
             data-admin-view-panel="prompts"
             hidden
           >
-            <div class="pex-admin-card">
-              <h2 class="pex-admin-card-title">Prompt library</h2>
-              <p class="pex-admin-card-desc">
-                Persistent prompts live in <code>prototype/data/prompt_library.json</code> (created on first use from built-in defaults). Built-ins in code remain a fallback if the file is missing. Inactive prompts are excluded from random selection and from the “next preset” list.
-                <strong>Prompt condition</strong> here is saved on the library row and copied into CSV as <code>prompt_formality</code> when a participant sends (unless the Study session URL overrides it). The Participants table only updates after those log rows exist.
-              </p>
-              <div class="pex-admin-filters-grid" style="margin-top:12px;align-items:end;">
-                <div class="pex-admin-field">
-                  <label class="pex-admin-label" for="plSearchInput">Search</label>
-                  <input id="plSearchInput" type="search" placeholder="id, text, notes…" autocomplete="off" style="width:100%;max-width:280px;" />
+            <div class="pex-prompts-layout">
+            <p class="pex-page-help-bar"><button type="button" class="pex-help-btn" data-help-id="prompts" aria-label="Help: Prompts page">?</button> <span class="small">Library vs live session vs one-shot override</span></p>
+              <div class="pex-admin-card pex-prompts-library-card">
+                <div class="pex-prompts-library-header">
+                  <div>
+                    <h2 class="pex-admin-card-title">Prompt library</h2> <button type="button" class="pex-help-btn" data-help-id="prompts-library" aria-label="Help: prompts-library">?</button>
+                    <p class="pex-admin-card-desc">
+                      Reusable study prompts (Messenger + Email). Saved to <code>prompt_library.json</code>.
+                      Select a row to edit, or create a new prompt.
+                    </p>
+                  </div>
+                  <button type="button" class="pex-btn-primary" id="plNewBtn">New prompt</button>
                 </div>
-                <div class="pex-admin-field">
-                  <label class="pex-admin-label" style="display:flex;align-items:center;gap:8px;">
-                    <input type="checkbox" id="plIncludeInactive" checked />
-                    Include inactive
-                  </label>
-                </div>
-                <div class="row" style="flex-wrap:wrap;gap:8px;">
-                  <button type="button" class="pex-btn-ghost" id="plReloadBtn">Reload table</button>
-                  <button type="button" class="pex-btn-ghost" id="plExportBtn">Download JSON</button>
-                </div>
-              </div>
-              <div class="pex-admin-table-scroll" style="margin-top:12px;">
-                <table class="pex-admin-table">
-                  <thead>
-                    <tr>
-                      <th>Active</th>
-                      <th>ID</th>
-                      <th>Condition</th>
-                      <th>Kind</th>
-                      <th>SMS preview</th>
-                      <th>Notes</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="plLibraryTableBody"></tbody>
-                </table>
-              </div>
-              <div class="pex-admin-card" style="margin-top:16px;background:var(--surface-2);">
-                <h3 class="pex-admin-card-title" style="font-size:1rem;">Create / edit prompt</h3>
-                <p class="small" id="plFormStatus" style="color:var(--muted);margin-bottom:10px;"></p>
-                <div class="pex-admin-filters-grid">
+                <div class="pex-admin-filters-grid pex-prompts-library-toolbar">
                   <div class="pex-admin-field">
-                    <label class="pex-admin-label" for="plFieldId">Prompt id</label>
-                    <input id="plFieldId" type="text" placeholder="e.g. prompt_004" autocomplete="off" style="max-width:220px;" />
+                    <label class="pex-admin-label" for="plSearchInput">Search</label>
+                    <input id="plSearchInput" type="search" placeholder="id, text, notes…" autocomplete="off" />
                   </div>
                   <div class="pex-admin-field">
-                    <label class="pex-admin-label" for="plPromptKind">Medium / kind</label>
+                    <label class="pex-admin-label pex-admin-checkbox-label">
+                      <input type="checkbox" id="plIncludeInactive" checked />
+                      Include inactive
+                    </label>
+                  </div>
+                  <div class="row pex-prompts-toolbar-actions">
+                    <button type="button" class="pex-btn-ghost pex-btn-ghost--compact" id="plReloadBtn">Reload</button>
+                    <button type="button" class="pex-btn-ghost pex-btn-ghost--compact" id="plExportBtn">Download JSON</button>
+                  </div>
+                </div>
+                <div class="pex-admin-table-scroll">
+                  <table class="pex-admin-table pex-prompts-table">
+                    <thead>
+                      <tr>
+                        <th>Active</th>
+                        <th>ID</th>
+                        <th>Condition</th>
+                        <th>Applies to</th>
+                        <th>Messenger preview</th>
+                        <th>Notes</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="plLibraryTableBody"></tbody>
+                  </table>
+                </div>
+                <p class="pex-inline-hint">Tip: click a row or <strong>Edit</strong> to open the editor. Inactive prompts are excluded from random picks.</p>
+              </div>
+
+              <div id="plEditorPanel" class="pex-admin-card pex-prompts-editor-card" hidden>
+                <div class="pex-prompts-editor-header">
+                  <div>
+                    <h2 class="pex-admin-card-title" id="plEditorTitle">Edit prompt</h2>
+                    <p class="pex-admin-card-desc">
+                      Changes here update the <strong>library file</strong> for future tasks — not the live Study session until you assign a prompt there and Save plan.
+                    </p>
+                  </div>
+                  <button type="button" class="pex-btn-ghost pex-btn-ghost--compact" id="plCloseEditorBtn" aria-label="Close editor">Close</button>
+                </div>
+                <p class="small pex-prompts-form-status" id="plFormStatus"></p>
+                <div class="pex-admin-filters-grid">
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="plFieldId">Prompt ID</label>
+                    <input id="plFieldId" type="text" placeholder="e.g. prompt_004" autocomplete="off" />
+                  </div>
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="plPromptKind">Applies to</label>
                     <select id="plPromptKind">
-                      <option value="all">SMS + Messenger + Email bundle</option>
-                      <option value="sms_messenger">SMS / Messenger (metadata)</option>
-                      <option value="email">Email (metadata)</option>
+                      <option value="all">Messenger + Email bundle</option>
+                      <option value="sms_messenger">Messenger (chat) only</option>
+                      <option value="email">Email only</option>
                     </select>
                   </div>
                   <div class="pex-admin-field">
-                    <label class="pex-admin-label" for="plPromptCondition">Prompt condition</label>
+                    <label class="pex-admin-label" for="plPromptCondition">Default prompt condition</label>
                     <select id="plPromptCondition">
-                      <option value="auto">auto (model at log time)</option>
+                      <option value="auto">auto (detect at log time)</option>
                       <option value="formal">formal</option>
                       <option value="informal">informal</option>
                     </select>
                   </div>
                   <div class="pex-admin-field">
-                    <label class="pex-admin-label" style="display:flex;align-items:center;gap:8px;">
+                    <label class="pex-admin-label pex-admin-checkbox-label">
                       <input type="checkbox" id="plActive" checked />
-                      Active
+                      Active in library
                     </label>
                   </div>
                 </div>
-                <div class="pex-admin-field" style="margin-top:10px;">
-                  <label class="pex-admin-label" for="plSms">SMS text</label>
-                  <textarea id="plSms" rows="2" style="width:100%;max-width:640px;"></textarea>
-                </div>
-                <div class="pex-admin-field" style="margin-top:10px;">
-                  <label class="pex-admin-label" for="plMessenger">Messenger text</label>
-                  <textarea id="plMessenger" rows="2" style="width:100%;max-width:640px;"></textarea>
-                </div>
-                <div class="pex-admin-field" style="margin-top:10px;">
-                  <label class="pex-admin-label" for="plEmailFrom">Email from</label>
-                  <input id="plEmailFrom" type="text" style="width:100%;max-width:400px;" />
-                </div>
-                <div class="pex-admin-field" style="margin-top:10px;">
-                  <label class="pex-admin-label" for="plEmailSubject">Email subject</label>
-                  <input id="plEmailSubject" type="text" style="width:100%;max-width:400px;" />
-                </div>
-                <div class="pex-admin-field" style="margin-top:10px;">
-                  <label class="pex-admin-label" for="plEmailBody">Email body</label>
-                  <textarea id="plEmailBody" rows="4" style="width:100%;max-width:640px;"></textarea>
-                </div>
-                <div class="pex-admin-filters-grid" style="margin-top:10px;">
+                <div class="pex-prompts-editor-body">
                   <div class="pex-admin-field">
-                    <label class="pex-admin-label" for="plCategory">Category</label>
-                    <input id="plCategory" type="text" style="width:100%;max-width:280px;" />
+                    <label class="pex-admin-label" for="plMessenger">Messenger message</label>
+                    <textarea id="plMessenger" rows="3" placeholder="Short chat-style prompt"></textarea>
                   </div>
                   <div class="pex-admin-field">
-                    <label class="pex-admin-label" for="plNotes">Notes</label>
-                    <input id="plNotes" type="text" style="width:100%;max-width:400px;" />
+                    <label class="pex-admin-label" for="plEmailFrom">Email — from</label>
+                    <input id="plEmailFrom" type="text" placeholder="sender@example.com" />
+                  </div>
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="plEmailSubject">Email — subject</label>
+                    <input id="plEmailSubject" type="text" />
+                  </div>
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="plEmailBody">Email — body</label>
+                    <textarea id="plEmailBody" rows="5" placeholder="Full email text"></textarea>
+                  </div>
+                  <details class="pex-inline-help pex-prompts-legacy-block">
+                    <summary>Legacy SMS field (old data only)</summary>
+                    <div class="pex-admin-field" style="margin-top:8px;">
+                      <label class="pex-admin-label" for="plSms">SMS text (legacy)</label>
+                      <textarea id="plSms" rows="2" placeholder="Not used for new Messenger-first studies"></textarea>
+                    </div>
+                  </details>
+                  <div class="pex-admin-filters-grid">
+                    <div class="pex-admin-field">
+                      <label class="pex-admin-label" for="plNotes">Researcher notes</label>
+                      <input id="plNotes" type="text" placeholder="Optional — for your team only; not shown to participants" />
+                    </div>
                   </div>
                 </div>
-                <div class="row" style="margin-top:12px;flex-wrap:wrap;gap:8px;">
-                  <button type="button" class="pex-btn-primary" id="plSaveBtn">Save prompt</button>
-                  <button type="button" class="pex-btn-ghost" id="plNewBtn">New prompt</button>
-                  <button type="button" class="pex-btn-ghost" id="plClearFormBtn">Clear form</button>
+                <div class="pex-prompts-editor-actions">
+                  <button type="button" class="pex-btn-primary" id="plSaveBtn">Save to library</button>
+                  <button type="button" class="pex-btn-ghost" id="plClearFormBtn">Clear</button>
                 </div>
               </div>
-            </div>
-            <div class="pex-admin-card">
-              <h2 class="pex-admin-card-title">Prompt manager</h2>
-              <p class="pex-admin-card-desc">
-                Control the <strong>next</strong> text prompt participants receive (global one-shot until used or cleared). Presets come from the <strong>active</strong> prompt library; custom text is one-shot until used or cleared.
-              </p>
-              <div class="pex-admin-field" style="margin-top:12px">
-                <label class="pex-admin-label" for="adminNextPromptSelect">Next prompt — preset from pool</label>
-                <select id="adminNextPromptSelect">
-                  <option value="">Random (default)</option>
-                </select>
-              </div>
-              <div class="pex-admin-field" style="margin-top:12px">
-                <label class="pex-admin-label" for="adminPromptFormality">Prompt condition (logged as <code>prompt_formality</code>)</label>
-                <select id="adminPromptFormality" style="margin-top:6px;">
-                  <option value="">Auto-detect from text</option>
-                  <option value="formal">Formal</option>
-                  <option value="informal">Informal</option>
-                </select>
-                <p class="small" style="margin-top:4px;color:var(--muted);">Applies to the <strong>next custom</strong> one-shot prompt only (not the library form above). Saving a library prompt does not change this control.</p>
-              </div>
-              <fieldset class="pex-admin-field" style="border:none;margin:0;padding:0;margin-top:12px;">
-                <legend class="pex-admin-label">Or write a custom next prompt</legend>
-                <label class="small" style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-                  <input type="radio" name="adminCustomPromptKind" value="sms_msg" checked />
-                  SMS / Messenger (one short message for both lanes)
-                </label>
-                <label class="small" style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-                  <input type="radio" name="adminCustomPromptKind" value="email" />
-                  Email (subject + body)
-                </label>
-              </fieldset>
-              <div id="adminCustomSmsFields" class="pex-admin-custom-prompt-pane">
-                <div class="pex-admin-field" style="margin-top:12px">
-                  <label class="pex-admin-label" for="adminCustomSmsPrompt">SMS / Messenger text</label>
-                  <textarea id="adminCustomSmsPrompt" rows="3" placeholder="Short prompt shown in Messages and Chats lanes"></textarea>
+
+              <details class="pex-admin-card pex-prompts-override-card">
+                <summary class="pex-prompts-override-summary">
+                  <span class="pex-admin-card-title">Next exercise override</span> <button type="button" class="pex-help-btn" data-help-id="prompts-override" aria-label="Help: prompts-override">?</button>
+                  <span class="pex-admin-card-desc">Optional one-shot prompt before the library / session plan applies</span>
+                </summary>
+                <div class="pex-prompts-override-body">
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="adminNextPromptSelect">Preset from library</label>
+                    <select id="adminNextPromptSelect">
+                      <option value="">Random (default)</option>
+                    </select>
+                  </div>
+                  <div class="pex-admin-field">
+                    <label class="pex-admin-label" for="adminPromptFormality">Condition for custom one-shot only</label>
+                    <select id="adminPromptFormality">
+                      <option value="">Auto-detect from text</option>
+                      <option value="formal">Formal</option>
+                      <option value="informal">Informal</option>
+                    </select>
+                  </div>
+                  <fieldset class="pex-admin-field pex-admin-viz-fieldset">
+                    <legend class="pex-admin-label">Custom one-shot text</legend>
+                    <label class="pex-admin-radio-label">
+                      <input type="radio" name="adminCustomPromptKind" value="sms_msg" checked />
+                      Messenger-style message
+                    </label>
+                    <label class="pex-admin-radio-label">
+                      <input type="radio" name="adminCustomPromptKind" value="email" />
+                      Email (subject + body)
+                    </label>
+                  </fieldset>
+                  <div id="adminCustomSmsFields" class="pex-admin-custom-prompt-pane">
+                    <div class="pex-admin-field">
+                      <label class="pex-admin-label" for="adminCustomSmsPrompt">Messenger message</label>
+                      <textarea id="adminCustomSmsPrompt" rows="3" placeholder="Shown in Messenger lane"></textarea>
+                    </div>
+                  </div>
+                  <div id="adminCustomEmailFields" class="pex-admin-custom-prompt-pane hidden">
+                    <div class="pex-admin-field">
+                      <label class="pex-admin-label" for="adminCustomEmailSubject">Email subject</label>
+                      <input id="adminCustomEmailSubject" type="text" />
+                    </div>
+                    <div class="pex-admin-field">
+                      <label class="pex-admin-label" for="adminCustomEmailBody">Email body</label>
+                      <textarea id="adminCustomEmailBody" rows="10"></textarea>
+                    </div>
+                  </div>
+                  <details class="pex-inline-help" style="margin-top:12px;">
+                    <summary>Preview next prompt</summary>
+                    <div id="adminNextPromptPreview" class="pex-admin-prose small pex-prompts-preview" aria-live="polite"></div>
+                  </details>
+                  <div class="row pex-prompts-override-actions">
+                    <button type="button" class="pex-btn-primary" id="adminSaveNextPromptBtn">Use preset</button>
+                    <button type="button" class="pex-btn-ghost" id="adminSaveCustomPromptBtn">Save custom one-shot</button>
+                    <button type="button" class="pex-btn-ghost" id="adminClearNextPromptBtn">Clear override</button>
+                  </div>
+                  <p class="small" id="adminNextPromptStatus" aria-live="polite"></p>
+                  <details class="pex-inline-help">
+                    <summary>Voice prompt audio upload</summary>
+                    <div class="pex-admin-field" style="margin-top:8px;">
+                      <input id="adminPromptAudioFile" type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,audio/*" />
+                    </div>
+                    <button type="button" class="pex-btn-ghost pex-btn-ghost--compact" id="adminUploadPromptAudioBtn">Upload</button>
+                    <p class="small" id="adminPromptAudioStatus"></p>
+                  </details>
+                  <details class="pex-admin-advanced">
+                    <summary>Built-in prompt pool (read-only)</summary>
+                    <ul id="adminPromptPoolList" class="pex-admin-about-list"></ul>
+                  </details>
                 </div>
-              </div>
-              <div id="adminCustomEmailFields" class="pex-admin-custom-prompt-pane hidden">
-                <div class="pex-admin-field" style="margin-top:10px">
-                  <label class="pex-admin-label" for="adminCustomEmailSubject">Email subject</label>
-                  <input id="adminCustomEmailSubject" type="text" placeholder="Subject line" />
-                </div>
-                <div class="pex-admin-field" style="margin-top:10px">
-                  <label class="pex-admin-label" for="adminCustomEmailBody">Email body</label>
-                  <textarea id="adminCustomEmailBody" rows="12" placeholder="Full email — greetings and signatures are fine"></textarea>
-                </div>
-              </div>
-              <div class="pex-admin-card" style="margin-top:16px;background:var(--surface-2);">
-                <h3 class="pex-admin-card-title" style="font-size:1rem;">Preview (what participants will see)</h3>
-                <p class="small" style="color:var(--muted);margin-bottom:10px;">Updates when you save or when the server state refreshes.</p>
-                <div id="adminNextPromptPreview" class="pex-admin-prose small" style="white-space:pre-wrap;line-height:1.45;"></div>
-              </div>
-              <div class="row" style="margin-top:14px;flex-wrap:wrap;gap:10px;">
-                <button type="button" class="pex-btn-primary" id="adminSaveNextPromptBtn">Use selected preset as next prompt</button>
-                <button type="button" class="pex-btn-primary" id="adminSaveCustomPromptBtn">Save custom text as next prompt</button>
-                <button type="button" class="pex-btn-ghost" id="adminClearNextPromptBtn">Clear override (random again)</button>
-              </div>
-              <p class="small" id="adminNextPromptStatus" style="margin-top:10px;font-weight:500;">Next exercise prompt: …</p>
-              <div class="pex-admin-field" style="margin-top:16px">
-                <label class="pex-admin-label" for="adminPromptAudioFile">Voice prompt audio (upload)</label>
-                <input id="adminPromptAudioFile" type="file" accept=".mp3,.wav,.m4a,.ogg,.webm,audio/*" />
-              </div>
-              <div class="row" style="margin-top:10px">
-                <button type="button" class="pex-btn-ghost" id="adminUploadPromptAudioBtn">Upload voice prompt audio</button>
-              </div>
-              <p class="small" id="adminPromptAudioStatus" style="margin-top:8px"></p>
-              <details class="pex-admin-advanced" style="margin-top:12px">
-                <summary>Browse built-in prompt pool</summary>
-                <ul id="adminPromptPoolList" class="pex-admin-about-list"></ul>
               </details>
             </div>
           </section>
@@ -993,7 +1088,7 @@
             hidden
           >
             <div class="pex-admin-card pex-admin-prose">
-              <h2 class="pex-admin-card-title">About Relay</h2>
+              <h2 class="pex-admin-card-title">About Relay</h2> <button type="button" class="pex-help-btn" data-help-id="about" aria-label="Help: about">?</button>
               <p>Relay runs short reply exercises in app-style UIs (<strong>Messenger</strong>, <strong>Email</strong>, optional legacy SMS, or audio <strong>Voice</strong> mode). Each <strong>log row</strong> is one saved event (participant message, AI reply, etc.). One full back-and-forth is a <strong>task</strong> and usually produces several rows.</p>
               <p>Use <strong>Study session</strong> to set the participant ID and current task; use <strong>Exports</strong> to download CSVs. The <strong>Field dictionary</strong> below lists column meanings for analysis.</p>
               <p class="small" style="color:var(--muted);margin-top:10px;">Reply register (Formal / Informal) comes from the trained formality model on participant text. Older <code>bert_*</code> columns in CSVs are legacy and stay empty on new rows.</p>
@@ -1068,9 +1163,27 @@
             </details>
           </section>
         </main>
+
+        <footer class="pex-admin-status-footer" aria-live="polite">
+          <span class="pex-admin-pill pex-admin-pill--footer" id="serverPill">Checking…</span>
+          <span class="pex-admin-status-sep" aria-hidden="true">·</span>
+          <span class="pex-admin-status-refresh small" id="adminFooterRefreshed">—</span>
+        </footer>
       </div>
     </div>
 
+    <dialog id="pexHelpDialog" class="pex-help-dialog" aria-labelledby="pexHelpDialogTitle">
+      <div class="pex-help-dialog-inner">
+        <header class="pex-help-dialog-header">
+          <h2 id="pexHelpDialogTitle" class="pex-help-dialog-title">Help</h2>
+          <button type="button" class="pex-help-dialog-close" id="pexHelpDialogClose" aria-label="Close help">×</button>
+        </header>
+        <div class="pex-help-dialog-body" id="pexHelpDialogBody"></div>
+        <footer class="pex-help-dialog-actions" id="pexHelpDialogActions" hidden></footer>
+      </div>
+    </dialog>
+
+    <script src="{{ url_for('static', filename='js/admin_help.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/admin_ui.js') }}"></script>
     <script defer src="{{ url_for('static', filename='js/field_dictionary.js') }}"></script>
