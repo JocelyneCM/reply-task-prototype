@@ -13,6 +13,9 @@ KEYS.js
 # Local / OS clutter
 .DS_Store
 
+# Matplotlib cache (used by docs PDF generator when MPLCONFIGDIR points here)
+.mplconfig/
+
 # Large local training corpus (typically not tracked)
 GYAFC/
 

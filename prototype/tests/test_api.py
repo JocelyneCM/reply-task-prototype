@@ -174,6 +174,59 @@ def test_admin_session_plan_save_and_advance(client, tmp_path, monkeypatch):
     assert d4.get("done") is True
 
 
+def test_session_plan_current_for_participant_polling(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(srv, "BASE_DIR", tmp_path)
+    r0 = client.get("/api/session_plan/current?participant_id=P005")
+    assert r0.status_code == 200
+    d0 = r0.get_json()
+    assert d0.get("ok") is True
+    assert d0.get("task") is None
+    r1 = client.post(
+        "/api/admin/session_plan",
+        json={
+            "participant_id": "P005",
+            "tasks": [
+                {
+                    "medium": "Email",
+                    "input_method": "Typing",
+                    "device": "laptop",
+                    "prompt_condition": "formal",
+                    "prompt_pick": "selected",
+                    "text_prompt_id": "prompt_001",
+                }
+            ],
+        },
+    )
+    assert r1.status_code == 200
+    version1 = r1.get_json().get("plan", {}).get("updated_at")
+    assert version1
+    r2 = client.get("/api/session_plan/current?participant_id=P005")
+    d2 = r2.get_json()
+    assert d2.get("ok") is True
+    assert d2.get("plan_version") == version1
+    assert d2.get("task", {}).get("medium") == "Email"
+    assert d2.get("task", {}).get("device") == "laptop"
+    r3 = client.post(
+        "/api/admin/session_plan",
+        json={
+            "participant_id": "P005",
+            "tasks": [
+                {
+                    "medium": "Messenger",
+                    "input_method": "Swipe typing",
+                    "device": "phone",
+                }
+            ],
+        },
+    )
+    version2 = r3.get_json().get("plan", {}).get("updated_at")
+    assert version2
+    r4 = client.get("/api/session_plan/current?participant_id=P005")
+    d4 = r4.get_json()
+    assert d4.get("task", {}).get("medium") == "Messenger"
+    assert d4.get("plan_version") == version2
+
+
 def test_admin_session_plan_save_clamps_current_index(client, tmp_path, monkeypatch):
     monkeypatch.setattr(srv, "BASE_DIR", tmp_path)
     r = client.post(

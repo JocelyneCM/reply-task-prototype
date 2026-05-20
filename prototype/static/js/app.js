@@ -56,6 +56,111 @@ function normalizeInputMethodClient(rawInputMethod, medium = "") {
   return normalized;
 }
 
+/** Primary study mediums (admin defaults). Legacy SMS/Voice still load for old plans/logs. */
+const STUDY_MEDIUMS_PRIMARY = ["Messenger", "Email"];
+const STUDY_MEDIUMS_LEGACY = ["SMS", "Voice"];
+
+/** Chart/filter label: legacy mediums marked without changing stored CSV values. */
+function formatMediumDisplayLabel(medium) {
+  const m = String(medium || "").trim();
+  if (!m || m === "—") return "—";
+  if (m === "SMS") return "SMS (legacy)";
+  if (m === "Voice") return "Voice (legacy)";
+  return m;
+}
+
+function formatPromptKindLabel(kind) {
+  const k = String(kind || "all").trim().toLowerCase();
+  if (k === "email") return "Email";
+  if (k === "sms_messenger") return "Messenger (chat)";
+  if (k === "all") return "Messenger + Email";
+  return kind || "—";
+}
+
+function sortMediumKeysForDisplay(keys) {
+  const order = { Messenger: 0, Email: 1, SMS: 2, Voice: 3 };
+  return [...keys].sort((a, b) => {
+    const oa = order[a] ?? 50;
+    const ob = order[b] ?? 50;
+    if (oa !== ob) return oa - ob;
+    return String(a).localeCompare(String(b));
+  });
+}
+
+function studyMediumChoicesForSelect(selected) {
+  const sel = String(selected || "").trim();
+  const choices = [
+    ["Messenger", "Messenger"],
+    ["Email", "Email"],
+  ];
+  if (STUDY_MEDIUMS_LEGACY.includes(sel) && !choices.some(([v]) => v === sel)) {
+    choices.push([sel, `${sel} (legacy — prefer Messenger or Email)`]);
+  }
+  return choices;
+}
+
+/** Normalize session-plan task fields (participant polling + admin plan table). */
+function normalizeStudyTaskClient(t) {
+  const defaults = {
+    medium: "Messenger",
+    input_method: "Typing",
+    device: "",
+    prompt_condition: "auto",
+    prompt_pick: "random",
+    text_prompt_id: "",
+  };
+  const o = { ...defaults, ...(t || {}) };
+  let med = String(o.medium || "Messenger").trim();
+  if (!["SMS", "Messenger", "Email", "Voice"].includes(med)) med = "Messenger";
+  o.medium = med;
+  const allowedIm = ["Typing", "Swipe typing", "Voice-to-text"];
+  let im = String(o.input_method || "Typing").trim();
+  if (!allowedIm.includes(im)) im = "Typing";
+  o.input_method = im;
+  const dev = String(o.device || "").trim().toLowerCase();
+  o.device = dev === "phone" || dev === "laptop" ? dev : "";
+  let pc = String(o.prompt_condition || "auto").trim().toLowerCase();
+  if (!["formal", "informal", "auto"].includes(pc)) pc = "auto";
+  o.prompt_condition = pc;
+  let pp = String(o.prompt_pick || "random").trim().toLowerCase();
+  if (pp !== "random" && pp !== "selected") pp = "random";
+  o.prompt_pick = pp;
+  let tid = String(o.text_prompt_id || "").trim();
+  if (!/^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tid)) tid = "";
+  if (o.prompt_pick === "random") tid = "";
+  o.text_prompt_id = tid;
+  return o;
+}
+
+function micAccessHelpMessage() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return "This browser does not support microphone recording. Try Chrome or Safari on a recent version.";
+  }
+  if (window.isSecureContext) return "";
+  const host = (location.hostname || "").toLowerCase();
+  if (host === "localhost" || host === "127.0.0.1") return "";
+  return (
+    "Voice-to-text on phones needs HTTPS — browsers block the mic on http:// Wi‑Fi links (not a Relay bug). " +
+    "Use ngrok (https://…) for phone mic, or use typing/swipe on HTTP. Tap “How to enable phone mic” in Study session for steps."
+  );
+}
+
+function formatMicrophoneError(err) {
+  const name = String(err?.name || "");
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Microphone blocked. Allow mic access in browser site settings, then reload.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No microphone found on this device.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "Microphone is in use by another app. Close it and try again.";
+  }
+  const secureHint = micAccessHelpMessage();
+  if (secureHint) return secureHint;
+  return "Could not access microphone.";
+}
+
 function formatSecondsCell(v) {
   const x = parseFloat(String(v ?? ""));
   if (!Number.isFinite(x)) return String(v ?? "");
@@ -176,6 +281,7 @@ function initParticipantUI() {
     tagline: document.getElementById("pexScreenTagline"),
     themeToggleBtn: document.getElementById("themeToggleBtn"),
     toast: document.getElementById("pexToast"),
+    micBanner: document.getElementById("pexMicBanner"),
     participantId: document.getElementById("participantId"),
     studyCondition: document.querySelector(".pex-study-condition"),
     studyDeviceContext: document.getElementById("studyDeviceContext"),
@@ -353,6 +459,8 @@ function initParticipantUI() {
   let urlStudyPromptCondition = null;
   /** When set, participant loads this bundle id via /api/prompt_bundle (does not use global next). */
   let urlTextPromptId = null;
+  /** Server session plan version last applied (participant polling). */
+  let lastAppliedPlanVersion = "";
   /** How we got the transcript for voice rows. */
   let lastTranscriptStatus = "";
   let lastTranscriptSource = "";
@@ -402,6 +510,117 @@ function initParticipantUI() {
       return;
     }
     els.studyInputInstruction.textContent = "Type your reply normally.";
+  }
+
+  let serverMicLikelyAvailable = null;
+
+  async function refreshMicrophoneBannerFromServer() {
+    try {
+      const h = await fetchJSON("/api/health");
+      serverMicLikelyAvailable =
+        typeof h.mic_likely_available === "boolean" ? h.mic_likely_available : null;
+    } catch {
+      serverMicLikelyAvailable = null;
+    }
+    syncMicrophoneBanner();
+  }
+
+  function syncMicrophoneBanner() {
+    if (!els.micBanner) return;
+    const needsMic = getSelectedInputMethod() === "Voice-to-text";
+    if (!needsMic) {
+      els.micBanner.classList.add("hidden");
+      els.micBanner.textContent = "";
+      return;
+    }
+    if (window.isSecureContext || serverMicLikelyAvailable === true) {
+      els.micBanner.classList.add("hidden");
+      els.micBanner.textContent = "";
+      return;
+    }
+    const msg = micAccessHelpMessage();
+    if (!msg) {
+      els.micBanner.classList.add("hidden");
+      return;
+    }
+    els.micBanner.textContent = msg;
+    els.micBanner.classList.remove("hidden");
+  }
+
+  function syncStudyDeviceLayout(device) {
+    const dev = (device || "").trim().toLowerCase();
+    if (els.app) {
+      if (dev === "phone" || dev === "laptop") els.app.dataset.studyDevice = dev;
+      else delete els.app.dataset.studyDevice;
+    }
+    if (els.studyDeviceContext) {
+      if (dev === "phone") els.studyDeviceContext.textContent = "Session note: phone";
+      else if (dev === "laptop") els.studyDeviceContext.textContent = "Session note: laptop";
+      else els.studyDeviceContext.textContent = "";
+    }
+  }
+
+  function applyStudyTaskSettings(task, opts = {}) {
+    const t = normalizeStudyTaskClient(task);
+    const med = t.medium;
+    if (["SMS", "Messenger", "Email", "Voice"].includes(med)) {
+      if (med === "SMS") {
+        const smsNav = document.querySelector(".pex-nav-legacy-sms");
+        if (smsNav) {
+          smsNav.classList.remove("hidden");
+          smsNav.hidden = false;
+          smsNav.setAttribute("aria-hidden", "false");
+        }
+      }
+      showMode(med);
+    }
+    if (els.studyInputMethod) {
+      els.studyInputMethod.value = normalizeInputMethodClient(t.input_method, med);
+    }
+    syncStudyDeviceLayout(t.device);
+    urlStudyPromptCondition = t.prompt_condition;
+    urlTextPromptId =
+      t.prompt_pick === "selected" && t.text_prompt_id ? t.text_prompt_id : null;
+    syncMicButtonVisibilityForInputMethod();
+    syncStudyInstruction();
+    syncMicrophoneBanner();
+    const reloadPrompts = opts.reloadPrompts !== false;
+    if (reloadPrompts && !currentRun) {
+      assignRandomTextPrompts();
+    } else if (reloadPrompts && currentRun) {
+      currentPromptMeta.prompt_formality = t.prompt_condition;
+    }
+  }
+
+  async function pollSessionPlanCurrent() {
+    const pid = normalizeStudyParticipantIdClient(els.participantId?.value || "");
+    if (!/^P\d{3,}$/i.test(pid)) return;
+    try {
+      const d = await fetchJSON(
+        `/api/session_plan/current?participant_id=${encodeURIComponent(pid)}`
+      );
+      if (!d?.ok) return;
+      const version = String(d.plan_version || "").trim();
+      if (!version) return;
+      if (!d.task) {
+        lastAppliedPlanVersion = version;
+        return;
+      }
+      if (version === lastAppliedPlanVersion) return;
+      const isFirst = !lastAppliedPlanVersion;
+      const sp = new URLSearchParams(window.location.search);
+      const hadUrlTask =
+        sp.has("medium") || sp.has("input_method") || sp.has("prompt_condition");
+      if (isFirst && hadUrlTask) {
+        lastAppliedPlanVersion = version;
+        return;
+      }
+      lastAppliedPlanVersion = version;
+      applyStudyTaskSettings(d.task, { reloadPrompts: !currentRun });
+      if (!isFirst) showToast("Session task updated by researcher.");
+    } catch {
+      /* polling is best-effort */
+    }
   }
 
   function pickRandom(list) {
@@ -722,13 +941,16 @@ function initParticipantUI() {
   }
 
   function openDrawer() {
+    if (els.app?.classList.contains("pex-study-controlled")) return;
     setDrawerOpen(true);
   }
   function closeDrawer() {
     setDrawerOpen(false);
   }
 
-  if (els.menuBtn) els.menuBtn.addEventListener("click", openDrawer);
+  if (els.menuBtn && !els.app?.classList.contains("pex-study-controlled")) {
+    els.menuBtn.addEventListener("click", openDrawer);
+  }
   if (els.drawerClose) els.drawerClose.addEventListener("click", closeDrawer);
   if (els.backdrop) els.backdrop.addEventListener("click", closeDrawer);
   document.addEventListener("keydown", (e) => {
@@ -808,6 +1030,7 @@ function initParticipantUI() {
       });
       assignVoicePrompt();
       if (els.studyInputMethod) syncStudyInstruction();
+      syncMicrophoneBanner();
       closeDrawer();
       resetTrialState();
       return;
@@ -837,6 +1060,7 @@ function initParticipantUI() {
       }
     }
     if (els.studyInputMethod) syncStudyInstruction();
+    syncMicrophoneBanner();
     closeDrawer();
     resetTrialState();
   }
@@ -849,6 +1073,7 @@ function initParticipantUI() {
     els.studyInputMethod.addEventListener("change", () => {
       syncStudyInstruction();
       syncMicButtonVisibilityForInputMethod();
+      syncMicrophoneBanner();
     });
   }
 
@@ -1144,7 +1369,8 @@ function initParticipantUI() {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
       console.error(e);
-      showToast("Could not access microphone.");
+      showToast(formatMicrophoneError(e));
+      syncMicrophoneBanner();
       return;
     }
 
@@ -1903,7 +2129,8 @@ function initParticipantUI() {
         stream = await getMicStream();
       } catch (e) {
         console.error(e);
-        els.voiceStatus.textContent = "Could not access microphone.";
+        els.voiceStatus.textContent = formatMicrophoneError(e);
+        syncMicrophoneBanner();
         return;
       }
 
@@ -2161,39 +2388,38 @@ function initParticipantUI() {
           /* optional */
         }
       }
-      const med = (sp.get("medium") || "").trim();
-      if (["SMS", "Messenger", "Email", "Voice"].includes(med)) {
-        showMode(med);
-      } else {
-        showMode("SMS");
-      }
-      const im = normalizeInputMethodClient(sp.get("input_method") || "", med);
-      if (els.studyInputMethod) els.studyInputMethod.value = im;
-      const dev = (sp.get("device") || "").trim().toLowerCase();
-      if (els.studyDeviceContext) {
-        if (dev === "phone") els.studyDeviceContext.textContent = "Session note: phone";
-        else if (dev === "laptop") els.studyDeviceContext.textContent = "Session note: laptop";
-        else els.studyDeviceContext.textContent = "";
-      }
+      const medRaw = (sp.get("medium") || "").trim();
+      const med = ["SMS", "Messenger", "Email", "Voice"].includes(medRaw)
+        ? medRaw
+        : "Messenger";
       const pcRaw = (sp.get("prompt_condition") || sp.get("prompt_formality") || "")
         .trim()
         .toLowerCase();
-      if (pcRaw === "formal" || pcRaw === "informal" || pcRaw === "auto")
-        urlStudyPromptCondition = pcRaw;
-      else urlStudyPromptCondition = null;
       const tpid = (sp.get("text_prompt_id") || "").trim();
-      urlTextPromptId = /^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tpid) ? tpid : null;
-      syncMicButtonVisibilityForInputMethod();
+      const taskFromUrl = {
+        medium: med,
+        input_method: sp.get("input_method") || "",
+        device: sp.get("device") || "",
+        prompt_condition:
+          pcRaw === "formal" || pcRaw === "informal" || pcRaw === "auto" ? pcRaw : "auto",
+        prompt_pick: /^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tpid) ? "selected" : "random",
+        text_prompt_id: tpid,
+      };
+      applyStudyTaskSettings(taskFromUrl, { reloadPrompts: false });
     } catch {
-      showMode("SMS");
+      applyStudyTaskSettings({ medium: "Messenger" }, { reloadPrompts: false });
     }
   }
 
   applyParticipantUrlParams();
   refreshTextVoiceButtons();
   syncStudyInstruction();
+  syncMicrophoneBanner();
   assignRandomTextPrompts();
   ensureParticipantIdInitialized();
+  pollSessionPlanCurrent();
+  setInterval(pollSessionPlanCurrent, 4000);
+  refreshMicrophoneBannerFromServer();
 }
 
 // -----------------------------------------------------------------------------
@@ -2204,11 +2430,11 @@ function initAdminUI() {
   const VIEW_COPY = {
     overview: {
       title: "Overview",
-      desc: "Log rows by medium, input method, and average response time (participant messages only in charts).",
+      desc: "Messenger/Email-first snapshot; legacy SMS/Voice shown when present in logs.",
     },
     session: {
       title: "Study session",
-      desc: "Set participant ID and open the participant UI with the right medium and input method.",
+      desc: "Participant ID, active task, and Save plan — phones pick up changes within a few seconds.",
     },
     participants: {
       title: "Participants",
@@ -2243,6 +2469,7 @@ function initAdminUI() {
   const els = {
     themeToggleBtn: document.getElementById("themeToggleBtn"),
     serverPill: document.getElementById("serverPill"),
+    adminFooterRefreshed: document.getElementById("adminFooterRefreshed"),
     participantFilter: document.getElementById("participantFilter"),
     exportParticipantSelect: document.getElementById("exportParticipantSelect"),
     dateFilter: document.getElementById("dateFilter"),
@@ -2280,10 +2507,14 @@ function initAdminUI() {
     transcriptionRuntime: document.getElementById("adminTranscriptionRuntime"),
     adminNextPromptPreview: document.getElementById("adminNextPromptPreview"),
     sessionParticipantId: document.getElementById("sessionParticipantId"),
+    sessionParticipantIdList: document.getElementById("sessionParticipantIdList"),
+    sessionVttMicHint: document.getElementById("sessionVttMicHint"),
+    sessionLiveNextAction: document.getElementById("sessionLiveNextAction"),
     sessionMedium: document.getElementById("sessionMedium"),
     sessionInputMethod: document.getElementById("sessionInputMethod"),
     sessionDevice: document.getElementById("sessionDevice"),
     sessionPromptCondition: document.getElementById("sessionPromptCondition"),
+    sessionPromptPick: document.getElementById("sessionPromptPick"),
     sessionTextPromptId: document.getElementById("sessionTextPromptId"),
     sessionParticipantUrl: document.getElementById("sessionParticipantUrl"),
     sessionOpenParticipantBtn: document.getElementById("sessionOpenParticipantBtn"),
@@ -2298,6 +2529,11 @@ function initAdminUI() {
     vizIncludeLlm: document.getElementById("vizIncludeLlm"),
     vizApplyBtn: document.getElementById("vizApplyBtn"),
     vizMetaPanel: document.getElementById("vizMetaPanel"),
+    vizChartCaption: document.getElementById("vizChartCaption"),
+    vizCustomPanel: document.getElementById("vizCustomPanel"),
+    vizCustomDimension: document.getElementById("vizCustomDimension"),
+    vizCustomMetric: document.getElementById("vizCustomMetric"),
+    vizCustomStyle: document.getElementById("vizCustomStyle"),
     studyExportAdvancedCols: document.getElementById("studyExportAdvancedCols"),
     downloadStudyAllBtn: document.getElementById("downloadStudyAllBtn"),
     downloadStudyParticipantBtn: document.getElementById("downloadStudyParticipantBtn"),
@@ -2349,11 +2585,13 @@ function initAdminUI() {
     plPromptKind: document.getElementById("plPromptKind"),
     plPromptCondition: document.getElementById("plPromptCondition"),
     plNotes: document.getElementById("plNotes"),
-    plCategory: document.getElementById("plCategory"),
     plActive: document.getElementById("plActive"),
     plNewBtn: document.getElementById("plNewBtn"),
     plSaveBtn: document.getElementById("plSaveBtn"),
     plClearFormBtn: document.getElementById("plClearFormBtn"),
+    plEditorPanel: document.getElementById("plEditorPanel"),
+    plCloseEditorBtn: document.getElementById("plCloseEditorBtn"),
+    plEditorTitle: document.getElementById("plEditorTitle"),
   };
 
   let responseTimeChart = null;
@@ -2501,16 +2739,39 @@ function initAdminUI() {
     els.navBackdrop.addEventListener("click", () => setNavOpen(false));
   }
 
+  function syncAdminThemeToggleUi() {
+    if (!els.themeToggleBtn) return;
+    const theme = document.body.dataset.theme || "dark";
+    const icon = els.themeToggleBtn.querySelector(".pex-theme-icon");
+    if (icon) icon.textContent = theme === "dark" ? "◐" : "☀";
+    els.themeToggleBtn.setAttribute(
+      "aria-label",
+      theme === "dark" ? "Switch to light theme" : "Switch to dark theme"
+    );
+    els.themeToggleBtn.title =
+      theme === "dark" ? "Light mode" : "Dark mode";
+  }
+
   if (els.themeToggleBtn) {
+    syncAdminThemeToggleUi();
     els.themeToggleBtn.addEventListener("click", () => {
       const current = document.body.dataset.theme || "dark";
       const next = current === "dark" ? "light" : "dark";
       document.body.dataset.theme = next;
-      els.themeToggleBtn.textContent =
-        next === "dark" ? "Light mode" : "Dark mode";
+      syncAdminThemeToggleUi();
       loadLogs();
       loadSummary();
     });
+  }
+
+  function stampAdminRefreshedAt() {
+    const when = new Date().toLocaleString([], {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+    if (els.kpiRefreshedAt) els.kpiRefreshedAt.textContent = when;
+    if (els.adminFooterRefreshed)
+      els.adminFooterRefreshed.textContent = `Refreshed ${when}`;
   }
 
   fetchJSON("/api/health")
@@ -2573,8 +2834,12 @@ function initAdminUI() {
           els.sessionParticipantId.value = ex;
         }
         onSessionFieldsChanged();
-        loadPromptPool();
-        loadSessionPlan();
+        loadPromptPool().then(() => {
+          populateSessionTextPromptSelect(
+            (els.sessionTextPromptId?.value || "").trim()
+          );
+          loadSessionPlan();
+        });
       }
     });
   });
@@ -2604,6 +2869,14 @@ function initAdminUI() {
     fillSelect(els.exportParticipantSelect, true, "All participants", "");
     fillSelect(els.vizParticipantFilter, true, "All participants", "");
     fillSelect(els.etParticipantFilter, true, "All participants", "");
+    if (els.sessionParticipantIdList) {
+      els.sessionParticipantIdList.innerHTML = "";
+      ids.forEach((id) => {
+        const o = document.createElement("option");
+        o.value = id;
+        els.sessionParticipantIdList.appendChild(o);
+      });
+    }
   }
 
   function loadParticipants() {
@@ -2773,8 +3046,9 @@ function initAdminUI() {
     const accent = cssColor("--accent", "#6ea8fe");
     const warn = cssColor("--warn", "#ffcc66");
 
-    const mLabels = Object.keys(mediumBreakdown || {});
-    const mValues = mLabels.map((k) => mediumBreakdown[k]);
+    const mKeys = sortMediumKeysForDisplay(Object.keys(mediumBreakdown || {}));
+    const mLabels = mKeys.map(formatMediumDisplayLabel);
+    const mValues = mKeys.map((k) => mediumBreakdown[k]);
 
     if (overviewMediumChart) overviewMediumChart.destroy();
     if (overviewAvgRtByInputChart) overviewAvgRtByInputChart.destroy();
@@ -2859,12 +3133,7 @@ function initAdminUI() {
           els.kpiParticipantCount.textContent = String(
             data.participant_count ?? 0
           );
-        if (els.kpiRefreshedAt) {
-          els.kpiRefreshedAt.textContent = new Date().toLocaleString([], {
-            dateStyle: "medium",
-            timeStyle: "short",
-          });
-        }
+        stampAdminRefreshedAt();
         renderParticipantStats(data.participant_stats || []);
         populateMediumFilter(
           Object.keys(data.medium_breakdown || {})
@@ -2878,21 +3147,32 @@ function initAdminUI() {
   }
 
   function populateMediumFilter(values) {
-    if (!els.mediumFilter) return;
-    const current = (els.mediumFilter.value || "").trim();
-    const base = ["SMS", "Messenger", "Email"];
-    const fromData = Array.from(new Set((values || []).map((v) => String(v || "").trim()).filter(Boolean)));
-    const mediums = Array.from(new Set([...base, ...fromData]));
-    els.mediumFilter.innerHTML = '<option value="">All</option>';
-    mediums.forEach((m) => {
-      const opt = document.createElement("option");
-      opt.value = m;
-      opt.textContent = m;
-      els.mediumFilter.appendChild(opt);
+    const currentBySelect = new Map();
+    [els.mediumFilter, els.vizMediumFilter, els.etMediumFilter].forEach((sel) => {
+      if (sel) currentBySelect.set(sel, (sel.value || "").trim());
     });
-    if (current && mediums.includes(current)) {
-      els.mediumFilter.value = current;
+    const base = ["Messenger", "Email", "SMS", "Voice"];
+    const fromData = Array.from(
+      new Set((values || []).map((v) => String(v || "").trim()).filter(Boolean))
+    );
+    const mediums = sortMediumKeysForDisplay(
+      Array.from(new Set([...base, ...fromData]))
+    );
+    function fillMediumSelect(select) {
+      if (!select) return;
+      const current = currentBySelect.get(select) || "";
+      select.innerHTML = '<option value="">All</option>';
+      mediums.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = formatMediumDisplayLabel(m);
+        select.appendChild(opt);
+      });
+      if (current && mediums.includes(current)) select.value = current;
     }
+    fillMediumSelect(els.mediumFilter);
+    fillMediumSelect(els.vizMediumFilter);
+    fillMediumSelect(els.etMediumFilter);
   }
 
   function updateNextPromptPreview(data) {
@@ -2934,7 +3214,7 @@ function initAdminUI() {
     const preserveFormality = !!(opts && opts.preserveFormalitySelect);
     const pfSel = document.getElementById("adminPromptFormality");
     const prevPf = preserveFormality && pfSel ? pfSel.value : null;
-    fetchJSON("/api/prompt_pool")
+    return fetchJSON("/api/prompt_pool")
       .then((data) => {
         const prompts = data.text_prompts || [];
         lastPromptPoolActiveRows = prompts.filter((p) => p.active !== false);
@@ -2970,12 +3250,12 @@ function initAdminUI() {
           els.adminNextPromptSelect.innerHTML =
             '<option value="">Random (default)</option>' +
             lastPromptPoolActiveRows
-              .map(
-                (p) =>
-                  `<option value="${escapeHtml(p.id || "")}">${escapeHtml(
-                    p.id || ""
-                  )} — ${escapeHtml((p.sms || "").slice(0, 48))}</option>`
-              )
+              .map((p) => {
+                const prev = (p.messenger || p.sms || "").slice(0, 48);
+                return `<option value="${escapeHtml(p.id || "")}">${escapeHtml(
+                  p.id || ""
+                )} — ${escapeHtml(prev)}</option>`;
+              })
               .join("");
           els.adminNextPromptSelect.value = nextId;
         }
@@ -2990,11 +3270,22 @@ function initAdminUI() {
           }
         }
         updateNextPromptPreview(data);
+        populateSessionTextPromptSelect(
+          (els.sessionTextPromptId?.value || "").trim()
+        );
+        syncSessionPromptPickUi();
       })
       .catch(() => {
         if (els.nextPromptStatus)
           els.nextPromptStatus.textContent = "Prompt pool unavailable.";
       });
+  }
+
+  function showPlEditorPanel(show, title) {
+    if (!els.plEditorPanel) return;
+    els.plEditorPanel.hidden = !show;
+    if (els.plEditorTitle && title) els.plEditorTitle.textContent = title;
+    if (show) els.plEditorPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   function plSetFormStatus(msg) {
@@ -3015,9 +3306,9 @@ function initAdminUI() {
     if (els.plPromptKind) els.plPromptKind.value = "all";
     if (els.plPromptCondition) els.plPromptCondition.value = "auto";
     if (els.plNotes) els.plNotes.value = "";
-    if (els.plCategory) els.plCategory.value = "";
     if (els.plActive) els.plActive.checked = true;
-    plSetFormStatus("New prompt — enter an id and text fields, then Save.");
+    plSetFormStatus("Enter a unique ID and Messenger or Email text, then Save to library.");
+    showPlEditorPanel(true, "New prompt");
   }
 
   function plFillLibraryForm(p) {
@@ -3035,9 +3326,13 @@ function initAdminUI() {
     if (els.plPromptKind) els.plPromptKind.value = p.prompt_kind || "all";
     if (els.plPromptCondition) els.plPromptCondition.value = p.prompt_condition || "auto";
     if (els.plNotes) els.plNotes.value = p.notes || "";
-    if (els.plCategory) els.plCategory.value = p.category || "";
+    if (p.category && els.plNotes && !els.plNotes.value.trim()) {
+      const legacy = String(p.category || "").trim();
+      if (legacy) els.plNotes.value = `[legacy category] ${legacy}`;
+    }
     if (els.plActive) els.plActive.checked = p.active !== false;
-    plSetFormStatus(`Editing ${p.id || ""}`);
+    plSetFormStatus(`Editing ${p.id || ""} — save updates the library file.`);
+    showPlEditorPanel(true, `Edit: ${p.id || ""}`);
   }
 
   function plPayloadFromForm() {
@@ -3051,7 +3346,7 @@ function initAdminUI() {
       prompt_kind: (els.plPromptKind?.value || "all").trim(),
       prompt_condition: (els.plPromptCondition?.value || "auto").trim(),
       notes: (els.plNotes?.value || "").trim(),
-      category: (els.plCategory?.value || "").trim(),
+      category: "",
       active: !!els.plActive?.checked,
     };
   }
@@ -3070,13 +3365,15 @@ function initAdminUI() {
         els.plTableBody.innerHTML = rows
           .map((p) => {
             const act = p.active !== false ? "yes" : "no";
-            const sms = escapeHtml((p.sms || "").slice(0, 56));
-            return `<tr data-pl-id="${escapeHtml(p.id || "")}">
+            const preview = escapeHtml(
+              (p.messenger || p.sms || "").slice(0, 56)
+            );
+            return `<tr class="pex-prompts-row" data-pl-id="${escapeHtml(p.id || "")}" tabindex="0" role="button">
               <td>${act}</td>
               <td><code>${escapeHtml(p.id || "")}</code></td>
               <td>${escapeHtml(p.prompt_condition || "")}</td>
-              <td>${escapeHtml(p.prompt_kind || "")}</td>
-              <td class="small">${sms}</td>
+              <td>${escapeHtml(formatPromptKindLabel(p.prompt_kind))}</td>
+              <td class="small">${preview}</td>
               <td class="small">${escapeHtml((p.notes || "").slice(0, 40))}</td>
               <td>
                 <button type="button" class="pex-btn-ghost pl-edit-btn" data-pl-id="${escapeHtml(
@@ -3326,6 +3623,7 @@ function initAdminUI() {
     });
     loadSummary();
     loadPromptPool();
+    stampAdminRefreshedAt();
   }
 
   if (els.refreshBtn) els.refreshBtn.addEventListener("click", refreshAll);
@@ -3434,7 +3732,7 @@ function initAdminUI() {
     const pid = normalizeStudyParticipantIdClient(
       (els.sessionParticipantId?.value || "").trim()
     );
-    const med = (els.sessionMedium?.value || "SMS").trim();
+    const med = (els.sessionMedium?.value || "Messenger").trim();
     const im = (els.sessionInputMethod?.value || "Typing").trim();
     const dev = (els.sessionDevice?.value || "").trim();
     const pcond = (els.sessionPromptCondition?.value || "auto").trim().toLowerCase();
@@ -3446,7 +3744,12 @@ function initAdminUI() {
     if (dev) sp.set("device", dev);
     if (pcond === "formal" || pcond === "informal" || pcond === "auto")
       sp.set("prompt_condition", pcond);
-    if (/^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tpid)) sp.set("text_prompt_id", tpid);
+    const pick = (els.sessionPromptPick?.value || "random").trim().toLowerCase();
+    if (
+      pick === "selected" &&
+      /^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tpid)
+    )
+      sp.set("text_prompt_id", tpid);
     const q = sp.toString();
     els.sessionParticipantUrl.textContent = q ? `${base}?${q}` : base;
     refreshStudyContextBanner();
@@ -3465,38 +3768,18 @@ function initAdminUI() {
   }
 
   function defaultSessionPlanTask() {
-    return {
-      medium: "SMS",
+    return normalizeStudyTaskClient({
+      medium: "Messenger",
       input_method: "Typing",
       device: "",
       prompt_condition: "auto",
       prompt_pick: "random",
       text_prompt_id: "",
-    };
+    });
   }
 
   function normalizeSessionPlanTask(t) {
-    const o = { ...defaultSessionPlanTask(), ...(t || {}) };
-    let med = String(o.medium || "SMS").trim();
-    if (!["SMS", "Messenger", "Email", "Voice"].includes(med)) med = "SMS";
-    o.medium = med;
-    const allowedIm = ["Typing", "Swipe typing", "Voice-to-text"];
-    let im = String(o.input_method || "Typing").trim();
-    if (!allowedIm.includes(im)) im = "Typing";
-    o.input_method = im;
-    const dev = String(o.device || "").trim().toLowerCase();
-    o.device = dev === "phone" || dev === "laptop" ? dev : "";
-    let pc = String(o.prompt_condition || "auto").trim().toLowerCase();
-    if (!["formal", "informal", "auto"].includes(pc)) pc = "auto";
-    o.prompt_condition = pc;
-    let pp = String(o.prompt_pick || "random").trim().toLowerCase();
-    if (pp !== "random" && pp !== "selected") pp = "random";
-    o.prompt_pick = pp;
-    let tid = String(o.text_prompt_id || "").trim();
-    if (!/^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tid)) tid = "";
-    if (o.prompt_pick === "random") tid = "";
-    o.text_prompt_id = tid;
-    return o;
+    return normalizeStudyTaskClient(t);
   }
 
   function describeSessionPlanTask(t) {
@@ -3534,12 +3817,7 @@ function initAdminUI() {
 
   function buildSessionPlanRowHtml(index, task) {
     const d = normalizeSessionPlanTask(task);
-    const medChoices = [
-      ["SMS", "SMS"],
-      ["Messenger", "Messenger"],
-      ["Email", "Email"],
-      ["Voice", "Voice"],
-    ];
+    const medChoices = studyMediumChoicesForSelect(d.medium);
     const imChoices = [
       ["Typing", "Typing"],
       ["Swipe typing", "Swipe typing"],
@@ -3622,7 +3900,7 @@ function initAdminUI() {
     const out = [];
     rows.forEach((tr) => {
       out.push({
-        medium: tr.querySelector(".session-plan-medium")?.value || "SMS",
+        medium: tr.querySelector(".session-plan-medium")?.value || "Messenger",
         input_method: tr.querySelector(".session-plan-input-method")?.value || "Typing",
         device: tr.querySelector(".session-plan-device")?.value || "",
         prompt_condition: tr.querySelector(".session-plan-prompt-condition")?.value || "auto",
@@ -3631,6 +3909,97 @@ function initAdminUI() {
       });
     });
     return out.map(normalizeSessionPlanTask);
+  }
+
+  function populateSessionTextPromptSelect(selectedId) {
+    if (!els.sessionTextPromptId) return;
+    const sel = els.sessionTextPromptId;
+    const prev = (selectedId || sel.value || "").trim();
+    let html = '<option value="">— choose prompt —</option>';
+    lastPromptPoolActiveRows.forEach((p) => {
+      const id = (p.id || "").trim();
+      if (!id) return;
+      html += `<option value="${escapeHtml(id)}">${escapeHtml(id)}</option>`;
+    });
+    sel.innerHTML = html;
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+  }
+
+  function syncSessionPromptPickUi() {
+    const pick = (els.sessionPromptPick?.value || "random").trim().toLowerCase();
+    const useSelected = pick === "selected";
+    if (els.sessionTextPromptId) els.sessionTextPromptId.disabled = !useSelected;
+    const wrap = document.getElementById("sessionLibraryPromptField");
+    if (wrap) wrap.classList.toggle("is-muted", !useSelected);
+  }
+
+  function applyTaskToSessionLinkFields(t) {
+    const task = normalizeSessionPlanTask(t || {});
+    const med = String(task.medium || "").trim();
+    const im = String(task.input_method || "").trim();
+    const dev = String(task.device || "").trim().toLowerCase();
+    if (med && ["SMS", "Messenger", "Email", "Voice"].includes(med) && els.sessionMedium)
+      els.sessionMedium.value = med;
+    const allowedIm = ["Typing", "Swipe typing", "Voice-to-text"];
+    if (im && allowedIm.includes(im) && els.sessionInputMethod)
+      els.sessionInputMethod.value = im;
+    if (els.sessionDevice) {
+      if (dev === "phone" || dev === "laptop") els.sessionDevice.value = dev;
+      else els.sessionDevice.value = "";
+    }
+    if (els.sessionPromptCondition) {
+      const pc = task.prompt_condition || "auto";
+      if (["formal", "informal", "auto"].includes(pc)) els.sessionPromptCondition.value = pc;
+    }
+    const pick =
+      task.prompt_pick === "selected" && task.text_prompt_id ? "selected" : "random";
+    if (els.sessionPromptPick) els.sessionPromptPick.value = pick;
+    populateSessionTextPromptSelect(
+      pick === "selected" ? task.text_prompt_id || "" : ""
+    );
+    if (els.sessionTextPromptId) {
+      els.sessionTextPromptId.value =
+        pick === "selected" ? task.text_prompt_id || "" : "";
+    }
+    syncSessionPromptPickUi();
+  }
+
+  function pushActiveTaskFieldsFromCurrentPlanRow() {
+    const tasks = collectSessionPlanTasksFromTable();
+    if (!tasks.length) return;
+    const idx = readSessionPlanCurrentIndexForSave(tasks.length);
+    sessionPlanLocalCurrentIndex = idx;
+    applyTaskToSessionLinkFields(tasks[idx]);
+    onSessionFieldsChanged();
+  }
+
+  function taskFromSessionLinkFields() {
+    const pick = (els.sessionPromptPick?.value || "random").trim().toLowerCase();
+    const tpid = (els.sessionTextPromptId?.value || "").trim();
+    const useSelected = pick === "selected" && /^[a-zA-Z][a-zA-Z0-9_\-]{0,63}$/.test(tpid);
+    return normalizeSessionPlanTask({
+      medium: els.sessionMedium?.value || "Messenger",
+      input_method: els.sessionInputMethod?.value || "Typing",
+      device: els.sessionDevice?.value || "",
+      prompt_condition: els.sessionPromptCondition?.value || "auto",
+      prompt_pick: useSelected ? "selected" : "random",
+      text_prompt_id: useSelected ? tpid : "",
+    });
+  }
+
+  /** Copy Study session link controls into the current plan row (live collection workflow). */
+  function syncSessionLinkFieldsToCurrentPlanRow() {
+    let tasks = collectSessionPlanTasksFromTable();
+    const patch = taskFromSessionLinkFields();
+    if (!tasks.length) {
+      renderSessionPlanTable([patch]);
+      sessionPlanLocalCurrentIndex = 0;
+      return;
+    }
+    const idx = readSessionPlanCurrentIndexForSave(tasks.length);
+    tasks[idx] = { ...tasks[idx], ...patch };
+    sessionPlanLocalCurrentIndex = idx;
+    renderSessionPlanTable(tasks);
   }
 
   function readSessionPlanCurrentIndexForSave(taskCount) {
@@ -3657,12 +4026,11 @@ function initAdminUI() {
     const next = i + 1 < n ? tasks[i + 1] : null;
     const completed = i;
     const nextLabel = next ? describeSessionPlanTask(next) : "— (end of plan)";
-    els.sessionPlanSummary.innerHTML = `<strong>Participant:</strong> ${escapeHtml(
-      pid || "—"
+    els.sessionPlanSummary.innerHTML = `<strong>Active:</strong> task ${i + 1} of ${n} — ${escapeHtml(
+      describeSessionPlanTask(cur)
     )}<br />
-<strong>Current task:</strong> ${i + 1} of ${n} — ${escapeHtml(describeSessionPlanTask(cur))}<br />
-<strong>Next task:</strong> ${escapeHtml(nextLabel)}<br />
-<strong>Completed in plan order (before current index):</strong> ${completed}`;
+<strong>Up next:</strong> ${escapeHtml(nextLabel)} · <strong>Done before current:</strong> ${completed}`;
+    updateSessionLiveNextAction();
   }
 
   function setSessionPlanControlsDisabled(disabled) {
@@ -3696,15 +4064,16 @@ function initAdminUI() {
       Math.min(Number(p.current_index || 0), Math.max(0, tasks.length - 1))
     );
     renderSessionPlanTable(tasks);
+    if (tasks.length) pushActiveTaskFieldsFromCurrentPlanRow();
   }
 
   function loadSessionPlan() {
     const pid = sessionPlanParticipantId();
     if (!pid || !/^P\d{3,}$/i.test(pid)) {
-      setSessionPlanStatus("Enter a stable participant ID (P###) first.");
+      setSessionPlanStatus("Enter a participant ID (e.g. P010) first.");
       if (els.sessionPlanSummary)
         els.sessionPlanSummary.innerHTML =
-          "<strong>Participant:</strong> —<br />Enter a stable participant ID (P###) to load a plan.";
+          "<strong>Participant:</strong> —<br />Enter a participant ID (e.g. P010) to load a plan.";
       renderSessionPlanTable([]);
       return;
     }
@@ -3755,10 +4124,11 @@ function initAdminUI() {
   function saveSessionPlan() {
     const pid = sessionPlanParticipantId();
     if (!pid || !/^P\d{3,}$/i.test(pid)) {
-      alert("Enter a stable participant ID (P###) first.");
+      alert("Enter a participant ID (e.g. P010) first.");
       return;
     }
     if (sessionPlanBusy) return;
+    syncSessionLinkFieldsToCurrentPlanRow();
     let payloadTasks = collectSessionPlanTasksFromTable();
     if (!payloadTasks.length) {
       try {
@@ -3799,7 +4169,7 @@ function initAdminUI() {
   function advanceSessionPlan() {
     const pid = sessionPlanParticipantId();
     if (!pid || !/^P\d{3,}$/i.test(pid)) {
-      alert("Enter a stable participant ID (P###) first.");
+      alert("Enter a participant ID (e.g. P010) first.");
       return;
     }
     if (sessionPlanBusy) return;
@@ -3834,7 +4204,7 @@ function initAdminUI() {
   function applySessionPlanToSessionLink() {
     const pid = sessionPlanParticipantId();
     if (!pid || !/^P\d{3,}$/i.test(pid)) {
-      alert("Enter a stable participant ID (P###) first.");
+      alert("Enter a participant ID (e.g. P010) first.");
       return;
     }
     if (sessionPlanBusy) return;
@@ -3852,28 +4222,7 @@ function initAdminUI() {
         let idx = Number(plan.current_index || 0);
         if (idx < 0) idx = 0;
         if (idx >= tasks.length) idx = tasks.length - 1;
-        const t = normalizeSessionPlanTask(tasks[idx] || {});
-        const med = String(t.medium || "").trim();
-        const im = String(t.input_method || "").trim();
-        const dev = String(t.device || "").trim().toLowerCase();
-        if (med && ["SMS", "Messenger", "Email", "Voice"].includes(med) && els.sessionMedium)
-          els.sessionMedium.value = med;
-        const allowedIm = ["Typing", "Swipe typing", "Voice-to-text"];
-        if (im && allowedIm.includes(im) && els.sessionInputMethod)
-          els.sessionInputMethod.value = im;
-        if (els.sessionDevice) {
-          if (dev === "phone" || dev === "laptop") els.sessionDevice.value = dev;
-          else els.sessionDevice.value = "";
-        }
-        if (els.sessionPromptCondition) {
-          const pc = t.prompt_condition || "auto";
-          if (["formal", "informal", "auto"].includes(pc)) els.sessionPromptCondition.value = pc;
-        }
-        if (els.sessionTextPromptId) {
-          if (t.prompt_pick === "selected" && t.text_prompt_id)
-            els.sessionTextPromptId.value = t.text_prompt_id;
-          else els.sessionTextPromptId.value = "";
-        }
+        applyTaskToSessionLinkFields(normalizeSessionPlanTask(tasks[idx] || {}));
         onSessionFieldsChanged();
         setSessionPlanStatus(`Applied plan task ${idx + 1} of ${tasks.length} to session link.`);
       })
@@ -3884,9 +4233,30 @@ function initAdminUI() {
       });
   }
 
+  function syncSessionVttMicHint() {
+    if (!els.sessionVttMicHint) return;
+    const im = (els.sessionInputMethod?.value || "").trim();
+    els.sessionVttMicHint.hidden = im !== "Voice-to-text";
+  }
+
+  function updateSessionLiveNextAction() {
+    if (!els.sessionLiveNextAction) return;
+    const pid = sessionPlanParticipantId();
+    const med = (els.sessionMedium?.value || "Messenger").trim();
+    const im = (els.sessionInputMethod?.value || "Typing").trim();
+    if (!pid || !/^P\d{3,}$/i.test(pid)) {
+      els.sessionLiveNextAction.textContent =
+        "Next: enter a participant ID (e.g. P010), set the task, then Save plan.";
+      return;
+    }
+    els.sessionLiveNextAction.textContent = `Next for ${pid}: edit ${med} · ${im} if needed → Save plan → participant updates live.`;
+  }
+
   function onSessionFieldsChanged() {
     syncSessionUrlPreview();
     refreshStudyContextBanner();
+    syncSessionVttMicHint();
+    updateSessionLiveNextAction();
   }
 
   if (els.sessionPlanTableBody) {
@@ -3946,6 +4316,7 @@ function initAdminUI() {
       sessionPlanLocalCurrentIndex = readSessionPlanCurrentIndexForSave(tasks.length);
       renderSessionPlanSummary(tasks, sessionPlanLocalCurrentIndex);
       syncSessionPlanJsonFromState(tasks, sessionPlanLocalCurrentIndex);
+      pushActiveTaskFieldsFromCurrentPlanRow();
     });
   }
 
@@ -3993,9 +4364,24 @@ function initAdminUI() {
   let plSearchDebounce = null;
   if (els.plTableBody) {
     els.plTableBody.addEventListener("click", (ev) => {
+      const row = ev.target && ev.target.closest && ev.target.closest("tr.pex-prompts-row");
       const ed = ev.target && ev.target.closest && ev.target.closest(".pl-edit-btn");
       const del = ev.target && ev.target.closest && ev.target.closest(".pl-del-btn");
       const btn = ed || del;
+      if (row && !btn) {
+        const id = (row.getAttribute("data-pl-id") || "").trim();
+        if (!id) return;
+        fetchJSON(`/api/admin/prompt_library?q=${encodeURIComponent(id)}`)
+          .then((d) => {
+            if (!d?.ok) throw new Error("bad");
+            const rows = d.prompts || [];
+            const hit = rows.find((r) => (r.id || "") === id) || rows[0];
+            if (hit) plFillLibraryForm(hit);
+            else plSetFormStatus("Prompt not found.");
+          })
+          .catch(() => plSetFormStatus("Could not load prompt for edit."));
+        return;
+      }
       if (!btn) return;
       const id = (btn.getAttribute("data-pl-id") || "").trim();
       if (!id) return;
@@ -4037,6 +4423,8 @@ function initAdminUI() {
     });
   if (els.plNewBtn) els.plNewBtn.addEventListener("click", () => plClearLibraryForm());
   if (els.plClearFormBtn) els.plClearFormBtn.addEventListener("click", () => plClearLibraryForm());
+  if (els.plCloseEditorBtn)
+    els.plCloseEditorBtn.addEventListener("click", () => showPlEditorPanel(false));
   if (els.plIncludeInactive)
     els.plIncludeInactive.addEventListener("change", () => loadPromptLibraryTable());
   if (els.plSearchInput) {
@@ -4052,8 +4440,8 @@ function initAdminUI() {
         alert("Prompt id is required.");
         return;
       }
-      if (!body.sms && !body.messenger && !body.email_body) {
-        alert("Enter at least one of SMS, Messenger, or email body.");
+      if (!body.messenger && !body.email_body) {
+        alert("Enter a Messenger message and/or Email body.");
         return;
       }
       const edit = plLibraryEditMode;
@@ -4647,7 +5035,7 @@ function initAdminUI() {
   const VIZ_HELP = {
     medium: {
       title: "Log rows by medium",
-      body: "Row counts per interface (SMS, Messenger, Email, …) after filters. Participant replies only unless you include AI-generated rows.",
+      body: "Row counts per interface (Messenger, Email; legacy SMS/Voice if present) after filters. Participant replies only unless you include AI-generated rows.",
     },
     response_time: {
       title: "Response time",
@@ -4661,11 +5049,71 @@ function initAdminUI() {
       title: "Reply register (model)",
       body: "Distribution of reply register labels from the trained classifier (Formal/Informal in the UI; raw LABEL_* only in advanced export).",
     },
+    input_method: {
+      title: "Log rows by input method",
+      body: "Row counts for Typing, Swipe typing, Voice-to-text, and LLM (if included) after filters.",
+    },
+    custom: {
+      title: "Custom chart",
+      body: "Grouped summary from filtered log rows. Choose group-by (X) and measure (Y) in the custom panel.",
+    },
     prompt_condition: {
       title: "Prompt condition",
       body: "Counts rows by logged prompt_formality (formal / informal / other). Useful when prompts were tagged in the Prompts screen.",
     },
   };
+
+  function syncVizCustomPanelVisibility() {
+    const isCustom = (els.vizChartType?.value || "") === "custom";
+    if (els.vizCustomPanel) els.vizCustomPanel.hidden = !isCustom;
+  }
+
+  function vizDimensionKey(row, dimension) {
+    const d = String(dimension || "medium").trim();
+    if (d === "medium") return (row.medium || "—").trim() || "—";
+    if (d === "input_method") return (row.input_method || "—").trim() || "—";
+    if (d === "prompt_formality") {
+      const pf = (row.prompt_formality || "").trim().toLowerCase();
+      if (pf === "formal" || pf === "informal") return pf;
+      return pf ? pf : "(none)";
+    }
+    if (d === "participant_id") {
+      const raw = (row.participant_id || "").trim();
+      return displayParticipantId(raw) || raw || "—";
+    }
+    if (d === "log_date") {
+      const ts = String(row.timestamp || "").trim();
+      return ts.length >= 10 ? ts.slice(0, 10) : "(no date)";
+    }
+    return "—";
+  }
+
+  function aggregateRowsForCustomViz(rows, dimension, metric) {
+    const buckets = {};
+    (rows || []).forEach((row) => {
+      const key = vizDimensionKey(row, dimension);
+      if (!buckets[key]) buckets[key] = { count: 0, rtSum: 0, rtN: 0 };
+      buckets[key].count += 1;
+      const rt = parseFloat(row.response_time_seconds || "0");
+      if (!Number.isNaN(rt) && rt > 0) {
+        buckets[key].rtSum += rt;
+        buckets[key].rtN += 1;
+      }
+    });
+    let keys = Object.keys(buckets);
+    if (dimension === "log_date") keys.sort();
+    else if (dimension === "medium") keys = sortMediumKeysForDisplay(keys);
+    else keys.sort((a, b) => buckets[b].count - buckets[a].count || a.localeCompare(b));
+    if (dimension === "participant_id" && keys.length > 15) keys = keys.slice(0, 15);
+    const labels =
+      dimension === "medium" ? keys.map(formatMediumDisplayLabel) : keys;
+    const values = keys.map((k) => {
+      const b = buckets[k];
+      if (metric === "avg_rt") return b.rtN ? b.rtSum / b.rtN : 0;
+      return b.count;
+    });
+    return { keys: labels, values, buckets };
+  }
 
   async function runVisualizationUpdate() {
     const canvas = document.getElementById("vizBuilderChart");
@@ -4714,7 +5162,7 @@ function initAdminUI() {
       if (detailed) {
         els.vizMetaPanel.classList.remove("hidden");
         const dispPid = rawPid ? displayParticipantId(rawPid) || rawPid : "All";
-        const mf = medium || "All";
+        const mf = medium ? formatMediumDisplayLabel(medium) : "All";
         const imf = inputMethod || "All";
         const pcf =
           promptCondition === "formal"
@@ -4747,14 +5195,93 @@ function initAdminUI() {
       }
     }
 
-    if (chartType === "medium") {
+    if (chartType === "custom") {
+      const dimension = (els.vizCustomDimension?.value || "medium").trim();
+      let metric = (els.vizCustomMetric?.value || "count").trim();
+      let style = (els.vizCustomStyle?.value || "bar").trim();
+      if (metric === "avg_rt" && style === "doughnut") style = "bar";
+      const { keys, values } = aggregateRowsForCustomViz(rows, dimension, metric);
+      const labels = keys.length ? keys : ["—"];
+      const data = values.length ? values : [0];
+      const yTitle =
+        metric === "avg_rt" ? "Avg response time (s)" : "Log row count";
+      const datasetLabel = metric === "avg_rt" ? "Avg seconds" : "Rows";
+      if (style === "line") {
+        vizBuilderChart = new Chart(canvas, {
+          type: "line",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: datasetLabel,
+                data,
+                borderColor: good,
+                tension: 0.2,
+                fill: false,
+              },
+            ],
+          },
+          options: {
+            ...base,
+            plugins: { ...base.plugins, legend: { display: false } },
+            scales: {
+              ...base.scales,
+              y: { ...base.scales.y, beginAtZero: true, title: { display: true, text: yTitle, color: chartMutedColor() } },
+            },
+          },
+        });
+      } else if (style === "doughnut") {
+        vizBuilderChart = new Chart(canvas, {
+          type: "doughnut",
+          data: {
+            labels,
+            datasets: [
+              {
+                data: data.some((v) => v > 0) ? data : [1],
+                backgroundColor: [accent, good, warn, "#b197fc", "#94a3b8"],
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: "bottom", labels: { color: chartFontColor() } },
+            },
+          },
+        });
+      } else {
+        vizBuilderChart = new Chart(canvas, {
+          type: "bar",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: datasetLabel,
+                data,
+                backgroundColor: accent,
+              },
+            ],
+          },
+          options: {
+            ...base,
+            plugins: { ...base.plugins, legend: { display: false } },
+            scales: {
+              ...base.scales,
+              y: { ...base.scales.y, beginAtZero: true, title: { display: true, text: yTitle, color: chartMutedColor() } },
+            },
+          },
+        });
+      }
+    } else if (chartType === "medium") {
       const counts = {};
       rows.forEach((r) => {
         const m = (r.medium || "—").trim() || "—";
         counts[m] = (counts[m] || 0) + 1;
       });
-      const labels = Object.keys(counts);
-      const values = labels.map((k) => counts[k]);
+      const keys = sortMediumKeysForDisplay(Object.keys(counts));
+      const labels = keys.map(formatMediumDisplayLabel);
+      const values = keys.map((k) => counts[k]);
       vizBuilderChart = new Chart(canvas, {
         type: "bar",
         data: {
@@ -4800,6 +5327,56 @@ function initAdminUI() {
                 color: chartMutedColor(),
               },
             },
+          },
+        },
+      });
+    } else if (chartType === "input_method") {
+      const imOrder = [
+        "Typing",
+        "Swipe typing",
+        "Voice-to-text",
+        "LLM",
+      ];
+      const counts = {};
+      rows.forEach((r) => {
+        const im = (r.input_method || "—").trim() || "—";
+        counts[im] = (counts[im] || 0) + 1;
+      });
+      const keys = [
+        ...imOrder.filter((k) => counts[k]),
+        ...Object.keys(counts).filter((k) => !imOrder.includes(k)).sort(),
+      ];
+      const labels = keys.length ? keys : ["—"];
+      const values = keys.map((k) => counts[k] || 0);
+      vizBuilderChart = new Chart(canvas, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Log rows",
+              data: values.length ? values : [0],
+              backgroundColor: accent,
+            },
+          ],
+        },
+        options: {
+          ...base,
+          plugins: {
+            ...base.plugins,
+            legend: { display: false },
+            title: detailed
+              ? {
+                  display: true,
+                  text: "Log rows by input method",
+                  color: chartMutedColor(),
+                  font: { size: 13 },
+                }
+              : { display: false },
+          },
+          scales: {
+            ...base.scales,
+            y: { ...base.scales.y, beginAtZero: true },
           },
         },
       });
@@ -5028,6 +5605,18 @@ function initAdminUI() {
         },
       });
     }
+
+    if (els.vizChartCaption) {
+      const n = rows.length;
+      els.vizChartCaption.textContent = n
+        ? `${help.title} — ${n} log row(s) after filters`
+        : `${help.title} — no rows match the current filters`;
+    }
+  }
+
+  if (els.vizChartType) {
+    els.vizChartType.addEventListener("change", syncVizCustomPanelVisibility);
+    syncVizCustomPanelVisibility();
   }
 
   if (els.vizApplyBtn) {
@@ -5046,6 +5635,14 @@ function initAdminUI() {
     els.sessionDevice.addEventListener("change", onSessionFieldsChanged);
   if (els.sessionPromptCondition)
     els.sessionPromptCondition.addEventListener("change", onSessionFieldsChanged);
+  if (els.sessionPromptPick) {
+    els.sessionPromptPick.addEventListener("change", () => {
+      syncSessionPromptPickUi();
+      onSessionFieldsChanged();
+    });
+  }
+  if (els.sessionTextPromptId)
+    els.sessionTextPromptId.addEventListener("change", onSessionFieldsChanged);
   if (els.sessionSuggestParticipantBtn) {
     els.sessionSuggestParticipantBtn.addEventListener("click", () => {
       fetchJSON("/api/participants")
@@ -5102,6 +5699,9 @@ function initAdminUI() {
 
   syncSessionUrlPreview();
   refreshStudyContextBanner();
+  syncSessionVttMicHint();
+  syncSessionPromptPickUi();
+  updateSessionLiveNextAction();
 
   loadAliasOverrides();
   // Load logs after filter options are ready so stale values do not hide rows.
@@ -5110,6 +5710,7 @@ function initAdminUI() {
   });
   loadSummary();
   loadPromptPool();
+  if (typeof window.initAdminHelp === "function") window.initAdminHelp();
 }
 
 // -----------------------------------------------------------------------------
