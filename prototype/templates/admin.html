@@ -209,6 +209,9 @@
                       <p class="pex-inline-hint">
                         Same ID on every link (<strong>P001</strong>, <strong>P010</strong>, …). Type a new ID or choose from suggestions.
                       </p>
+                      <p class="pex-inline-hint">
+                        ID guidance: lab/local <strong>P001–P099</strong>, remote <strong>P101+</strong>, test IDs <strong>P901+</strong>.
+                      </p>
                     </div>
                     <div class="pex-admin-field" style="margin-top:14px;">
                       <label class="pex-admin-label">Participant link</label>
@@ -1165,9 +1168,22 @@
         </main>
 
         <footer class="pex-admin-status-footer" aria-live="polite">
-          <span class="pex-admin-pill pex-admin-pill--footer" id="serverPill">Checking…</span>
-          <span class="pex-admin-status-sep" aria-hidden="true">·</span>
-          <span class="pex-admin-status-refresh small" id="adminFooterRefreshed">—</span>
+          <div class="pex-admin-footer-main">
+            <div class="pex-admin-footer-row">
+              <span class="pex-admin-pill pex-admin-pill--footer" id="adminServerStatusPill">Checking…</span>
+              <span class="pex-admin-pill pex-admin-pill--footer" id="serverPill">API…</span>
+            </div>
+            <div class="pex-admin-footer-row pex-admin-footer-researcher">
+              <button type="button" class="pex-btn-ghost pex-btn-ghost--compact" id="adminSetTeamServerBtn">
+                Set as team server
+              </button>
+              <button type="button" class="pex-help-btn" data-help-id="shared-server" aria-label="Help: shared server">?</button>
+            </div>
+            <p class="small pex-admin-footer-host" id="adminServerHostLine">This page: —</p>
+            <p class="small pex-admin-footer-scheme" id="adminServerSchemeLine">—</p>
+            <p class="pex-admin-footer-warn small" id="adminServerWarn" hidden></p>
+            <p class="small pex-admin-footer-refreshed" id="adminFooterRefreshed">—</p>
+          </div>
         </footer>
       </div>
     </div>
@@ -1183,6 +1199,7 @@
       </div>
     </dialog>
 
+    <script src="{{ url_for('static', filename='js/admin_study_context.js') }}"></script>
     <script src="{{ url_for('static', filename='js/admin_help.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/admin_ui.js') }}"></script>

@@ -2776,27 +2776,35 @@ function initAdminUI() {
 
   fetchJSON("/api/health")
     .then((h) => {
-      if (!els.serverPill) return;
-      if (h.whisper_ok) {
-        els.serverPill.textContent = h.openai_configured
-          ? "API OK · OpenAI configured"
-          : "API OK · OpenAI missing (fallback)";
-        if (els.transcriptionRuntime)
+      if (typeof window.updateAdminServerFooter === "function") {
+        window.updateAdminServerFooter(h);
+      } else if (els.serverPill) {
+        if (h.whisper_ok) {
+          els.serverPill.textContent = h.openai_configured
+            ? "API OK · OpenAI configured"
+            : "API OK · OpenAI missing (fallback)";
+        } else {
+          const why = h.ffmpeg_ok === false ? "ffmpeg missing" : "whisper unavailable";
+          const llm = h.openai_configured ? "OpenAI configured" : "OpenAI missing (fallback)";
+          els.serverPill.textContent = `API OK · ${llm} · transcription limited (${why})`;
+        }
+      }
+      if (h.whisper_ok && els.transcriptionRuntime) {
           els.transcriptionRuntime.textContent =
             "Reply audio transcription enabled (Whisper). Prompt audio transcription is not enabled.";
-      } else {
+      } else if (els.transcriptionRuntime) {
         const why = h.ffmpeg_ok === false ? "ffmpeg missing" : "whisper unavailable";
-        const llm = h.openai_configured ? "OpenAI configured" : "OpenAI missing (fallback)";
-        els.serverPill.textContent = `API OK · ${llm} · transcription limited (${why})`;
-        if (els.transcriptionRuntime) {
           const err = (h.whisper_error || "").toString();
           els.transcriptionRuntime.textContent =
             `Reply audio transcription unavailable (${why}). ${err ? "Error: " + err : ""}`.trim();
-        }
       }
     })
     .catch(() => {
-      if (els.serverPill) els.serverPill.textContent = "API unreachable";
+      if (typeof window.updateAdminServerFooter === "function") {
+        window.updateAdminServerFooter(null);
+      } else if (els.serverPill) {
+        els.serverPill.textContent = "API unreachable";
+      }
     });
 
   function showAdminView(viewKey) {
@@ -5710,6 +5718,7 @@ function initAdminUI() {
   });
   loadSummary();
   loadPromptPool();
+  if (typeof window.initAdminStudyContext === "function") window.initAdminStudyContext();
   if (typeof window.initAdminHelp === "function") window.initAdminHelp();
 }
 

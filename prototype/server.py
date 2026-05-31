@@ -29,6 +29,7 @@ from uuid import uuid4
 import csv
 import json
 import os
+import hmac
 from collections import Counter, defaultdict
 
 from flask import (
@@ -140,6 +141,50 @@ else:
 
 BASE_DIR = Path(__file__).resolve().parent
 ensure_base_directories(BASE_DIR)
+
+
+def _admin_password_configured() -> str:
+    """Return configured admin password (blank means auth disabled)."""
+    return str(os.environ.get("RELAY_ADMIN_PASSWORD") or "").strip()
+
+
+def _request_host_without_port() -> str:
+    return (request.host or "").split(":")[0].strip().lower()
+
+
+def _is_local_host(host: str) -> bool:
+    h = (host or "").strip().lower()
+    return h in {"localhost", "127.0.0.1", "::1"}
+
+
+def _is_admin_protected_path(path: str) -> bool:
+    p = str(path or "")
+    return (
+        p == "/admin"
+        or p.startswith("/api/admin")
+        or p == "/api/admin_summary"
+        or p == "/api/logs"
+        or p == "/api/participants"
+        or p.startswith("/api/prompt_pool")
+        or p.startswith("/api/download_csv")
+        or p.startswith("/api/download_edit_trace")
+    )
+
+
+def _maybe_require_admin_password() -> Optional[Response]:
+    """Optional lightweight admin protection when RELAY_ADMIN_PASSWORD is set."""
+    password = _admin_password_configured()
+    if not password or not _is_admin_protected_path(request.path):
+        return None
+    auth = request.authorization
+    user = (auth.username or "") if auth else ""
+    supplied = (auth.password or "") if auth else ""
+    if user == "relay_admin" and hmac.compare_digest(supplied, password):
+        return None
+    res = Response("Admin authentication required.", 401)
+    res.headers["WWW-Authenticate"] = 'Basic realm="Relay Admin"'
+    return res
+
 
 # Voice prompt files for participant UI (flat folders only; no subpaths).
 VOICE_PROMPT_SUFFIXES = frozenset({".mp3", ".wav", ".m4a", ".ogg", ".webm"})
@@ -369,6 +414,7 @@ app = Flask(
     static_folder=str(BASE_DIR / "static"),
     template_folder=str(BASE_DIR / "templates"),
 )
+app.before_request(_maybe_require_admin_password)
 
 
 # ---------------------------------------------------------------------------
@@ -424,7 +470,7 @@ def api_health() -> Response:
     can toggle related controls.
     """
     forwarded = (request.headers.get("X-Forwarded-Proto") or "").split(",")[0].strip().lower()
-    host = (request.host or "").split(":")[0].lower()
+    host = _request_host_without_port()
     is_secure = bool(request.is_secure) or forwarded == "https"
     mic_likely = is_secure or host in {"localhost", "127.0.0.1"}
     payload = {
@@ -435,7 +481,10 @@ def api_health() -> Response:
         "ffmpeg_ok": FFMPEG_AVAILABLE,
         "whisper_error": WHISPER_ERROR,
         "openai_configured": has_openai_key_configured(),
+        "request_host": host,
+        "request_host_is_local": _is_local_host(host),
         "request_is_secure": is_secure,
+        "admin_password_set": bool(_admin_password_configured()),
         "mic_likely_available": mic_likely,
     }
     return jsonify(payload)

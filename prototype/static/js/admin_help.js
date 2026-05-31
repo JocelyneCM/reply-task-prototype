@@ -12,6 +12,23 @@
 
 **Typical use:** open at the start of a lab day to confirm logging is working, or after a session to spot obvious gaps.`,
     },
+    "shared-server": {
+      title: "One shared server for the study",
+      body: `During live data collection, everyone should use the **same Relay server** (same host/URL).
+
+**Before remote testing:** back up data first:
+\`cp -R prototype/data prototype/data_backup_$(date +%Y%m%d_%H%M%S)\`
+
+**Remote setup (ngrok):**
+1. Start Relay: \`python -m prototype.server\`
+2. In another terminal: \`ngrok http 8000\`
+3. Open **admin** on the **https://** ngrok URL and build participant links from there
+4. Click **Set as team server** in the footer so mismatched hosts are warned
+
+**Optional:** set \`RELAY_ADMIN_PASSWORD\` before sharing a public admin link (username \`relay_admin\`).
+
+**HTTP vs HTTPS:** typing and swipe work on plain HTTP; phone mic needs HTTPS.`,
+    },
     session: {
       title: "Study session",
       body: `Run a live collection block with one participant at a time.
@@ -25,6 +42,11 @@
       body: `The ID ties everything together (logs, session plan, exports).
 
 Use the same code on every link for that person (e.g. **P006**). You can type a new ID or pick an existing one from suggestions.
+
+Recommended ranges to avoid collisions:
+- lab/local participants: **P001–P099**
+- remote participants: **P101+**
+- test-only IDs: **P901+**
 
 **Common mistake:** one participant using two different IDs — their data will look split across two people.`,
     },

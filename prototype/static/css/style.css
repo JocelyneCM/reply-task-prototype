@@ -2629,7 +2629,7 @@ body[data-theme="light"] .pex-admin-sidebar{
 
 .pex-admin-status-footer{
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   flex-wrap:wrap;
   gap:8px;
   padding:10px 24px 14px;
@@ -2637,6 +2637,53 @@ body[data-theme="light"] .pex-admin-sidebar{
   margin-top:auto;
   font-size:12px;
   color:var(--muted);
+}
+
+.pex-admin-footer-main{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  width:100%;
+}
+
+.pex-admin-footer-row{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+}
+
+.pex-admin-footer-researcher{
+  gap:10px;
+}
+
+.pex-admin-footer-host,
+.pex-admin-footer-scheme,
+.pex-admin-footer-refreshed{
+  margin:0;
+  line-height:1.4;
+}
+
+.pex-admin-footer-warn{
+  margin:0;
+  padding:8px 10px;
+  border-radius:8px;
+  line-height:1.45;
+  color:var(--text);
+  background:color-mix(in srgb, var(--warn, #e8b84a) 14%, var(--surface));
+  border:1px solid color-mix(in srgb, var(--warn, #e8b84a) 35%, var(--line));
+}
+
+.pex-admin-footer-warn[hidden]{
+  display:none !important;
+}
+
+.pex-admin-pill--footer.is-ok{
+  border-color:color-mix(in srgb, var(--ok, #5cb85c) 40%, var(--line));
+}
+
+.pex-admin-pill--footer.is-bad{
+  border-color:color-mix(in srgb, var(--danger, #d9534f) 40%, var(--line));
 }
 
 .pex-admin-pill--footer{

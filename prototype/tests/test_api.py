@@ -609,3 +609,23 @@ def test_admin_edit_traces_export_zip(monkeypatch, client, tmp_path):
     r = client.post("/api/admin/edit_traces/export_zip", json={})
     assert r.status_code == 200
     assert r.data[:2] == b"PK"
+
+
+def test_admin_password_optional(monkeypatch, client):
+    monkeypatch.delenv("RELAY_ADMIN_PASSWORD", raising=False)
+    r = client.get("/api/logs")
+    assert r.status_code == 200
+
+    monkeypatch.setenv("RELAY_ADMIN_PASSWORD", "secret-test")
+    r = client.get("/api/logs")
+    assert r.status_code == 401
+
+    auth = ("relay_admin", "secret-test")
+    r = client.get("/api/logs", auth=auth)
+    assert r.status_code == 200
+
+    r = client.get("/api/participants", auth=auth)
+    assert r.status_code == 200
+
+    r = client.post("/api/log_reply", json={"participant_id": "P001", "medium": "Messenger"})
+    assert r.status_code in (200, 400)
