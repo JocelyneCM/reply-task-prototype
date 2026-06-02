@@ -24,3 +24,6 @@ formality_model/
 
 # Runtime uploads — participant-recorded reply audio saved by the Flask app under prototype/static/audio/
 prototype/static/audio/
+
+
+GYAFC_Corpus/
