@@ -22,8 +22,6 @@ GYAFC/
 # Trained model directory (often large or machine-specific; sync via team process)
 formality_model/
 
-# Runtime uploads — participant-recorded reply audio saved by the Flask app under prototype/static/audio/
-prototype/static/audio/
-
-
 GYAFC_Corpus/
+
+model/
