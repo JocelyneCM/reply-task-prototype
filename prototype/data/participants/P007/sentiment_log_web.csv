@@ -1,0 +1,28 @@
+timestamp,participant_id,medium,input_method,row_role,llm_provider,prompt_text,reply_text,participant_reply_text,llm_reply_text,final_reply_text,transcript,response_time_seconds,words_per_minute,keypress_count,backspace_count,paste_used,correction_applied,manual_edit_count,edit_ratio,keystrokes_per_character,backspaces_per_word,edit_activity_compact,prompt_style,prompt_tone,prompt_seriousness,prompt_formality,prompt_id,prompt_source,reply_style,reply_analysis_status,reply_analysis_basis,transcript_status,transcript_source,formality_label,formality_confidence,formality_match_prompt_reply,bert_label,bert_raw,bert_confidence,audio_filename,log_row_id,edit_trace_available,revision_count,inserted_chars_est,deleted_chars_est,net_char_change,manual_edit_chars_after_transcript_est,voice_transcript_initial_chars,edit_trace_path
+2026-05-22T10:27:15,P007,Email,Typing,participant_reply,,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?","When talking about opinions both feel interested in, or one where both get some sort of outcome, even if that outcome just is the enjoyment of the other person.","When talking about opinions both feel interested in, or one where both get some sort of outcome, even if that outcome just is the enjoyment of the other person.",,,,67.3232,25.85,151,3,no,no,3,0.0187,0.9437,0.1034,B3P0A0,,,,formal,prompt_003,url_param,,ok,reply_text,,,,0.0,no,,,,,97b87d7b-8548-4c0d-b0e6-d305d8f515be,yes,13,174,14,160,0,0,data/edit_traces/P007/97b87d7b-8548-4c0d-b0e6-d305d8f515be.json
+2026-05-22T10:28:03,P007,Email,Typing,participant_reply,,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?",Np😅,Np😅,,Np😅,,116.3012,0.52,13,6,no,no,6,2.0,4.3333,6.0,B6P0A0,,,,formal,prompt_003,url_param,,ok,reply_text,,,,0.0,no,,,,,591d2c16-dd94-41f5-bf2e-d8c425a46bd4,yes,4,10,166,4,0,0,data/edit_traces/P007/591d2c16-dd94-41f5-bf2e-d8c425a46bd4.json
+2026-05-22T10:31:26,P007,Email,Typing,participant_reply,,"From: advisor@example.com
+Subject: Personal achievement
+
+What is an achievement you are personally satisfied with, and why does it matter to you?","Actually not quite sure, not really something I think about that often, I will come back to you when I have an answer.","Actually not quite sure, not really something I think about that often, I will come back to you when I have an answer.",,,,139.229,9.91,63,6,no,no,6,0.0508,0.5339,0.2609,B6P0A0,,,,formal,prompt_004,url_param,,ok,reply_text,,,,0.0,no,,,,,747badcf-1e85-4f94-b9ba-43b44e8296c5,yes,28,135,17,118,0,0,data/edit_traces/P007/747badcf-1e85-4f94-b9ba-43b44e8296c5.json
+2026-05-22T10:31:54,P007,Email,Typing,participant_reply,,"From: advisor@example.com
+Subject: Personal achievement
+
+What is an achievement you are personally satisfied with, and why does it matter to you?",No problem.,No problem.,,No problem.,,166.4452,0.72,14,2,no,no,2,0.1818,1.2727,1.0,B2P0A0,,,,formal,prompt_004,url_param,,ok,reply_text,,,,0.0,no,,,,,e7619610-adb2-4dbb-99ea-b86045b3797a,yes,9,30,137,11,0,0,data/edit_traces/P007/e7619610-adb2-4dbb-99ea-b86045b3797a.json
+2026-05-22T10:33:18,P007,Messenger,Typing,participant_reply,,What type of environment helps you focus or work most effectively?,"Probably somewhere quiet, like a library, though preferably not alone, cause I can be quite lazy...","Probably somewhere quiet, like a library, though preferably not alone, cause I can be quite lazy...",,,,52.4632,18.3,101,6,no,no,6,0.0606,1.0202,0.375,B6P0A0,,,,formal,prompt_005,url_param,,ok,reply_text,,,,0.0,no,,,,,c0507158-41b1-497f-bf59-78613135555c,yes,16,115,16,99,0,0,data/edit_traces/P007/c0507158-41b1-497f-bf59-78613135555c.json
+2026-05-22T10:33:33,P007,Messenger,Typing,participant_reply,,What type of environment helps you focus or work most effectively?,I agree.,I agree.,,I agree.,,13.3165,9.01,14,3,no,no,3,0.375,1.75,1.5,B3P0A0,,,,formal,prompt_005,url_param,,ok,reply_text,,,,0.0,no,,,,,29acc5a2-fb53-4853-87a6-97e7c17ca510,yes,2,12,103,8,0,0,data/edit_traces/P007/29acc5a2-fb53-4853-87a6-97e7c17ca510.json
+2026-05-22T10:33:34,P007,Messenger,Typing,participant_reply,,What type of environment helps you focus or work most effectively?,I agree.,I agree.,,I agree.,,13.3165,9.01,14,3,no,no,3,0.375,1.75,1.5,B3P0A0,,,,formal,prompt_005,url_param,,ok,reply_text,,,,0.0,no,,,,,2ea442fc-c5fe-42c0-9bdb-9d56ededd7a9,yes,2,12,103,8,0,0,data/edit_traces/P007/2ea442fc-c5fe-42c0-9bdb-9d56ededd7a9.json
+2026-05-22T10:35:12,P007,Email,Typing,participant_reply,,"From: friend@example.com
+Subject: Weekend plans
+
+So like, what's your favorite way of making the weekends pass?","Probably Gaming with friends, and sleeping. Not the most productive activities.","Probably Gaming with friends, and sleeping. Not the most productive activities.",,,,59.2947,11.13,23,0,no,no,0,0.0,0.2911,0.0,B0P0A0,,,,formal,prompt_006,url_param,,ok,reply_text,,,,0.0,no,,,,,dbb3bfe6-0261-4a03-996c-766114b5cc5a,yes,16,90,11,79,0,0,data/edit_traces/P007/dbb3bfe6-0261-4a03-996c-766114b5cc5a.json
+2026-05-22T10:35:31,P007,Email,Typing,participant_reply,,"From: friend@example.com
+Subject: Weekend plans
+
+So like, what's your favorite way of making the weekends pass?",Truely!,Truely!,,Truely!,,77.9646,0.77,2,0,no,no,0,0.0,0.2857,0.0,B0P0A0,,,,formal,prompt_006,url_param,,ok,reply_text,,,,0.0,no,,,,,2e1f19c1-0104-45c1-b81b-3b00348968dc,yes,2,8,80,7,0,0,data/edit_traces/P007/2e1f19c1-0104-45c1-b81b-3b00348968dc.json

@@ -1,0 +1,5 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-05-20T11:54:34,P003,Email,Typing,"From: advisor@example.com
+Subject: Work environment
+
+What type of environment helps you focus or work most effectively?",Quite and undisturbed,Thank you for sharing your preference. A quiet and undisturbed environment can be very beneficial for productivity.,Indeed,,0.0,,0.0,,0.0,,0.0,68.91819999999554,7,0,no,no,,,,

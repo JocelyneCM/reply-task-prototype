@@ -1,0 +1,23 @@
+timestamp,participant_id,medium,input_method,row_role,llm_provider,prompt_text,reply_text,participant_reply_text,llm_reply_text,final_reply_text,transcript,response_time_seconds,words_per_minute,keypress_count,backspace_count,paste_used,correction_applied,manual_edit_count,edit_ratio,keystrokes_per_character,backspaces_per_word,edit_activity_compact,prompt_style,prompt_tone,prompt_seriousness,prompt_formality,prompt_id,prompt_source,reply_style,reply_analysis_status,reply_analysis_basis,transcript_status,transcript_source,formality_label,formality_confidence,formality_match_prompt_reply,bert_label,bert_raw,bert_confidence,audio_filename,log_row_id,edit_trace_available,revision_count,inserted_chars_est,deleted_chars_est,net_char_change,manual_edit_chars_after_transcript_est,voice_transcript_initial_chars,edit_trace_path
+2026-06-03T11:37:24,P019,Messenger,Typing,participant_reply,,What makes a conversation feel enjoyable or productive to you?,Both parties participate equally,Both parties participate equally,,,,52.4058,4.58,42,5,no,no,5,0.1562,1.3125,1.25,B5P0A0,,,,formal,prompt_003,url_param,,ok,reply_text,,,,0.0,no,,,,,4db23308-cf37-4266-9f44-633788ce1e40,yes,0,37,5,32,0,0,data/edit_traces/P019/4db23308-cf37-4266-9f44-633788ce1e40.json
+2026-06-03T11:37:37,P019,Messenger,Typing,participant_reply,,What makes a conversation feel enjoyable or productive to you?,No problem,No problem,,No problem,,10.8687,11.04,10,0,no,no,0,0.0,1.0,0.0,B0P0A0,,,,formal,prompt_003,url_param,,ok,reply_text,,,,0.0,no,,,,,a029248a-586a-4256-94c7-1a68e0738240,yes,1,10,32,10,0,0,data/edit_traces/P019/a029248a-586a-4256-94c7-1a68e0738240.json
+2026-06-03T11:43:15,P019,Email,Typing,participant_reply,,"From: advisor@example.com
+Subject: Personal achievement
+
+What is an achievement you are personally satisfied with, and why does it matter to you?","Hello, 
+I consider my greatest achievement shooting an animal.","Hello, 
+I consider my greatest achievement shooting an animal.",,,,181.9927,2.97,99,22,no,no,22,0.3548,1.5968,2.4444,B22P0A0,,,,formal,prompt_004,url_param,,ok,reply_text,,,,0.0,no,,,,,fb7b23e3-0e85-4fe9-ba8c-1d9ba48f0762,yes,5,94,32,62,0,0,data/edit_traces/P019/fb7b23e3-0e85-4fe9-ba8c-1d9ba48f0762.json
+2026-06-03T11:43:41,P019,Email,Typing,participant_reply,,"From: advisor@example.com
+Subject: Personal achievement
+
+What is an achievement you are personally satisfied with, and why does it matter to you?","It is, and I do alæ the time","It is, and I do alæ the time",,"It is, and I do alæ the time",,207.9127,2.31,32,2,no,no,2,0.0714,1.1429,0.25,B2P0A0,,,,formal,prompt_004,url_param,,ok,reply_text,,,,0.0,no,,,,,bae6e125-10a1-4e16-a234-ea1dec9a4ceb,yes,1,30,64,28,0,0,data/edit_traces/P019/bae6e125-10a1-4e16-a234-ea1dec9a4ceb.json
+2026-06-03T11:45:21,P019,Messenger,Typing,participant_reply,,What's some random thing you know how to do that actually comes in handy,I can repair also anything on a car,I can repair also anything on a car,,,,20.986,22.87,41,0,no,no,0,0.0,1.1714,0.0,B0P0A0,,,,formal,prompt_007,url_param,,ok,reply_text,,,,0.0,no,,,,,55200ece-d8f1-4993-9bc6-29bbf54416b7,yes,0,35,0,35,0,0,data/edit_traces/P019/55200ece-d8f1-4993-9bc6-29bbf54416b7.json
+2026-06-03T11:46:09,P019,Messenger,Typing,participant_reply,,What's some random thing you know how to do that actually comes in handy,It is. You just tell me whether you need something repaired.,It is. You just tell me whether you need something repaired.,,It is. You just tell me whether you need something repaired.,,45.936,14.37,69,2,no,no,2,0.0333,1.15,0.1818,B2P0A0,,,,formal,prompt_007,url_param,,ok,reply_text,,,,0.0,no,,,,,ea57c593-6723-4d4f-aca3-294319fd3b05,yes,1,61,36,60,0,0,data/edit_traces/P019/ea57c593-6723-4d4f-aca3-294319fd3b05.json
+2026-06-03T11:48:37,P019,Email,Typing,participant_reply,,"From: friend@example.com
+Subject: Apps you use most
+
+What kind of apps do you spend the most time on, other than messaging apps?",Social media apps. The primary apps I use are Facebook and Instagram.,Social media apps. The primary apps I use are Facebook and Instagram.,,,,43.931,16.39,100,2,no,no,2,0.029,1.4493,0.1667,B2P0A0,,,,formal,prompt_008,url_param,,ok,reply_text,,,,0.0,no,,,,,220605bf-a4de-4bbb-9611-00ab1c56f553,yes,0,71,2,69,0,0,data/edit_traces/P019/220605bf-a4de-4bbb-9611-00ab1c56f553.json
+2026-06-03T11:48:53,P019,Email,Typing,participant_reply,,"From: friend@example.com
+Subject: Apps you use most
+
+What kind of apps do you spend the most time on, other than messaging apps?",They are.,They are.,,They are.,,60.32,1.99,10,0,no,no,0,0.0,1.1111,0.0,B0P0A0,,,,formal,prompt_008,url_param,,ok,reply_text,,,,0.0,no,,,,,b2c42da7-9fe8-4ef4-8b6a-cfc881dbe570,yes,1,9,69,9,0,0,data/edit_traces/P019/b2c42da7-9fe8-4ef4-8b6a-cfc881dbe570.json

@@ -1,0 +1,6 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-06-03T11:43:41,P019,Email,Typing,"From: advisor@example.com
+Subject: Personal achievement
+
+What is an achievement you are personally satisfied with, and why does it matter to you?","Hello, 
+I consider my greatest achievement shooting an animal.",Thank you for sharing your achievement with me. It's important to reflect on our successes.,"It is, and I do alæ the time",,0.0,,0.0,,0.0,,0.0,207.91269999999926,32,2,no,no,,,,

@@ -1,0 +1,5 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-05-22T11:44:23,P013,Email,Typing,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?","A conversation feels enjoyable if all parties involved actively feel like they're contributing to the conversation and ideally, learn something as well.",Thank you for sharing your perspective on enjoyable conversations. Active participation and mutual learning are indeed key factors in making conversations productive.,No problem :),,0.0,,0.0,,0.0,,0.0,140.106,17,1,no,no,,,,

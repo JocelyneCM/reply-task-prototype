@@ -1,0 +1,5 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-05-20T13:38:15,P005,Email,Typing,"From: friend@example.com
+Subject: Making people laugh
+
+Hey! I was wondering you had any tips on how to get som laughs out of people",I think using contextual chia for making jokes is very helpful,Thank you for the suggestion! Contextual chia can indeed add a lot of humor to jokes.,I mest cues but that was a funny answer as well,,0.0,,0.0,,0.0,,0.0,87.13270000004768,26,5,no,no,,,,
