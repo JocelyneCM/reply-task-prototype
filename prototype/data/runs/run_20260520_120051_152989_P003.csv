@@ -1,0 +1,5 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-05-20T12:00:51,P003,Email,Swipe typing,"From: friend@example.com
+Subject: Useful random skill
+
+What's some random thing you know how to do that actually comes in handy",I have no skill,Thank you for letting me know. Have a great day!,Surely,,0.0,,0.0,,0.0,,0.0,103.22320000000298,1,0,no,no,,,,

@@ -1,0 +1,18 @@
+ARG BASE_IMAGE=rocm/pytorch:5.6_ubuntu22.04_py3.11
+FROM ${BASE_IMAGE}
+
+WORKDIR /workspace
+
+# Copy repository into container
+COPY . /workspace
+
+# NOTE: The ROCm base image should already include a PyTorch build compatible
+# with AMD GPUs. We avoid reinstalling `torch` here to prevent pulling a CPU
+# wheel from PyPI. Install the rest of Python requirements from
+# `requirements-rocm.txt` (which excludes `torch`).
+RUN python -m pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements-rocm.txt
+
+ENV PYTHONUNBUFFERED=1
+
+CMD ["bash"]

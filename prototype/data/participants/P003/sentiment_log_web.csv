@@ -1,0 +1,31 @@
+timestamp,participant_id,medium,input_method,row_role,llm_provider,prompt_text,reply_text,participant_reply_text,llm_reply_text,final_reply_text,transcript,response_time_seconds,words_per_minute,keypress_count,backspace_count,paste_used,correction_applied,manual_edit_count,edit_ratio,keystrokes_per_character,backspaces_per_word,edit_activity_compact,prompt_style,prompt_tone,prompt_seriousness,prompt_formality,prompt_id,prompt_source,reply_style,reply_analysis_status,reply_analysis_basis,transcript_status,transcript_source,formality_label,formality_confidence,formality_match_prompt_reply,bert_label,bert_raw,bert_confidence,audio_filename,log_row_id,edit_trace_available,revision_count,inserted_chars_est,deleted_chars_est,net_char_change,manual_edit_chars_after_transcript_est,voice_transcript_initial_chars,edit_trace_path
+2026-05-20T11:54:15,P003,Email,Typing,participant_reply,,"From: advisor@example.com
+Subject: Work environment
+
+What type of environment helps you focus or work most effectively?",Quite and undisturbed,Quite and undisturbed,,,,50.266,3.58,22,0,no,no,0,0.0,1.0476,0.0,B0P0A0,,,,formal,prompt_005,url_param,,ok,reply_text,,,,0.0,no,,,,,4b688008-3af7-43fa-b96d-c135ac55a6b0,yes,0,21,0,21,0,0,data/edit_traces/P003/4b688008-3af7-43fa-b96d-c135ac55a6b0.json
+2026-05-20T11:54:34,P003,Email,Typing,participant_reply,,"From: advisor@example.com
+Subject: Work environment
+
+What type of environment helps you focus or work most effectively?",Indeed,Indeed,,Indeed,,68.9182,0.87,7,0,no,no,0,0.0,1.1667,0.0,B0P0A0,,,,formal,prompt_005,url_param,,ok,reply_text,,,,0.0,no,,,,,5e2fda85-d65e-46d8-bd6e-91a614ba88cb,yes,1,6,21,6,0,0,data/edit_traces/P003/5e2fda85-d65e-46d8-bd6e-91a614ba88cb.json
+2026-05-20T11:56:46,P003,Messenger,Typing,participant_reply,,"So like, what's your favorite way of making the weekends pass?",BEER,BEER,,,,13.5059,4.44,6,0,no,no,0,0.0,1.5,0.0,B0P0A0,,,,formal,prompt_006,url_param,,ok,reply_text,,,,0.0,no,,,,,583abf70-2f51-422f-b1a3-5d16b2864ffc,yes,0,4,0,4,0,0,data/edit_traces/P003/583abf70-2f51-422f-b1a3-5d16b2864ffc.json
+2026-05-20T11:56:55,P003,Messenger,Typing,participant_reply,,"So like, what's your favorite way of making the weekends pass?",Always,Always,,Always,,7.3972,8.11,10,1,no,no,1,0.1667,1.6667,1.0,B1P0A0,,,,formal,prompt_006,url_param,,ok,reply_text,,,,0.0,no,,,,,0ee85915-3106-4d2a-b428-a5ed0b38de92,yes,1,7,5,6,0,0,data/edit_traces/P003/0ee85915-3106-4d2a-b428-a5ed0b38de92.json
+2026-05-20T12:00:33,P003,Email,Swipe typing,participant_reply,,"From: friend@example.com
+Subject: Useful random skill
+
+What's some random thing you know how to do that actually comes in handy",I have no skill,I have no skill,,,,85.9216,2.79,20,2,no,no,2,0.1333,1.3333,0.5,B2P0A0,,,,formal,prompt_007,url_param,,ok,reply_text,,,,0.0,no,,,,,89609c1b-c677-4737-a721-96826b4211c9,yes,11,54,39,15,0,0,data/edit_traces/P003/89609c1b-c677-4737-a721-96826b4211c9.json
+2026-05-20T12:00:50,P003,Email,Swipe typing,participant_reply,,"From: friend@example.com
+Subject: Useful random skill
+
+What's some random thing you know how to do that actually comes in handy",Surely,Surely,,Surely,,103.2232,0.58,1,0,no,no,0,0.0,0.1667,0.0,B0P0A0,,,,formal,prompt_007,url_param,,ok,reply_text,,,,0.0,no,,,,,b64d63a2-fb03-455b-ab92-68007b4bd507,yes,1,6,15,6,0,0,data/edit_traces/P003/b64d63a2-fb03-455b-ab92-68007b4bd507.json
+2026-05-20T12:03:21,P003,Email,Typing,participant_reply,,"From: friend@example.com
+Subject: Apps you use most
+
+What kinda of apps do you spend the most time on like texting?","Overall? Spotify, texting? Discord","Overall? Spotify, texting? Discord",,,,82.9255,2.89,10,0,no,no,0,0.0,0.2941,0.0,B0P0A0,,,,formal,prompt_008,url_param,,ok,reply_text,,,,0.0,no,,,,,edeea0da-87c2-4c87-8648-ddc311fda335,yes,4,34,0,34,0,0,data/edit_traces/P003/edeea0da-87c2-4c87-8648-ddc311fda335.json
+2026-05-20T12:03:47,P003,Email,Typing,participant_reply,,"From: friend@example.com
+Subject: Apps you use most
+
+What kinda of apps do you spend the most time on like texting?",Thank you :(,Thank you :(,,Thank you :(,,109.2889,1.65,10,0,no,no,0,0.0,0.8333,0.0,B0P0A0,,,,formal,prompt_008,url_param,,ok,reply_text,,,,0.0,no,,,,,96dad1a9-e4a7-44b0-a370-6439fccf38f5,yes,6,22,44,12,0,0,data/edit_traces/P003/96dad1a9-e4a7-44b0-a370-6439fccf38f5.json
+2026-05-20T12:05:34,P003,Messenger,Swipe typing,participant_reply,,What's something people seem to enjoy that you just don't really get?,Soccer,Soccer,,,,30.3049,1.98,3,1,no,no,1,0.1667,0.5,1.0,B1P0A0,,,,formal,prompt_009,url_param,,ok,reply_text,,,,0.0,no,,,,,27052eb9-0773-46b9-9acb-e12ac079916f,yes,1,7,1,6,0,0,data/edit_traces/P003/27052eb9-0773-46b9-9acb-e12ac079916f.json
+2026-05-20T12:05:51,P003,Messenger,Swipe typing,participant_reply,,What's something people seem to enjoy that you just don't really get?,Truely,Truely,,Truely,,15.3054,3.92,1,0,no,no,0,0.0,0.1667,0.0,B0P0A0,,,,formal,prompt_009,url_param,,ok,reply_text,,,,0.0,no,,,,,bb173438-b970-4703-9f93-9142d15c1937,yes,1,6,6,6,0,0,data/edit_traces/P003/bb173438-b970-4703-9f93-9142d15c1937.json
+2026-05-20T12:06:45,P003,Messenger,Typing,participant_reply,,What’s something you’ve always wanted to try but never got around to?,Learning piano,Learning piano,,,,15.4952,7.74,14,0,no,no,0,0.0,1.0,0.0,B0P0A0,,,,formal,prompt_010,url_param,,ok,reply_text,,,,0.0,no,,,,,f31252c5-4b17-4d3c-9a24-018f96759140,yes,0,14,0,14,0,0,data/edit_traces/P003/f31252c5-4b17-4d3c-9a24-018f96759140.json
+2026-05-20T12:07:00,P003,Messenger,Typing,participant_reply,,What’s something you’ve always wanted to try but never got around to?,Thanks?,Thanks?,,Thanks?,,13.1876,4.55,11,2,no,no,2,0.2857,1.5714,2.0,B2P0A0,,,,formal,prompt_010,url_param,,ok,reply_text,,,,0.0,no,,,,,9aaa46c4-9d25-4b8a-865e-60a40908d085,yes,1,9,16,7,0,0,data/edit_traces/P003/9aaa46c4-9d25-4b8a-865e-60a40908d085.json

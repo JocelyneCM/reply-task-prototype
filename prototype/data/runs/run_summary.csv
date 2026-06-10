@@ -2,3 +2,126 @@ timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_te
 2026-04-24T09:42:23,P002,SMS,Keyboard,Hi! Can you help me with something today?,Ofcourse I can,Of course! What do you need help with today?,I simply want a burger for lunch.,LABEL_1,0.9779807329177856,LABEL_0,0.9969077706336975,LABEL_1,0.9878731966018677,LABEL_1,0.9494647979736328,23.919,43,3,no,no,informal,friendly,medium,
 2026-04-24T09:56:43,PTEST001,SMS,Keyboard,Can you quickly review this plan before 5?,Ofcourse I can,Certainly! I will review the plan before 5. Let me know if there are any specific areas you would like me to focus on.,I simply want a burger for lunch.,LABEL_1,0.867525577545166,LABEL_0,0.9969077706336975,LABEL_1,0.9970679879188538,LABEL_1,0.9494647979736328,8.0,14,1,no,no,neutral,friendly,medium,
 2026-04-24T11:01:30,PTEST001,SMS,Keyboard,Can you quickly review this plan before 5?,Ofcourse I can,Certainly! I will review the plan before 5. Thank you for sharing it with me.,I simply want a burger for lunch.,LABEL_1,0.867525577545166,LABEL_0,0.9969077706336975,LABEL_1,0.9951303005218506,LABEL_1,0.9494647979736328,8.0,14,1,no,no,neutral,friendly,medium,
+2026-05-20T11:54:34,P003,Email,Typing,"From: advisor@example.com
+Subject: Work environment
+
+What type of environment helps you focus or work most effectively?",Quite and undisturbed,Thank you for sharing your preference. A quiet and undisturbed environment can be very beneficial for productivity.,Indeed,,0.0,,0.0,,0.0,,0.0,68.91819999999554,7,0,no,no,,,,
+2026-05-20T11:56:55,P003,Messenger,Typing,"So like, what's your favorite way of making the weekends pass?",BEER,Thanks for sharing! Enjoy responsibly.,Always,,0.0,,0.0,,0.0,,0.0,7.3972000000029805,10,1,no,no,,,,
+2026-05-20T12:00:51,P003,Email,Swipe typing,"From: friend@example.com
+Subject: Useful random skill
+
+What's some random thing you know how to do that actually comes in handy",I have no skill,Thank you for letting me know. Have a great day!,Surely,,0.0,,0.0,,0.0,,0.0,103.22320000000298,1,0,no,no,,,,
+2026-05-20T12:03:47,P003,Email,Typing,"From: friend@example.com
+Subject: Apps you use most
+
+What kinda of apps do you spend the most time on like texting?","Overall? Spotify, texting? Discord","Thanks for sharing, I appreciate it. Have a great day!",Thank you :(,,0.0,,0.0,,0.0,,0.0,109.28889999999106,10,0,no,no,,,,
+2026-05-20T12:05:51,P003,Messenger,Swipe typing,What's something people seem to enjoy that you just don't really get?,Soccer,Thank you for sharing. It's interesting how preferences can vary.,Truely,,0.0,,0.0,,0.0,,0.0,15.30539999999106,1,0,no,no,,,,
+2026-05-20T12:07:00,P003,Messenger,Typing,What’s something you’ve always wanted to try but never got around to?,Learning piano,Thank you for sharing. Learning piano is a wonderful goal. Good luck with your musical endeavors!,Thanks?,,0.0,,0.0,,0.0,,0.0,13.18759999999404,11,2,no,no,,,,
+2026-05-20T13:32:18,P004,Email,Typing,"From: someone@example.com
+Subject: Future travel plans
+
+What is a place you would like to visit in the future, and what attracts you to it?",I'd like to visit Amsterdam in the future as it seems like a genuinely interesting city to me.,Thank you for sharing your interest in visiting Amsterdam. It's a wonderful choice with its rich history and vibrant culture.,I agree. Thanks for chatting.,,0.0,,0.0,,0.0,,0.0,112.472,37,3,no,no,,,,
+2026-05-20T13:34:40,P004,Messenger,Typing,What role do routines play in your daily life?,They help me be more productive,Thanks for sharing. Routines can definitely boost productivity.,No problem,,0.0,,0.0,,0.0,,0.0,14.276,16,2,no,no,,,,
+2026-05-20T13:38:15,P005,Email,Typing,"From: friend@example.com
+Subject: Making people laugh
+
+Hey! I was wondering you had any tips on how to get som laughs out of people",I think using contextual chia for making jokes is very helpful,Thank you for the suggestion! Contextual chia can indeed add a lot of humor to jokes.,I mest cues but that was a funny answer as well,,0.0,,0.0,,0.0,,0.0,87.13270000004768,26,5,no,no,,,,
+2026-05-20T13:40:01,P005,Messenger,Typing,What do you usually end up doing when you’ve got nothing going on?,I usually trend towards either reading or listening to music when there is nothing else to do,Thank you for sharing. Reading and listening to music are great ways to unwind and relax.,Yes. Great that we agree,,0.0,,0.0,,0.0,,0.0,17.950799999952316,7,0,no,no,,,,
+2026-05-20T13:42:33,P005,Email,Typing,"From: friend@example.com
+Subject: Not your thing
+
+What’s something loads of people like that you just don’t care about?",Im not a huge fan of large sports events,Thanks for sharing. I understand the sentiment towards large sports events.,Great.,,0.0,,0.0,,0.0,,0.0,53.94709999990463,17,5,no,no,,,,
+2026-05-20T13:43:48,P005,Messenger,Typing,What’s a small thing that gets you amped up?,Eating noices are very annoying to me,Thank you for sharing your perspective on that.,No problem,,0.0,,0.0,,0.0,,0.0,4.7735,7,0,no,no,,,,
+2026-05-22T10:24:32,P006,Messenger,Typing,What role do routines play in your daily life?,"they work as a crudge, to make sure I remember to do specific things at given times, I am a quite forgetful person.",Thank you for sharing. Routines can definitely be a helpful tool for staying organized and on track.,"I agree, they truely are helpful, and without them I would probably by lost at times xD",,0.0,,0.0,,0.0,,0.0,27.654,112,10,no,no,,,,
+2026-05-22T10:28:03,P007,Email,Typing,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?","When talking about opinions both feel interested in, or one where both get some sort of outcome, even if that outcome just is the enjoyment of the other person.",Thank you for sharing your thoughts on what makes a conversation enjoyable or productive. I appreciate your insights.,Np😅,,0.0,,0.0,,0.0,,0.0,116.30120000004769,13,6,no,no,,,,
+2026-05-22T10:31:54,P007,Email,Typing,"From: advisor@example.com
+Subject: Personal achievement
+
+What is an achievement you are personally satisfied with, and why does it matter to you?","Actually not quite sure, not really something I think about that often, I will come back to you when I have an answer.","Thank you for considering it. Take your time to reflect, I appreciate your thoughtfulness.",No problem.,,0.0,,0.0,,0.0,,0.0,166.4452000000477,14,2,no,no,,,,
+2026-05-22T10:33:34,P007,Messenger,Typing,What type of environment helps you focus or work most effectively?,"Probably somewhere quiet, like a library, though preferably not alone, cause I can be quite lazy...",Thank you for sharing your preference. Working in a quiet environment can indeed be conducive to productivity.,I agree.,,0.0,,0.0,,0.0,,0.0,13.3165,14,3,no,no,,,,
+2026-05-22T10:35:31,P007,Email,Typing,"From: friend@example.com
+Subject: Weekend plans
+
+So like, what's your favorite way of making the weekends pass?","Probably Gaming with friends, and sleeping. Not the most productive activities.",Thanks for sharing! Sometimes it's nice to just relax and unwind with friends.,Truely!,,0.0,,0.0,,0.0,,0.0,77.96459999990464,2,0,no,no,,,,
+2026-05-22T10:45:15,P008,Email,Typing,"From: friend@example.com
+Subject: Useful random skill
+
+What's some random thing you know how to do that actually comes in handy","It is a very random skill, but having actual training in folding laundry from the military makes your closet look so much nicer. not very practical, but nice to look at.",Thanks for sharing that interesting skill! It's always nice to have a neat and organized closet.,It very much is!,,0.0,,0.0,,0.0,,0.0,137.1761000000001,18,0,no,no,,,,
+2026-05-22T10:48:56,P008,Messenger,Typing,"What kind of apps do you spend the most time on, other than messaging apps?","I mostly use my phone to either communicate or doomscroll tbh, so probably scrolling on instagram. if that doesn't count because instagram is partially a messaging app, then too good to to, as i use it a few times a month.",Thanks for sharing! Sounds like Instagram is a top pick for you. Have a great day!,Have a nice day as well!,,0.0,,0.0,,0.0,,0.0,13.877600000000093,46,3,no,no,,,,
+2026-05-22T10:53:28,P009,Email,Typing,"From: friend@example.com
+Subject: Popular things
+
+What's something people seem to enjoy that you just don't really get?","I find that most people enjoy meeting new people, but I honestly find it a little stressfull that you have to put up a good first impression. Although i might just be thinking about it too much.",Thanks for sharing your perspective. It's completely understandable to feel that way about meeting new people.,I think it's a quite natural response as well 😁,,0.0,,0.0,,0.0,,0.0,127.98509999990463,48,0,no,no,,,,
+2026-05-22T10:56:17,P009,Messenger,Typing,What’s something you’ve always wanted to try but never got around to?,I've had diving in my bucket list for as long as I can remember. So definitely that,Thank you for sharing. Diving sounds like a thrilling adventure!,It sure does!,,0.0,,0.0,,0.0,,0.0,14.628,6,0,no,no,,,,
+2026-05-22T10:58:34,P009,Email,Typing,"From: someone@example.com
+Subject: Future travel plans
+
+What is a place you would like to visit in the future, and what attracts you to it?","Probably japan, I've seen a lot of Japanese media and such of the place, and it looks beautiful!",Thank you for sharing your interest in Japan. It truly is a beautiful destination with a rich culture and stunning landscapes.,"It definitely looks like it, hope it is in reality too!",,0.0,,0.0,,0.0,,0.0,79.82370000004768,48,0,no,no,,,,
+2026-05-22T11:00:53,P009,Messenger,Typing,What role do routines play in your daily life?,"They help keep my daily life stable, and let me keep those things in the background, so that I can focus on what I feel is more important.",Thanks for sharing how routines benefit you. It's great to hear how they provide stability and allow you to prioritize what's important.,They really are great to have,,0.0,,0.0,,0.0,,0.0,27.3545,29,0,no,no,,,,
+2026-05-22T11:03:49,P009,Email,Typing,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?","That's is a subject that both participants have a fundamental understanding of, as well as an interest in.",Thank you for sharing your perspective on what makes a conversation engaging. Your insights are appreciated.,You are very welcome,,0.0,,0.0,,0.0,,0.0,83.06720000004768,22,1,no,no,,,,
+2026-05-22T11:10:58,P011,Email,Typing,"From: friend@example.com
+Subject: Popular things
+
+What's something people seem to enjoy that you just don't really get?",I dont really get why people enjoy alcohol,Thanks for sharing your perspective on alcohol. It's interesting to hear different viewpoints on this topic.,"Yes i agree, i often find myself hearing differing opinions on this subject",,0.0,,0.0,,0.0,,0.0,109.83730000001192,82,3,no,no,,,,
+2026-05-22T11:13:04,P011,Messenger,Typing,What’s something you’ve always wanted to try but never got around to?,I always wanted to try learning to draw properly and use that for animation however i never got around to it,That sounds like a fascinating skill to develop. Best of luck with your drawing and animation journey!,thank you very much! :D,,0.0,,0.0,,0.0,,0.0,13.835,29,2,no,no,,,,
+2026-05-22T11:14:55,P011,Email,Typing,"From: someone@example.com
+Subject: Future travel plans
+
+What is a place you would like to visit in the future, and what attracts you to it?","I would like to visit Japan as the local culture, history and architecture facinates me","Thank you for sharing your interest in Japan. Its culture, history, and architecture are truly captivating.",Yes its amazing,,0.0,,0.0,,0.0,,0.0,58.23510000000894,12,0,no,no,,,,
+2026-05-22T11:17:03,P011,Messenger,Typing,What role do routines play in your daily life?,I found routines to be helpful when dealing with stress,Thank you for sharing. Establishing routines for stress management is key.,Agreed,,0.0,,0.0,,0.0,,0.0,8.9385,1,0,no,no,,,,
+2026-05-22T11:19:19,P011,Email,Typing,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?",When it doesn't jump to subjects unrelated to what we are supposed to do,Thanks for sharing your perspective on what makes a conversation enjoyable and productive. Staying focused on relevant topics is definitely key.,Definitely,,0.0,,0.0,,0.0,,0.0,107.16109999999404,9,1,no,no,,,,
+2026-05-22T11:20:55,P011,Messenger,Typing,"What is an achievement you are personally satisfied with, and why does it matter to you?",Reaching university as I found studying a rather difficult task back in my youth,"Thank you for sharing your achievement of reaching university, despite finding studying difficult in your youth. It's commendable.",Thanks,,0.0,,0.0,,0.0,,0.0,9.4785,9,1,no,no,,,,
+2026-05-22T11:44:23,P013,Email,Typing,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?","A conversation feels enjoyable if all parties involved actively feel like they're contributing to the conversation and ideally, learn something as well.",Thank you for sharing your perspective on enjoyable conversations. Active participation and mutual learning are indeed key factors in making conversations productive.,No problem :),,0.0,,0.0,,0.0,,0.0,140.106,17,1,no,no,,,,
+2026-05-22T11:48:57,P013,Messenger,Typing,"What is an achievement you are personally satisfied with, and why does it matter to you?","I'm not entirely sure, I have lots of things I think I'm semi-proud of, but nothing extraordinary, really. Not sure.","Thank you for sharing. It's okay not to have one standout achievement, many small successes can also be meaningful.","Yeah, I agree. It's probably all about perspective, and what adds up to matter for you personally.",,0.0,,0.0,,0.0,,0.0,52.586,168,12,no,no,,,,
+2026-05-22T11:55:10,P013,Email,Typing,"From: advisor@example.com
+Subject: Work environment
+
+What type of environment helps you focus or work most effectively?","I'm honestly still kinda of figuring that out, but overall I think a collaborative space with a few people working together works best for me. It helps to have something external to add a little bit of pressure.",Thanks for sharing your preference for a collaborative work environment with some external pressure. Your insights will be valuable as we consider different working arrangements.,No problem :),,0.0,,0.0,,0.0,,0.0,188.2537000000179,18,6,no,no,,,,
+2026-05-22T13:18:47,P013,Email,Typing,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?","I think a conversation is productive if it teaches me something or furthers a goal, or if it fulfills a need i have, for instance the need for socialization.",Thank you for sharing your insights on what makes a conversation productive. Your perspective is valuable for our ongoing discussions.,No worries! :D,,0.0,,0.0,,0.0,,0.0,131.163,24,3,no,no,,,,
+2026-05-22T13:23:27,P013,Messenger,Typing,"What is an achievement you are personally satisfied with, and why does it matter to you?","I suppose one such achievement would be deadlifting 150, because i spent a lot of time working towards it!",Thank you for sharing your achievement of deadlifting 150 pounds. It's clear your hard work paid off.,No problem :D,,0.0,,0.0,,0.0,,0.0,29.307,74,29,no,no,,,,
+2026-05-22T13:32:34,P014,Email,Swipe typing,"From: advisor@example.com
+Subject: Work environment
+
+What type of environment helps you focus or work most effectively?",An environment where there are few sensory inputs,Thank you for sharing. A minimal sensory input environment can indeed be conducive to focus and productivity.,"For sure, especially for me!",,0.0,,0.0,,0.0,,0.0,283.1407999999523,42,7,no,no,,,,
+2026-05-22T13:34:56,P014,Messenger,Typing,"So like, what's your favorite way of making the weekends pass?","Probably by collapsing in bed, and doing chores.",Thank you for sharing. Resting and chores can be a good balance.,It sure is good to get done :D,,0.0,,0.0,,0.0,,0.0,14.342,30,0,no,no,,,,2026-06-02T11:28:00,P015,Messenger,Typing,What's some random thing you know how to do that actually comes in handy,i know how to break down a brick wall,"Thank you for your reply. If there is one brief detail you could add, that would help me wrap this up.","if you are renovating a house, i know how to tear it down yourself. like a brick wall as an example",,0.0,,0.0,,0.0,,0.0,25.494799999952317,106,3,no,no,,,,
+2026-06-02T11:30:25,P015,Email,Typing,"From: friend@example.com
+Subject: Apps you use most
+
+What kind of apps do you spend the most time on, other than messaging apps?",I spend the most time on HayDay,Thank you for sharing. HayDay seems like a fun way to spend your time.,It very much is. Do you play?,,0.0,,0.0,,0.0,,0.0,97.83020000004768,41,4,no,no,,,,
+2026-06-02T11:32:51,P016,Messenger,Typing,What's something people seem to enjoy that you just don't really get?,Pesto,Thank you for sharing. Pesto can be quite polarizing.,Okay,,0.0,,0.0,,0.0,,0.0,7.4205,5,0,no,no,,,,
+2026-06-02T11:36:39,P017,Messenger,Typing,What’s something you’ve always wanted to try but never got around to?,"Sorry i don't know, i always do what i dream of",Thank you for sharing. It's great to hear that you actively pursue your dreams.,I am great,,0.0,,0.0,,0.0,,0.0,7.964599999994039,5,0,no,no,,,,
+2026-06-02T11:39:12,P017,Email,Typing,"From: someone@example.com
+Subject: Future travel plans
+
+What is a place you would like to visit in the future, and what attracts you to it?","Africa, im just very drawn to it",Thank you for sharing your interest in Africa. It truly is a captivating destination.,Yes,,0.0,,0.0,,0.0,,0.0,30.78009999999404,5,0,no,no,,,,
+2026-06-02T11:41:19,P017,Email,Typing,"From: teammate@example.com
+Subject: Daily routines
+
+What role do routines play in your daily life?","I am a student, I am a friend, I am a daughter, I am a runner and maybe a lot more",Thank you for sharing your different roles with me. It's great to hear about the various aspects that make up your daily routines.,"Thanks,  you are weird in your responses",,0.0,,0.0,,0.0,,0.0,85.6205,29,2,no,no,,,,
+2026-06-03T11:37:37,P019,Messenger,Typing,What makes a conversation feel enjoyable or productive to you?,Both parties participate equally,Thank you for sharing your perspective on balanced participation in conversations.,No problem,,0.0,,0.0,,0.0,,0.0,10.868699999999254,10,0,no,no,,,,
+2026-06-03T11:43:41,P019,Email,Typing,"From: advisor@example.com
+Subject: Personal achievement
+
+What is an achievement you are personally satisfied with, and why does it matter to you?","Hello, 
+I consider my greatest achievement shooting an animal.",Thank you for sharing your achievement with me. It's important to reflect on our successes.,"It is, and I do alæ the time",,0.0,,0.0,,0.0,,0.0,207.91269999999926,32,2,no,no,,,,
+2026-06-03T11:46:09,P019,Messenger,Typing,What's some random thing you know how to do that actually comes in handy,I can repair also anything on a car,Thank you for sharing. Your skill in car repairs sounds quite useful.,It is. You just tell me whether you need something repaired.,,0.0,,0.0,,0.0,,0.0,45.936,69,2,no,no,,,,
+2026-06-03T11:48:53,P019,Email,Typing,"From: friend@example.com
+Subject: Apps you use most
+
+What kind of apps do you spend the most time on, other than messaging apps?",Social media apps. The primary apps I use are Facebook and Instagram.,Thanks for sharing. Those are definitely popular choices.,They are.,,0.0,,0.0,,0.0,,0.0,60.32,10,0,no,no,,,,
+2026-06-05T10:04:19,P015,Messenger,Typing,What’s something loads of people like that you just don’t care about?,I really don't care about designer clothes.,"Got it, thanks for sharing!",You're welcome.,LABEL_0,0.9845759868621826,LABEL_0,0.7128419280052185,LABEL_0,0.8354575037956238,LABEL_1,0.9976552724838257,8.899599999999976,29,2,no,no,LABEL_0,,,

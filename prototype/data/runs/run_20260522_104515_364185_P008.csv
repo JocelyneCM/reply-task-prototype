@@ -1,0 +1,5 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-05-22T10:45:15,P008,Email,Typing,"From: friend@example.com
+Subject: Useful random skill
+
+What's some random thing you know how to do that actually comes in handy","It is a very random skill, but having actual training in folding laundry from the military makes your closet look so much nicer. not very practical, but nice to look at.",Thanks for sharing that interesting skill! It's always nice to have a neat and organized closet.,It very much is!,,0.0,,0.0,,0.0,,0.0,137.1761000000001,18,0,no,no,,,,

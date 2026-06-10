@@ -1,0 +1,5 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-05-22T11:55:10,P013,Email,Typing,"From: advisor@example.com
+Subject: Work environment
+
+What type of environment helps you focus or work most effectively?","I'm honestly still kinda of figuring that out, but overall I think a collaborative space with a few people working together works best for me. It helps to have something external to add a little bit of pressure.",Thanks for sharing your preference for a collaborative work environment with some external pressure. Your insights will be valuable as we consider different working arrangements.,No problem :),,0.0,,0.0,,0.0,,0.0,188.2537000000179,18,6,no,no,,,,

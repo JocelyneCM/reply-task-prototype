@@ -1,0 +1,5 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-06-02T11:30:25,P015,Email,Typing,"From: friend@example.com
+Subject: Apps you use most
+
+What kind of apps do you spend the most time on, other than messaging apps?",I spend the most time on HayDay,Thank you for sharing. HayDay seems like a fun way to spend your time.,It very much is. Do you play?,,0.0,,0.0,,0.0,,0.0,97.83020000004768,41,4,no,no,,,,

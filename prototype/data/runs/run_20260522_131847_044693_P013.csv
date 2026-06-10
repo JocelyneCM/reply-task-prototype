@@ -1,0 +1,5 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-05-22T13:18:47,P013,Email,Typing,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?","I think a conversation is productive if it teaches me something or furthers a goal, or if it fulfills a need i have, for instance the need for socialization.",Thank you for sharing your insights on what makes a conversation productive. Your perspective is valuable for our ongoing discussions.,No worries! :D,,0.0,,0.0,,0.0,,0.0,131.163,24,3,no,no,,,,

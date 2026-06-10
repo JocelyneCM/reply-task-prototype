@@ -1,0 +1,5 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-05-22T13:32:34,P014,Email,Swipe typing,"From: advisor@example.com
+Subject: Work environment
+
+What type of environment helps you focus or work most effectively?",An environment where there are few sensory inputs,Thank you for sharing. A minimal sensory input environment can indeed be conducive to focus and productivity.,"For sure, especially for me!",,0.0,,0.0,,0.0,,0.0,283.1407999999523,42,7,no,no,,,,

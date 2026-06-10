@@ -1,0 +1,5 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-06-02T11:41:19,P017,Email,Typing,"From: teammate@example.com
+Subject: Daily routines
+
+What role do routines play in your daily life?","I am a student, I am a friend, I am a daughter, I am a runner and maybe a lot more",Thank you for sharing your different roles with me. It's great to hear about the various aspects that make up your daily routines.,"Thanks,  you are weird in your responses",,0.0,,0.0,,0.0,,0.0,85.6205,29,2,no,no,,,,

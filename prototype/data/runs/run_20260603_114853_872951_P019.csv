@@ -1,0 +1,5 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-06-03T11:48:53,P019,Email,Typing,"From: friend@example.com
+Subject: Apps you use most
+
+What kind of apps do you spend the most time on, other than messaging apps?",Social media apps. The primary apps I use are Facebook and Instagram.,Thanks for sharing. Those are definitely popular choices.,They are.,,0.0,,0.0,,0.0,,0.0,60.32,10,0,no,no,,,,

@@ -1,0 +1,19 @@
+timestamp,participant_id,medium,input_method,row_role,llm_provider,prompt_text,reply_text,participant_reply_text,llm_reply_text,final_reply_text,transcript,response_time_seconds,words_per_minute,keypress_count,backspace_count,paste_used,correction_applied,manual_edit_count,edit_ratio,keystrokes_per_character,backspaces_per_word,edit_activity_compact,prompt_style,prompt_tone,prompt_seriousness,prompt_formality,prompt_id,prompt_source,reply_style,reply_analysis_status,reply_analysis_basis,transcript_status,transcript_source,formality_label,formality_confidence,formality_match_prompt_reply,bert_label,bert_raw,bert_confidence,audio_filename,log_row_id,edit_trace_available,revision_count,inserted_chars_est,deleted_chars_est,net_char_change,manual_edit_chars_after_transcript_est,voice_transcript_initial_chars,edit_trace_path
+2026-06-02T11:36:28,P017,Messenger,Typing,participant_reply,,What’s something you’ve always wanted to try but never got around to?,"Sorry i don't know, i always do what i dream of","Sorry i don't know, i always do what i dream of",,,,115.8525,5.7,30,2,no,no,2,0.0426,0.6383,0.1818,B2P0A0,,,,formal,prompt_010,url_param,,ok,reply_text,,,,0.0,no,,,,,cf9b3109-24a1-4e28-95a6-bdce0b24cca1,yes,10,54,7,47,0,0,data/edit_traces/P017/cf9b3109-24a1-4e28-95a6-bdce0b24cca1.json
+2026-06-02T11:36:39,P017,Messenger,Typing,participant_reply,,What’s something you’ve always wanted to try but never got around to?,I am great,I am great,,I am great,,7.9646,22.6,5,0,no,no,0,0.0,0.5,0.0,B0P0A0,,,,formal,prompt_010,url_param,,ok,reply_text,,,,0.0,no,,,,,d6b3abcd-61d0-41ed-8b67-e19e6639633a,yes,3,10,47,10,0,0,data/edit_traces/P017/d6b3abcd-61d0-41ed-8b67-e19e6639633a.json
+2026-06-02T11:39:01,P017,Email,Typing,participant_reply,,"From: someone@example.com
+Subject: Future travel plans
+
+What is a place you would like to visit in the future, and what attracts you to it?","Africa, im just very drawn to it","Africa, im just very drawn to it",,,,19.4339,21.61,53,0,no,no,0,0.0,1.6562,0.0,B0P0A0,,,,formal,prompt_001,url_param,,ok,reply_text,,,,0.0,no,,,,,2794f92d-e15a-4163-bc0d-bcb819264073,yes,0,34,2,32,0,0,data/edit_traces/P017/2794f92d-e15a-4163-bc0d-bcb819264073.json
+2026-06-02T11:39:12,P017,Email,Typing,participant_reply,,"From: someone@example.com
+Subject: Future travel plans
+
+What is a place you would like to visit in the future, and what attracts you to it?",Yes,Yes,,Yes,,30.7801,1.95,5,0,no,no,0,0.0,1.6667,0.0,B0P0A0,,,,formal,prompt_001,url_param,,ok,reply_text,,,,0.0,no,,,,,33d9ff61-1ba5-4532-90cb-31a23df01694,yes,1,3,32,3,0,0,data/edit_traces/P017/33d9ff61-1ba5-4532-90cb-31a23df01694.json
+2026-06-02T11:40:53,P017,Email,Typing,participant_reply,,"From: teammate@example.com
+Subject: Daily routines
+
+What role do routines play in your daily life?","I am a student, I am a friend, I am a daughter, I am a runner and maybe a lot more","I am a student, I am a friend, I am a daughter, I am a runner and maybe a lot more",,,,59.2187,21.28,134,16,no,no,16,0.1951,1.6341,0.7619,B16P0A0,,,,formal,prompt_002,url_param,,ok,reply_text,,,,0.0,no,,,,,9b86b412-bf79-449b-be52-d19f9cf6e5f6,yes,19,116,34,82,0,0,data/edit_traces/P017/9b86b412-bf79-449b-be52-d19f9cf6e5f6.json
+2026-06-02T11:41:19,P017,Email,Typing,participant_reply,,"From: teammate@example.com
+Subject: Daily routines
+
+What role do routines play in your daily life?","Thanks,  you are weird in your responses","Thanks,  you are weird in your responses",,"Thanks,  you are weird in your responses",,85.6205,4.91,29,2,no,no,2,0.05,0.725,0.2857,B2P0A0,,,,formal,prompt_002,url_param,,ok,reply_text,,,,0.0,no,,,,,8df9ddeb-d546-4ad3-a07d-7d7e314aa9b9,yes,9,47,89,40,0,0,data/edit_traces/P017/8df9ddeb-d546-4ad3-a07d-7d7e314aa9b9.json

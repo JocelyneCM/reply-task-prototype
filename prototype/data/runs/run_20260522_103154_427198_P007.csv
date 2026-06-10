@@ -1,0 +1,5 @@
+timestamp,participant_id,medium,input_method,prompt_text,reply_text,llm_reply_text,final_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_formality_label,final_formality_confidence,response_time_seconds,keypress_count,backspace_count,paste_used,correction_applied,prompt_style,prompt_tone,prompt_seriousness,notes
+2026-05-22T10:31:54,P007,Email,Typing,"From: advisor@example.com
+Subject: Personal achievement
+
+What is an achievement you are personally satisfied with, and why does it matter to you?","Actually not quite sure, not really something I think about that often, I will come back to you when I have an answer.","Thank you for considering it. Take your time to reflect, I appreciate your thoughtfulness.",No problem.,,0.0,,0.0,,0.0,,0.0,166.4452000000477,14,2,no,no,,,,
