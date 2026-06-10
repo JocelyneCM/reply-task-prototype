@@ -1,0 +1,19 @@
+{
+  "total_records": 116,
+  "unique_prompts": 21,
+  "unique_participants": 19,
+  "formality_fields": [
+    "prompt",
+    "reply",
+    "llm_reply",
+    "final_reply"
+  ],
+  "prompt_avg_confidence": 0.9107,
+  "prompt_std_confidence": 0.1329,
+  "reply_avg_confidence": 0.8591,
+  "reply_std_confidence": 0.1364,
+  "llm_reply_avg_confidence": 0.8938,
+  "llm_reply_std_confidence": 0.1378,
+  "final_reply_avg_confidence": 0.8842,
+  "final_reply_std_confidence": 0.1164
+}
