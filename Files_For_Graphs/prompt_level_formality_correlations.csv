@@ -1,0 +1,4 @@
+comparison,pearson_r
+Prompt vs Participant Reply,0.5009546912613886
+Prompt vs LLM Reply,0.4182001400792289
+Prompt vs Final Reply,-0.1523470365047436
