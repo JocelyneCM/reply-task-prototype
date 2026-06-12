@@ -1,0 +1,193 @@
+Subject ID,Device,Medium,Input_method,Mental Demand,Physical Demand,Temporal Demand,Performance,Effort,Frustration
+P001,,,,,,,,,
+P001,,,,,,,,,
+P001,,,,,,,,,
+P001,,,,,,,,,
+P001,,,,,,,,,
+P001,,,,,,,,,
+P002,PC,Email,Typing,10,10,8,14,14,15
+P002,PC,Messenger,Typing,12,12,10,10,18,20
+P002,Mobile,Messenger,Typing,12,8,10,9,10,12
+P002,Mobile,Email,Typing,2,2,0,0,0,20
+P002,Mobile,Messenger,Swipe Typing,9,9,12,7,12,15
+P002,Mobile,Email,Swipe Typing,0,0,6,12,0,20
+P003,PC,Email,Typing,6,1,2,11,1,1
+P003,PC,Email,Typing,5,1,3,10,2,6
+P003,Mobile,Email,Typing,3,2,5,11,3,2
+P003,Mobile,Messenger,Swipe Typing,2,1,3,12,2,1
+P003,Mobile,Messenger,Swipe Typing,3,2,4,9,1,2
+P003,Mobile,Messenger,Typing,1,3,1,8,2,1
+P004,PC,Messenger,Typing,0,0,4,0,4,2
+P004,PC,Email,Typing,2,2,0,6,8,0
+P004,Mobile,Messenger,Typing,0,4,0,0,0,0
+P004,Mobile,Email,Typing,0,2,0,0,0,0
+P004,Mobile,Messenger,Swipe Typing,8,6,6,4,12,6
+P004,Mobile,Email,Swipe Typing,6,6,6,4,8,8
+P005,PC,Email,Typing,1,1,1,1,1,1
+P005,PC,Messenger,Typing,1,1,1,1,1,1
+P005,Mobile,Email,Swipe Typing,5,5,8,8,14,12
+P005,Mobile,Messenger,Swipe Typing,3,3,2,15,4,4
+P005,Mobile,Email,Typing,5,4,1,11,3,3
+P005,Mobile,Messenger,Swipe Typing,7,4,1,12,2,2
+P006,PC,Email,Typing,1,1,2,0,1,0
+P006,PC,Messenger,Typing,0,0,1,0,0,0
+P006,Mobile,Email,Typing,0,0,0,0,0,0
+P006,Mobile,Messenger,Typing,0,0,0,0,0,0
+P006,Mobile,Email,Swipe Typing,7,10,7,6,10,6
+P006,Mobile,Messenger,Swipe Typing,8,11,8,5,11,7
+P007,PC,Email,Typing,1,3,1,5,11,1
+P007,PC,Messenger,Typing,2,3,2,4,13,1
+P007,Mobile,Email,Swipe Type,1,3,1,6,15,1
+P007,Mobile,Email,Typing,2,5,4,9,15,7
+P007,Mobile,Messenger,Typing,1,3,3,6,15,1
+P007,Mobile,Email,Swipe Type,2,4,1,9,15,5
+P008,PC,Email,Typing,10,16,16,4,12,10
+P008,PC,Messenger,Typing,9,10,16,4,12,10
+P008,Mobile,Email,Swipe Typing,14,6,16,6,14,10
+P008,Mobile,Messenger,Swipe Typing,10,12,14,3,13,10
+P008,Mobile,Email,Typing,15,13,17,7,15,11
+P008,Mobile,Messenger,Typing,10,13,13,5,15,10
+P009,PC,Email,Typing,8,3,5,14,6,1
+P009,PC,Messenger,Typing,3,3,3,12,4,1
+P009,Mobile,Messenger,Swipe Typing,12,5,8,6,11,11
+P009,Mobile,Email,Typing,7,3,5,15,5,1
+P009,Mobile,Messenger,Swipe Typing,8,3,6,15,6,1
+P009,Mobile,Email,Typing,6,4,6,15,4,2
+P010,PC,Email,Typing,0,0,0,0,0,0
+P010,PC,Messenger,Typing,0,0,0,0,0,0
+P010,Mobile,Email,Swipe Typing,16,14,8,18,14,18
+P010,Mobile,Messenger,Swipe Typing,12,9,8,13,10,14
+P010,Mobile,Email,Typing,1,1,1,1,1,1
+P010,Mobile,Messenger,Typing,1,1,1,1,1,1
+P011,PC,Email,Typing,4,2,1,1,1,1
+P011,PC,Messenger,Typing,1,1,1,1,1,1
+P011,Mobile,Email,Swipe Typing,2,4,2,1,1,1
+P011,Mobile,Messenger,Typing,5,5,5,1,4,4
+P011,Mobile,Email,Typing,5,5,4,1,4,4
+P011,Mobile,Messenger,Swipe Typing,1,2,1,1,1,1
+P012,PC,Email,Typing,4,6,2,2,4,0
+P012,PC,Messenger,Typing,1,6,0,0,2,0
+P012,Mobile,Email,Swipe Typing,17,9,14,20,16,14
+P012,Mobile,Messenger,Swipe Typing,15,9,8,12,10,8
+P012,Mobile,Email,Typing,4,7,2,2,0,0
+P012,Mobile,Messenger,Typing,2,7,0,0,0,0
+P013,PC,Email,Typing,4,2,4,2,3,1
+P013,PC,Messenger,Typing,8,2,4,8,6,2
+P013,Mobile,Email,Swipe Typing,8,4,9,2,9,4
+P013,Mobile,Messenger,Typing,2,2,2,2,2,2
+P013,Mobile,Email,Typing,6,4,4,4,13,9
+P013,Mobile,Messenger,Swipe Typing,4,2,6,4,14,10
+P014,PC,Email,Typing,5,6,3,3,4,4
+P014,PC,Messenger,Typing,3,3,1,1,2,1
+P014,Mobile,Email,Swipe Typing,9,7,10,9,14,12
+P014,Mobile,Messenger,Swipe Typing,9,7,10,9,8,6
+P014,Mobile,Email,Typing,4,3,7,2,4,3
+P014,Mobile,Messenger,Typing,3,2,6,1,3,2
+P015,,,,,,,,,
+P015,,,,,,,,,
+P015,,,,,,,,,
+P015,,,,,,,,,
+P015,,,,,,,,,
+P015,,,,,,,,,
+P016,PC,Email,Typing,2,3,4,1,2,2
+P016,PC,Messenger,Typing,3,2,6,3,4,3
+P016,Mobile,Email,Typing,3,2,2,2,4,1
+P016,Mobile,Messenger,Typing,2,3,4,3,6,2
+P016,Mobile,Email,Swipe Typing,5,4,6,5,8,3
+P016,Mobile,Messenger,Swipe Typing,6,5,7,4,3,5
+P017,PC,Messenger,Typing,13,2,3,1,5,5
+P017,PC,Email,Typing,14,4,5,1,7,12
+P017,Mobile,Messenger,Typing,3,3,2,1,1,10
+P017,Mobile,Email,Swipe Type,7,6,7,5,4,6
+P017,Mobile,Messenger,Typing,5,3,3,4,2,5
+P017,Mobile,Email,Swipe Typing,11,6,7,8,6,11
+P018,PC,Messenger,Typing,6,7,8,6,6,7
+P018,PC,Email,Typing,9,3,5,5,3,1
+P018,Mobile,Messenger,Typing,5,17,9,11,19,11
+P018,Mobile,Email,Typing,8,3,5,1,5,1
+P018,Mobile,Messenger,Swipe Typing,13,1,3,3,3,3
+P018,Mobile,Email,Swipe Typing,15,5,1,5,7,5
+P019,,,,,,,,,
+P019,,,,,,,,,
+P019,,,,,,,,,
+P019,,,,,,,,,
+P019,,,,,,,,,
+P019,,,,,,,,,
+P020,PC,Messenger,Typing,2,8,6,10,6,0
+P020,PC,Email,Typing,4,8,5,11,6,0
+P020,Mobile,Messenger,Typing,10,14,14,10,14,10
+P020,Mobile,Email,Swipe Typing,8,10,10,4,10,6
+P020,Mobile,Messenger,Typing,20,20,20,0,16,20
+P020,Mobile,Email,Swipe Typing,16,16,16,4,16,14
+P021,,,,,,,,,
+P021,,,,,,,,,
+P021,,,,,,,,,
+P021,,,,,,,,,
+P021,,,,,,,,,
+P021,,,,,,,,,
+P022,PC,Messenger,Typing,4,2,2,4,2,0
+P022,PC,Email,Typing,4,2,2,4,2,0
+P022,Mobile,Messenger,Typing,1,1,1,1,1,1
+P022,Mobile,Email,Typing,1,1,1,1,1,1
+P022,Mobile,Messenger,Swipe Typing,7,5,6,4,4,4
+P022,Mobile,Email,Swipe Typing,5,3,3,1,3,3
+P023,,,,,,,,,
+P023,,,,,,,,,
+P023,,,,,,,,,
+P023,,,,,,,,,
+P023,,,,,,,,,
+P023,,,,,,,,,
+P024,PC,Messenger,Typing,1,1,1,3,1,1
+P024,PC,Email,Typing,2,2,2,2,3,2
+P024,Mobile,Messenger,Typing,1,1,1,1,2,1
+P024,Mobile,Email,Typing,2,2,2,2,1,2
+P024,Mobile,Messenger,Swipe Typing,3,3,3,3,3,3
+P024,Mobile,Email,Swipe Typing,5,5,4,4,4,4
+P025,,,,,,,,,
+P025,,,,,,,,,
+P025,,,,,,,,,
+P025,,,,,,,,,
+P025,,,,,,,,,
+P025,,,,,,,,,
+P026,PC,Messenger,Typing,0,0,0,6,0,0
+P026,PC,Email,Typing,0,4,0,6,2,0
+P026,Mobile,Messenger,Typing,0,0,0,0,0,0
+P026,Mobile,Email,Typing,0,2,0,2,2,0
+P026,Mobile,Messenger,Swipe Typing,18,14,4,20,18,20
+P026,Mobile,Email,Swipe Typing,16,14,4,20,18,20
+P027,,,,,,,,,
+P027,,,,,,,,,
+P027,,,,,,,,,
+P027,,,,,,,,,
+P027,,,,,,,,,
+P027,,,,,,,,,
+P028,,,,,,,,,
+P028,,,,,,,,,
+P028,,,,,,,,,
+P028,,,,,,,,,
+P028,,,,,,,,,
+P028,,,,,,,,,
+P029,,,,,,,,,
+P029,,,,,,,,,
+P029,,,,,,,,,
+P029,,,,,,,,,
+P029,,,,,,,,,
+P029,,,,,,,,,
+P030,PC,Messenger,Typing,4,0,0,6,0,0
+P030,PC,Email,Typing,6,0,0,4,0,0
+P030,Mobile,Messenger,Typing,4,0,0,4,0,0
+P030,Mobile,Email,Typing,6,0,0,4,0,0
+P030,Mobile,Messenger,Swipe Typing,8,0,0,8,4,6
+P030,Mobile,Email,Swipe Typing,2,0,0,2,2,0
+P031,,,,,,,,,
+P031,,,,,,,,,
+P031,,,,,,,,,
+P031,,,,,,,,,
+P031,,,,,,,,,
+P031,,,,,,,,,
+P032,,,,,,,,,
+P032,,,,,,,,,
+P032,,,,,,,,,
+P032,,,,,,,,,
+P032,,,,,,,,,
+P032,,,,,,,,,
