@@ -1,0 +1,688 @@
+{
+  "N": 19,
+  "p002_excluded": true,
+  "ages": {
+    "n": 19,
+    "range": "20-35",
+    "mean": 26.6,
+    "sd": 3.8,
+    "median": 26
+  },
+  "genders": {
+    "Male": 16,
+    "Female": 3
+  },
+  "formal_n": 6,
+  "informal_n": 13,
+  "formal_tasks": 28,
+  "informal_tasks": 78,
+  "tlx_participants": 18,
+  "tlx_task_rows": 108,
+  "removed": [
+    "P002"
+  ],
+  "added": [],
+  "changed": [
+    [
+      "P002",
+      [
+        "REMOVED from cohort"
+      ]
+    ],
+    [
+      "P014",
+      [
+        "Condition: Formal + Informal (verify) -> Informal"
+      ]
+    ]
+  ],
+  "dim_stats": {
+    "Mental Demand|Formal": [
+      3.3214285714285716,
+      2.155616773331797,
+      28
+    ],
+    "Mental Demand|Informal": [
+      5.67948717948718,
+      5.199836264048375,
+      78
+    ],
+    "Physical Demand|Formal": [
+      2.892857142857143,
+      1.3185296387124807,
+      28
+    ],
+    "Physical Demand|Informal": [
+      5.153846153846154,
+      4.956417552092472,
+      78
+    ],
+    "Temporal Demand|Formal": [
+      2.75,
+      1.8827221932996,
+      28
+    ],
+    "Temporal Demand|Informal": [
+      4.794871794871795,
+      5.094891796639147,
+      78
+    ],
+    "Performance|Formal": [
+      7.5,
+      4.938912546589294,
+      28
+    ],
+    "Performance|Informal": [
+      4.461538461538462,
+      4.678626545374701,
+      78
+    ],
+    "Effort|Formal": [
+      5.392857142857143,
+      5.191609203556156,
+      28
+    ],
+    "Effort|Informal": [
+      5.628205128205129,
+      5.531052142592427,
+      78
+    ],
+    "Frustration|Formal": [
+      2.4642857142857144,
+      2.4854166488473006,
+      28
+    ],
+    "Frustration|Informal": [
+      4.3076923076923075,
+      5.362040590105677,
+      78
+    ],
+    "performance_recoded|Formal": [
+      12.5,
+      4.938912546589294,
+      28
+    ],
+    "performance_recoded|Informal": [
+      15.538461538461538,
+      4.678626545374701,
+      78
+    ],
+    "overall_workload|Formal": [
+      4.886904761904762,
+      1.4598146024305236,
+      28
+    ],
+    "overall_workload|Informal": [
+      6.85042735042735,
+      3.572368409989072,
+      78
+    ]
+  },
+  "modality_dim_stats": {
+    "Laptop keyboard typing": {
+      "Mental Demand": [
+        3.1666666666666665,
+        2.753785273643051,
+        36
+      ],
+      "Physical Demand": [
+        3.0833333333333335,
+        3.3695944365259547,
+        36
+      ],
+      "Temporal Demand": [
+        2.9444444444444446,
+        3.748662312852742,
+        36
+      ],
+      "Performance": [
+        4.194444444444445,
+        3.784613912823315,
+        36
+      ],
+      "Effort": [
+        3.5277777777777777,
+        3.6169824064259783,
+        36
+      ],
+      "Frustration": [
+        1.6111111111111112,
+        2.5849755831404093,
+        36
+      ],
+      "performance_recoded": [
+        15.805555555555555,
+        3.784613912823315,
+        36
+      ],
+      "overall_workload": [
+        5.023148148148148,
+        2.1812729809811287,
+        36
+      ]
+    },
+    "Mobile keyboard typing": {
+      "Mental Demand": [
+        3.942857142857143,
+        4.355245488523709,
+        35
+      ],
+      "Physical Demand": [
+        4.371428571428571,
+        4.9516849327748425,
+        35
+      ],
+      "Temporal Demand": [
+        4.0,
+        4.99142121186799,
+        35
+      ],
+      "Performance": [
+        3.942857142857143,
+        4.452561748302766,
+        35
+      ],
+      "Effort": [
+        4.714285714285714,
+        5.719997145710718,
+        35
+      ],
+      "Frustration": [
+        2.942857142857143,
+        4.368346252255175,
+        35
+      ],
+      "performance_recoded": [
+        16.057142857142857,
+        4.452561748302766,
+        35
+      ],
+      "overall_workload": [
+        6.004761904761905,
+        3.593089865920486,
+        35
+      ]
+    },
+    "Mobile swipe typing": {
+      "Mental Demand": [
+        8.216216216216216,
+        5.019610920289379,
+        37
+      ],
+      "Physical Demand": [
+        6.135135135135135,
+        4.1405193704913605,
+        37
+      ],
+      "Temporal Demand": [
+        5.918918918918919,
+        4.295682171407725,
+        37
+      ],
+      "Performance": [
+        7.837837837837838,
+        5.4994521275699055,
+        37
+      ],
+      "Effort": [
+        8.513513513513514,
+        5.350532287850518,
+        37
+      ],
+      "Frustration": [
+        6.918918918918919,
+        5.399591467921706,
+        37
+      ],
+      "performance_recoded": [
+        12.162162162162161,
+        5.4994521275699055,
+        37
+      ],
+      "overall_workload": [
+        7.9774774774774775,
+        3.1310616075116244,
+        37
+      ]
+    }
+  },
+  "mod_breakdown": {
+    "Mobile keyboard typing": 38,
+    "Laptop keyboard typing": 38,
+    "Mobile swipe typing": 40
+  },
+  "formality_breakdown": {
+    "formal": 38,
+    "auto:unknown": 4,
+    "informal": 74
+  },
+  "tlx_value_range": {
+    "Mental Demand": [
+      0.0,
+      20.0
+    ],
+    "Physical Demand": [
+      0.0,
+      20.0
+    ],
+    "Temporal Demand": [
+      0.0,
+      20.0
+    ],
+    "Performance": [
+      0.0,
+      20.0
+    ],
+    "Effort": [
+      0.0,
+      19.0
+    ],
+    "Frustration": [
+      0.0,
+      20.0
+    ]
+  },
+  "table": [
+    {
+      "pid": "P003",
+      "condition": "Formal",
+      "age": 24,
+      "gender": "Male",
+      "programme": "SW",
+      "swipe": "Used before, not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P004",
+      "condition": "Informal",
+      "age": 28,
+      "gender": "Female",
+      "programme": "Computer Science IT",
+      "swipe": "Comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P005",
+      "condition": "Formal",
+      "age": 20,
+      "gender": "Male",
+      "programme": "Computer Science",
+      "swipe": "Comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 7,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P006",
+      "condition": "Informal",
+      "age": 25,
+      "gender": "Male",
+      "programme": "cs-IT",
+      "swipe": "Not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P007",
+      "condition": "Formal",
+      "age": 23,
+      "gender": "Male",
+      "programme": "Software",
+      "swipe": "Not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P008",
+      "condition": "Informal",
+      "age": 25,
+      "gender": "Male",
+      "programme": "Energy Engineering",
+      "swipe": "Not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P009",
+      "condition": "Formal",
+      "age": 22,
+      "gender": "Male",
+      "programme": "Software",
+      "swipe": "Used before, not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 7,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P010",
+      "condition": "Informal",
+      "age": 26,
+      "gender": "Male",
+      "programme": "Interactiondesign",
+      "swipe": "Used before, not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P011",
+      "condition": "Formal",
+      "age": 22,
+      "gender": "Male",
+      "programme": "software",
+      "swipe": "Used before, not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P012",
+      "condition": "Informal",
+      "age": 27,
+      "gender": "Male",
+      "programme": "Interactiondesign",
+      "swipe": "Used before, not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P014",
+      "condition": "Informal",
+      "age": 26,
+      "gender": "Male",
+      "programme": "Msc Urban Planning and Management",
+      "swipe": "Used before, not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P015",
+      "condition": "Formal",
+      "age": 28,
+      "gender": "Male",
+      "programme": "Computer Science (MSc)",
+      "swipe": "Used before, not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "No",
+      "tlx_tasks": 0
+    },
+    {
+      "pid": "P016",
+      "condition": "Informal",
+      "age": 31,
+      "gender": "Female",
+      "programme": "masters in IT",
+      "swipe": "Used before, not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P018",
+      "condition": "Informal",
+      "age": 29,
+      "gender": "Male",
+      "programme": "Masters",
+      "swipe": "Not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P020",
+      "condition": "Informal",
+      "age": 24,
+      "gender": "Male",
+      "programme": "N/A",
+      "swipe": "Not comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P022",
+      "condition": "Informal",
+      "age": 35,
+      "gender": "Male",
+      "programme": "economics",
+      "swipe": "Comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P024",
+      "condition": "Informal",
+      "age": 28,
+      "gender": "Male",
+      "programme": "\u2014",
+      "swipe": "Comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P026",
+      "condition": "Informal",
+      "age": 29,
+      "gender": "Female",
+      "programme": "Nurse",
+      "swipe": "Comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    },
+    {
+      "pid": "P030",
+      "condition": "Informal",
+      "age": 34,
+      "gender": "Male",
+      "programme": "Teamleader at Siemens Energy",
+      "swipe": "Comfortable",
+      "devices": "Mobile, PC",
+      "methods": "Swipe typing, Typing",
+      "mediums": "Email, Messenger",
+      "modalities": "Laptop keyboard typing, Mobile keyboard typing, Mobile swipe typing",
+      "tasks": 6,
+      "tlx": "Yes",
+      "tlx_tasks": 6
+    }
+  ],
+  "tlx_avail": [
+    {
+      "pid": "P003",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P004",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P005",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P006",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P007",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P008",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P009",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P010",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P011",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P012",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P014",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P015",
+      "expected_tasks": 6,
+      "tlx_rows": 0,
+      "status": "Missing"
+    },
+    {
+      "pid": "P016",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P018",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P020",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P022",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P024",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P026",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    },
+    {
+      "pid": "P030",
+      "expected_tasks": 6,
+      "tlx_rows": 6,
+      "status": "Complete"
+    }
+  ]
+}
