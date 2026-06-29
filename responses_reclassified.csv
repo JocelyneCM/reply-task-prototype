@@ -1,0 +1,297 @@
+timestamp,participant_id,Device,medium,input_method,prompt_id,prompt_text,participant_reply_text,llm_reply_text,final_reply_text,prompt_formality_label,prompt_formality_confidence,reply_formality_label,reply_formality_confidence,llm_reply_formality_label,llm_reply_formality_confidence,final_reply_formality_label,final_reply_formality_confidence,participant_reply_formality,participant_reply_confidence
+2026-05-20T11:54:15,P003,mobile,Email,Typing,prompt_005,"From: advisor@example.com
+Subject: Work environment
+
+What type of environment helps you focus or work most effectively?",Quite and undisturbed,Thank you for sharing your preference. A quiet and undisturbed environment can be very beneficial for productivity.,Indeed,informal,0.93,formal,0.95,formal,1.0,formal,0.81,formal,0.9497787356376648
+2026-05-20T11:56:46,P003,Mobile,Messenger,Typing,prompt_006,"So like, what's your favorite way of making the weekends pass?",BEER,Thanks for sharing! Enjoy responsibly.,Always,informal,0.86,informal,0.93,formal,0.97,informal,0.88,informal,0.9280269145965576
+2026-05-20T12:00:33,P003,pc,Email,Typing,prompt_007,"From: friend@example.com
+Subject: Useful random skill
+
+What's some random thing you know how to do that actually comes in handy",I have no skill,Thank you for letting me know. Have a great day!,Surely,informal,1.0,informal,0.71,formal,0.98,informal,0.67,informal,0.7135006189346313
+2026-05-20T12:03:21,P003,pc,Email,Typing,prompt_008,"From: friend@example.com
+Subject: Apps you use most
+
+What kinda of apps do you spend the most time on like texting?","Overall? Spotify, texting? Discord","Thanks for sharing, I appreciate it. Have a great day!",Thank you :(,informal,1.0,formal,0.61,formal,0.99,informal,0.88,formal,0.6143859028816223
+2026-05-20T12:05:34,P003,mobile,Messenger,Swipe typing,prompt_009,What's something people seem to enjoy that you just don't really get?,Soccer,Thank you for sharing. It's interesting how preferences can vary.,Truely,informal,0.99,informal,0.85,formal,1.0,informal,0.9,informal,0.847815752029419
+2026-05-20T12:06:45,P003,mobile,Messenger,Typing,prompt_010,What's something you've always wanted to try but never got around to?,Learning piano,Thank you for sharing. Learning piano is a wonderful goal. Good luck with your musical endeavors!,Thanks?,informal,0.97,informal,0.9,formal,1.0,formal,0.86,informal,0.8955022096633911
+2026-05-20T11:12:41,P004,Mobile,Messenger,Typing,prompt_015,What's the latest thing you got kinda hooked on?,Skandiabanken sank,Thanks for sharing! Sounds interesting.,Skanningscentre,informal,0.98,informal,0.93,formal,0.95,informal,0.58,informal,0.9265428781509399
+2026-05-20T11:14:56,P004,Mobile,Messenger,Swipe typing,prompt_011,What's something loads of people like that you just don't care about?,Annandale,Thanks for sharing,Salamanca lamb,informal,0.95,informal,0.81,informal,0.96,informal,0.85,informal,0.8140483498573303
+2026-05-20T11:18:44,P004,Mobile,Email,Swipe typing,prompt_012,"From: noreply@example.com
+Subject: Quick Question
+
+What's something you've been meaning to try for ages but still haven't?",To try high jump,Thanks for sharing! High jump sounds like a fun challenge to tackle.,Yes that's true,informal,0.98,informal,0.96,formal,0.93,informal,0.74,informal,0.9616251587867737
+2026-05-20T11:21:09,P004,Mobile,Email,Typing,prompt_013,"From: noreply@example.com
+Subject: Quick question
+
+What's one thing you go on and on about without getting bored over it?",Watching TV and listening to music,"Thanks for sharing, sounds like you really enjoy your TV shows and music",Because I love those two,informal,0.99,informal,0.97,informal,0.95,informal,0.74,informal,0.9661219716072083
+2026-05-20T11:24:30,P004,PC,Messenger,Typing,prompt_014,What do you usually end up doing when you've got nothing going on?,simply go to bed,"Thanks for sharing, sometimes a good nap does wonders",see you bye,informal,0.98,formal,0.54,informal,0.97,informal,0.97,formal,0.5370016694068909
+2026-05-20T11:26:36,P004,PC,Email,Typing,prompt_015,"From: noreply@example.com
+Subject: Quick question
+
+What's the latest thing you got kinda hooked on?",Hangout with friends,Nice choice! Hanging out with friends is always a good time. Thanks for sharing.,my pleasure,informal,0.98,informal,0.84,formal,0.98,formal,0.68,informal,0.8355648517608643
+2026-05-20T13:31:51,P005,pc,Email,Typing,prompt_001,"From: someone@example.com
+Subject: Future travel plans
+
+What is a place you would like to visit in the future, and what attracts you to it?",I'd like to visit Amsterdam in the future as it seems like a genuinely interesting city to me.,Thank you for sharing your interest in visiting Amsterdam. It's a wonderful choice with its rich history and vibrant culture.,I agree. Thanks for chatting.,formal,0.98,formal,1.0,formal,1.0,formal,0.96,formal,0.9955757856369019
+2026-05-20T13:34:24,P005,pc,Messenger,Typing,prompt_002,What role do routines play in your daily life?,They help me be more productive,Thanks for sharing. Routines can definitely boost productivity.,No problem,formal,0.95,informal,0.86,formal,0.99,informal,0.97,informal,0.8595688343048096
+2026-05-20T13:37:19,P005,mobile,Email,Swipe Typing,prompt_019,"From: friend@example.com
+Subject: Making people laugh
+
+Hey! I was wondering you had any tips on how to get som laughs out of people",I think using contextual chia for making jokes is very helpful,Thank you for the suggestion! Contextual chia can indeed add a lot of humor to jokes.,I mest cues but that was a funny answer as well,informal,0.91,informal,0.54,formal,1.0,informal,0.96,informal,0.5412703156471252
+2026-05-20T13:38:15,P005,mobile,Email,Swipe Typing,prompt_019,"From: friend@example.com
+Subject: Making people laugh
+
+Hey! I was wondering you had any tips on how to get som laughs out of people",I mest cues but that was a funny answer as well,,,informal,0.91,informal,0.96,formal,0.65,formal,0.65,informal,0.9618501663208008
+2026-05-20T13:39:36,P005,mobile,Messenger,Typing,prompt_015,What do you usually end up doing when you've got nothing going on?,I usually trend towards either reading or listening to music when there is nothing else to do,Thank you for sharing. Reading and listening to music are great ways to unwind and relax.,Yes. Great that we agree,informal,0.98,formal,0.83,formal,1.0,informal,0.73,formal,0.8349543809890747
+2026-05-20T13:42:09,P005,mobile,Email,Typing,prompt_012,"From: friend@example.com
+Subject: Not your thing
+
+What's something loads of people like that you just don't care about?",Im not a huge fan of large sports events,Thanks for sharing. I understand the sentiment towards large sports events.,Great.,informal,0.98,informal,1.0,formal,1.0,formal,0.98,informal,0.9973668456077576
+2026-05-20T13:43:41,P005,mobile,Messenger,Swipe Typing,prompt_018,What's a small thing that gets you amped up?,Eating noices are very annoying to me,Thank you for sharing your perspective on that.,No problem,informal,0.52,informal,0.9,formal,0.99,informal,0.97,informal,0.9021434783935547
+2026-05-20T11:31:36,P006,Mobile,Email,Swipe typing,prompt_010,"From: noreply@example.com
+Subject: Quick question
+
+What apps are you on the most besides you know like, texting people?","Primarily discord, YouTube, and sometimes reddit",Thanks for sharing! Those are some great choices. Have a great day!,You too,informal,0.97,formal,0.59,formal,0.99,informal,0.97,formal,0.5879046320915222
+2026-05-20T11:33:33,P006,Mobile,Messenger,Swipe typing,prompt_010,"What apps are you on the most besides you know like, texting people?",I like browsing twitch streams sometimes.,"Nice, Twitch is a fun choice! Thanks for sharing.",Beans,informal,0.97,formal,0.83,formal,0.94,informal,0.87,formal,0.829896092414856
+2026-05-20T11:37:04,P006,Mobile,Email,Swipe typing,prompt_012,"From: noreply@example.com
+Subject: Quick Question
+
+What's something you've been meaning to try for ages but still haven't?",Cooking more sounds fun,Thanks for sharing! Cooking can be a great way to try new things. Let me know if you need any recipe recommendations,Yea go ahead,informal,0.98,informal,0.93,formal,0.92,informal,0.99,informal,0.9253608584403992
+2026-05-20T11:39:03,P006,Mobile,Messenger,Swipe typing,prompt_013,What's one thing you go on and on about without getting bored over it?,Defined writing code on projects,Thanks for sharing! Sounds like you're really passionate about coding projects. Keep up the great work,It has its hips and down,informal,0.99,informal,0.66,informal,0.86,informal,0.89,informal,0.6617291569709778
+2026-05-20T11:41:57,P006,PC,Email,Typing,prompt_014,"From: noreply@example.com
+Subject: Quick question
+
+What do you usually end up doing when you've got nothing going on?",Either I find a twitch stream to watch or search for an interesting youtube video,Nice! Sounds like a chill way to unwind. Thanks for sharing!,Indeed,informal,0.98,informal,0.7,formal,0.95,formal,0.81,informal,0.695595383644104
+2026-05-20T11:43:04,P006,PC,Messenger,Typing,prompt_015,What's the latest thing you got kinda hooked on?,I recently jumped back into Deep Rock Galactic. It has great gameplay design.,Nice choice! That game sounds like a blast. Keep on rockin' !,ROCK AND STONE,informal,0.98,formal,0.99,formal,0.95,informal,0.83,formal,0.9901442527770996
+2026-05-22T10:22:02,P007,pc,Email,Typing,prompt_001,"From: someone@example.com
+Subject: Future travel plans
+
+What is a place you would like to visit in the future, and what attracts you to it?","I would love to travel to Rome Italy, beacuse of its history and see all their old buildings and such.",,,formal,0.98,formal,0.89,formal,0.65,formal,0.65,formal,0.8930519223213196
+2026-05-22T10:24:03,P007,pc,Messenger,Typing,prompt_002,What role do routines play in your daily life?,"they work as a crudge, to make sure I remember to do specific things at given times, I am a quite forgetful person.",Thank you for sharing. Routines can definitely be a helpful tool for staying organized and on track.,"I agree, they truely are helpful, and without them I would probably by lost at times xD",formal,0.95,formal,1.0,formal,1.0,informal,0.96,formal,0.9973884224891663
+2026-05-22T10:27:15,P007,mobile,Email,Swipe Typing,prompt_003,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?","When talking about opinions both feel interested in, or one where both get some sort of outcome, even if that outcome just is the enjoyment of the other person.",Thank you for sharing your thoughts on what makes a conversation enjoyable or productive. I appreciate your insights.,Np,formal,0.51,formal,0.91,formal,1.0,informal,0.83,formal,0.9129288196563721
+2026-05-22T10:31:26,P007,mobile,Email,Typing,prompt_004,"From: advisor@example.com
+Subject: Personal achievement
+
+What is an achievement you are personally satisfied with, and why does it matter to you?","Actually not quite sure, not really something I think about that often, I will come back to you when I have an answer.","Thank you for considering it. Take your time to reflect, I appreciate your thoughtfulness.",No problem.,formal,1.0,informal,0.76,formal,1.0,formal,0.97,informal,0.757944643497467
+2026-05-22T10:33:18,P007,mobile,Messenger,Typing,prompt_005,What type of environment helps you focus or work most effectively?,"Probably somewhere quiet, like a library, though preferably not alone, cause I can be quite lazy...",Thank you for sharing your preference. Working in a quiet environment can indeed be conducive to productivity.,I agree.,informal,0.93,informal,0.98,formal,1.0,formal,0.99,informal,0.9834741950035095
+2026-05-22T10:35:12,P007,mobile,Email,Swipe Typing,prompt_006,"From: friend@example.com
+Subject: Weekend plans
+
+So like, what's your favorite way of making the weekends pass?","Probably Gaming with friends, and sleeping. Not the most productive activities.",Thanks for sharing! Sometimes it's nice to just relax and unwind with friends.,Truely!,informal,0.86,formal,0.99,formal,0.95,formal,0.96,formal,0.9936895370483398
+2026-05-20T12:08:31,P008,Mobile,Email,Swipe typing,prompt_010,"From: noreply@example.com
+Subject: Quick question
+
+What apps are you on the most besides you know like, texting people?",Facebook,Nice choice! Thanks for sharing.,You are welcome,informal,0.97,informal,0.86,formal,0.96,formal,0.77,informal,0.8612901568412781
+2026-05-20T12:11:38,P008,Mobile,Messenger,Swipe typing,prompt_011,What's something loads of people like that you just don't care about?,Attention,Thanks for sharing,You are welcome,informal,0.95,informal,0.73,informal,0.96,formal,0.77,informal,0.7278364896774292
+2026-05-20T12:16:49,P008,Mobile,Email,Typing,prompt_012,"From: noreply@example.com
+Subject: Quick Question
+
+What's something you've been meaning to try for ages but still haven't?",Sky diving.,Thanks for sharing! Skydiving sounds like an amazing adventure. Maybe it's time to finally take the leap.,Hahaha maybe...,informal,0.98,formal,0.98,formal,0.99,informal,0.99,formal,0.984752357006073
+2026-05-20T12:18:52,P008,Mobile,Messenger,Typing,prompt_013,What's one thing you go on and on about without getting bored over it?,Listening to music.,Nice choice! Music is always a great topic to be passionate about. Keep on jamming!,Yeah.,informal,0.99,formal,0.98,formal,0.99,formal,0.72,formal,0.9789161086082458
+2026-05-20T12:27:32,P008,PC,Email,Typing,prompt_014,"From: noreply@example.com
+Subject: Quick question
+
+What do you usually end up doing when you've got nothing going on?",Visit or call loved ones. Also like being alone sometimes.,"Nice, sounds like a good balance. Thanks for sharing.",You're welcome,informal,0.98,formal,0.99,formal,0.7,formal,0.92,formal,0.9878008365631104
+2026-05-20T12:30:30,P008,PC,Messenger,Typing,prompt_015,What's the latest thing you got kinda hooked on?,Semester project.,"Nice, good luck with your project!",Thank you.,informal,0.98,formal,0.96,informal,0.66,formal,1.0,formal,0.9612361788749695
+2026-05-22T10:44:55,P009,pc,Email,Typing,prompt_007,"From: friend@example.com
+Subject: Useful random skill
+
+What's some random thing you know how to do that actually comes in handy","It is a very random skill, but having actual training in folding laundry from the military makes your closet look so much nicer. not very practical, but nice to look at.",Thanks for sharing that interesting skill! It's always nice to have a neat and organized closet.,It very much is!,informal,1.0,formal,1.0,formal,0.88,formal,0.91,formal,0.9960934519767761
+2026-05-22T10:48:39,P009,pc,Messenger,Typing,prompt_008,"What kind of apps do you spend the most time on, other than messaging apps?","I mostly use my phone to either communicate or doomscroll tbh, so probably scrolling on instagram. if that doesn't count because instagram is partially a messaging app, then too good to to, as i use it a few times a month.",Thanks for sharing! Sounds like Instagram is a top pick for you. Have a great day!,Have a nice day as well!,informal,1.0,formal,0.95,formal,0.96,formal,0.8,formal,0.9462895393371582
+2026-05-22T10:52:52,P009,mobile,Email,Swipe Typing,prompt_009,"From: friend@example.com
+Subject: Popular things
+
+What's something people seem to enjoy that you just don't really get?","I find that most people enjoy meeting new people, but I honestly find it a little stressfull that you have to put up a good first impression. Although i might just be thinking about it too much.",Thanks for sharing your perspective. It's completely understandable to feel that way about meeting new people.,I think it's a quite natural response as well ,informal,0.99,formal,0.98,formal,1.0,formal,0.85,formal,0.9789561629295349
+2026-05-22T10:56:00,P009,mobile,Messenger,Typing,prompt_010,What's something you've always wanted to try but never got around to?,I've had diving in my bucket list for as long as I can remember. So definitely that,Thank you for sharing. Diving sounds like a thrilling adventure!,It sure does!,informal,0.97,informal,0.53,formal,0.99,formal,0.87,informal,0.5274690389633179
+2026-05-22T10:58:09,P009,mobile,Email,Swipe Typing,prompt_001,"From: someone@example.com
+Subject: Future travel plans
+
+What is a place you would like to visit in the future, and what attracts you to it?","Probably japan, I've seen a lot of Japanese media and such of the place, and it looks beautiful!",Thank you for sharing your interest in Japan. It truly is a beautiful destination with a rich culture and stunning landscapes.,"It definitely looks like it, hope it is in reality too!",formal,0.98,informal,0.72,formal,1.0,informal,0.78,informal,0.7205925583839417
+2026-05-22T11:00:24,P009,mobile,Messenger,Typing,prompt_002,What role do routines play in your daily life?,"They help keep my daily life stable, and let me keep those things in the background, so that I can focus on what I feel is more important.",Thanks for sharing how routines benefit you. It's great to hear how they provide stability and allow you to prioritize what's important.,They really are great to have,formal,0.95,formal,0.99,formal,1.0,informal,0.61,formal,0.9932089447975159
+2026-05-22T11:03:12,P009,mobile,Email,Typing,prompt_003,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?","That's is a subject that both participants have a fundamental understanding of, as well as an interest in.",Thank you for sharing your perspective on what makes a conversation engaging. Your insights are appreciated.,You are very welcome,formal,0.51,formal,1.0,formal,1.0,formal,0.98,formal,0.9990143775939941
+2026-05-20T13:06:23,P010,Mobile,Email,Swipe typing,prompt_010,"From: noreply@example.com
+Subject: Quick question
+
+What apps are you on the most besides you know like, texting people?",I Use Instagram the m ost or youtube,"Cool, thanks for sharing! Have a great day!",No problem have a good day,informal,0.97,informal,0.99,formal,0.94,informal,0.99,informal,0.9880510568618774
+2026-05-20T13:09:08,P010,Mobile,Messenger,Swipe typing,prompt_011,What's something loads of people like that you just don't care about?,Actors,"Got it, thanks for sharing!",No problem have a good day,informal,0.95,informal,0.86,informal,0.84,informal,0.99,informal,0.8604785203933716
+2026-05-20T13:11:20,P010,Mobile,Email,Typing,prompt_012,"From: noreply@example.com
+Subject: Quick Question
+
+What's something you've been meaning to try for ages but still haven't?",Maybe start running,Thanks for sharing! Running sounds like a great idea. Let me know if you need any tips to get started.,Yes what the best running shoes?,informal,0.98,informal,0.93,formal,0.99,informal,0.97,informal,0.9342214465141296
+2026-05-20T13:12:52,P010,Mobile,Messenger,Typing,prompt_013,What's one thing you go on and on about without getting bored over it?,Football,"Nice, football is always a good topic! Thanks for sharing.",No problem friend,informal,0.99,informal,0.86,formal,0.94,informal,0.97,informal,0.8644774556159973
+2026-05-20T13:14:51,P010,PC,Email,Typing,prompt_014,"From: noreply@example.com
+Subject: Quick question
+
+What do you usually end up doing when you've got nothing going on?",watch youtube or netflix,"Cool, sounds relaxing! Thanks for sharing.",no problem,informal,0.98,informal,0.69,formal,0.97,informal,0.97,informal,0.6863335967063904
+2026-05-20T13:16:32,P010,PC,Messenger,Typing,prompt_015,What's the latest thing you got kinda hooked on?,the lastest thing was climbing i joined a climbing gym,"Nice, climbing is so much fun! Keep enjoying the climb!",Yes is a nice sport,informal,0.98,informal,0.98,formal,0.92,informal,0.74,informal,0.9819980263710022
+2026-05-22T11:10:27,P011,pc,Email,Typing,prompt_009,"From: friend@example.com
+Subject: Popular things
+
+What's something people seem to enjoy that you just don't really get?",I dont really get why people enjoy alcohol,Thanks for sharing your perspective on alcohol. It's interesting to hear different viewpoints on this topic.,"Yes i agree, i often find myself hearing differing opinions on this subject",informal,0.99,informal,1.0,formal,1.0,formal,0.78,informal,0.9985425472259521
+2026-05-22T11:12:49,P011,pc,Messenger,Typing,prompt_010,What's something you've always wanted to try but never got around to?,I always wanted to try learning to draw properly and use that for animation however i never got around to it,That sounds like a fascinating skill to develop. Best of luck with your drawing and animation journey!,thank you very much! :D,informal,0.97,informal,0.96,formal,0.99,informal,0.97,informal,0.9624870419502258
+2026-05-22T11:14:40,P011,mobile,Email,Swipe Typing,prompt_001,"From: someone@example.com
+Subject: Future travel plans
+
+What is a place you would like to visit in the future, and what attracts you to it?","I would like to visit Japan as the local culture, history and architecture facinates me","Thank you for sharing your interest in Japan. Its culture, history, and architecture are truly captivating.",Yes its amazing,formal,0.98,formal,0.99,formal,1.0,informal,1.0,formal,0.9897187948226929
+2026-05-22T11:16:53,P011,mobile,Messenger,Typing,prompt_002,What role do routines play in your daily life?,I found routines to be helpful when dealing with stress,Thank you for sharing. Establishing routines for stress management is key.,Agreed,formal,0.95,formal,0.67,formal,1.0,informal,0.73,formal,0.6733773350715637
+2026-05-22T11:18:47,P011,mobile,Email,Typing,prompt_003,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?",When it doesn't jump to subjects unrelated to what we are supposed to do,Thanks for sharing your perspective on what makes a conversation enjoyable and productive. Staying focused on relevant topics is definitely key.,Definitely,formal,0.51,informal,0.56,formal,1.0,informal,0.72,informal,0.5642679929733276
+2026-05-22T11:20:44,P011,mobile,Messenger,Swipe Typing,prompt_004,"What is an achievement you are personally satisfied with, and why does it matter to you?",Reaching university as I found studying a rather difficult task back in my youth,"Thank you for sharing your achievement of reaching university, despite finding studying difficult in your youth. It's commendable.",Thanks,formal,1.0,informal,0.67,formal,1.0,informal,0.95,informal,0.6737416386604309
+2026-05-20T13:34:18,P012,Mobile,Email,Swipe typing,prompt_010,"From: noreply@example.com
+Subject: Quick question
+
+What apps are you on the most besides you know like, texting people?",I mostly use a apps l like Strava and Messenger. As I like to track my sport of cycling and message my friends.,"Cool, thanks for sharing! Strava is great for cycling. Keep enjoying those rides!",I will! You should try it too. It's great for finding routes,informal,0.97,formal,0.96,formal,0.99,formal,0.81,formal,0.9612047672271729
+2026-05-20T13:40:00,P012,Mobile,Messenger,Swipe typing,prompt_011,What's something loads of people like that you just don't care about?,Soccer is such a massive sport I don't get it. The matches are so long and there is so many games per league,Totally get that! Soccer isnt for everyone. Thanks for sharing your thoughts!,No problem I always like sharing my distaste for soccer,informal,0.95,informal,0.6,informal,0.65,informal,0.97,informal,0.6013252139091492
+2026-05-20T13:43:22,P012,Mobile,Email,Typing,prompt_012,"From: noreply@example.com
+Subject: Quick Question
+
+What's something you've been meaning to try for ages but still haven't?",More experimental cooking as I always just cook simple dishes that I'm comfortable making,Thanks for sharing! Trying out some new recipes sounds like a fun adventure in the kitchen. Enjoy experimenting with your cooking!,Thanks hopefully I will try making some more dishes in the future,informal,0.98,informal,0.89,formal,0.99,informal,0.97,informal,0.8946345448493958
+2026-05-20T13:46:15,P012,Mobile,Messenger,Typing,prompt_013,What's one thing you go on and on about without getting bored over it?,Watching movies. There are always new ones coming out and I can always watch the good ones again,Love that for you,Me too,informal,0.99,informal,0.84,informal,0.61,informal,0.99,informal,0.8384837508201599
+2026-05-20T13:49:51,P012,PC,Email,Typing,prompt_014,"From: noreply@example.com
+Subject: Quick question
+
+What do you usually end up doing when you've got nothing going on?",Video games is such an easy way to spend alot of time. Also doom scrolling on tiktok or instagram but that is arguably worse than gaming,"Thanks for sharing! Video games can definitely be a fun way to pass the time. Enjoy your gaming sessions!,",Its one of the best time spenders with tons of variety. I will enjoy my time thank you :),informal,0.98,informal,0.98,formal,0.7,informal,0.99,informal,0.9768882989883423
+2026-05-20T13:52:44,P012,PC,Messenger,Typing,prompt_015,What's the latest thing you got kinda hooked on?,Cycling is a new sport i picked up. Getting to explore my local area while getting some exercise is awesome,Nice one! Cycling is such a great way to stay active and discover new places. Keep enjoying the rides!,I have seen so many new places. Thank you i will!,informal,0.98,formal,0.93,formal,1.0,formal,0.95,formal,0.9309989809989929
+2026-05-21T12:49:53,P014,Mobile,Email,Swipe typing,prompt_010,"From: noreply@example.com
+Subject: Quick question
+
+What apps are you on the most besides you know like, texting people?",Twitter,Thanks! Twitter is great for staying connected. See you online!,See you,informal,0.97,informal,0.89,formal,0.96,informal,0.89,informal,0.8911535143852234
+2026-05-21T12:54:07,P014,Mobile,Messenger,Swipe typing,prompt_011,What's something loads of people like that you just don't care about?,Alcohol,"Got it, thanks for sharing!",Welcome,informal,0.95,informal,0.71,informal,0.84,informal,0.76,informal,0.7062337398529053
+2026-05-21T12:55:57,P014,Mobile,Email,Typing,prompt_012,"From: noreply@example.com
+Subject: Quick Question
+
+What's something you've been meaning to try for ages but still haven't?",Traveling to Spain,Nice choice! Spain sounds amazing. Hope you get to experience it soon!,Hope so,informal,0.98,informal,0.65,formal,0.96,informal,0.98,informal,0.6472175717353821
+2026-05-21T12:57:20,P014,Mobile,Messenger,Typing,prompt_013,What's one thing you go on and on about without getting bored over it?,Football,"Football is definitely a passion for many. Thanks for sharing!,",Welcome,informal,0.99,informal,0.86,informal,0.6,informal,0.76,informal,0.8644774556159973
+2026-05-21T13:00:34,P014,PC,Email,Typing,prompt_014,"From: noreply@example.com
+Subject: Quick question
+
+What do you usually end up doing when you've got nothing going on?",Playing Games,"Cool! Gaming is a great way to unwind. Thanks for sharing!,",welcome,informal,0.98,informal,0.93,informal,0.86,informal,0.76,informal,0.9250920414924622
+2026-05-21T13:02:11,P014,PC,Messenger,Typing,prompt_015,What's the latest thing you got kinda hooked on?,Weed,Nice choice! Enjoy responsibly.,thank you,informal,0.98,informal,0.92,formal,0.98,formal,0.86,informal,0.919546902179718
+2026-05-22T11:44:03,P015,pc,Email,Typing,prompt_003,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?","A conversation feels enjoyable if all parties involved actively feel like they're contributing to the conversation and ideally, learn something as well.",Thank you for sharing your perspective on enjoyable conversations. Active participation and mutual learning are indeed key factors in making conversations productive.,No problem :),formal,0.51,formal,1.0,formal,1.0,informal,1.0,formal,0.9991567134857178
+2026-05-22T11:48:02,P015,pc,Messenger,Typing,prompt_004,"What is an achievement you are personally satisfied with, and why does it matter to you?","I'm not entirely sure, I have lots of things I think I'm semi-proud of, but nothing extraordinary, really. Not sure.","Thank you for sharing. It's okay not to have one standout achievement, many small successes can also be meaningful.","Yeah, I agree. It's probably all about perspective, and what adds up to matter for you personally.",formal,1.0,formal,0.97,formal,1.0,formal,0.97,formal,0.9656060338020325
+2026-05-22T11:54:33,P015,Mobile,Email,Swipe Typing,prompt_005,"From: advisor@example.com
+Subject: Work environment
+
+What type of environment helps you focus or work most effectively?","I'm honestly still kinda of figuring that out, but overall I think a collaborative space with a few people working together works best for me. It helps to have something external to add a little bit of pressure.",Thanks for sharing your preference for a collaborative work environment with some external pressure. Your insights will be valuable as we consider different working arrangements.,No problem :),informal,0.93,informal,0.8,formal,1.0,informal,1.0,informal,0.8047618269920349
+2026-05-22T12:03:35,P015,Mobile,Messenger,Typing,prompt_007,What's some random thing you know how to do that actually comes in handy,"I know a few things when it comes to tech support, but it's not really so random, or uncommon. Still useful though. Other than that, not much (yet), but surely I'll learn something cool at some point.",,,informal,1.0,formal,0.85,formal,0.65,formal,0.65,formal,0.8529536128044128
+2026-05-22T13:18:07,P015,Mobile,Email,Typing,prompt_003,"From: colleague@example.com
+Subject: Conversations
+
+What makes a conversation feel enjoyable or productive to you?","I think a conversation is productive if it teaches me something or furthers a goal, or if it fulfills a need i have, for instance the need for socialization.",Thank you for sharing your insights on what makes a conversation productive. Your perspective is valuable for our ongoing discussions.,No worries! :D,formal,0.51,formal,1.0,formal,1.0,informal,1.0,formal,0.9992461204528809
+2026-05-22T13:22:55,P015,Mobile,Messenger,Swipe Typing,prompt_004,"What is an achievement you are personally satisfied with, and why does it matter to you?",Thank you for sharing your achievement of deadlifting 150 pounds. It's clear your hard work paid off.,Thank you for sharing your achievement of deadlifting 150 pounds. It's clear your hard work paid off.,No problem :D,formal,1.0,formal,1.0,formal,1.0,informal,0.95,formal,0.9986348748207092
+2026-05-25T12:54:18,P016,PC,Email,Typing,prompt_010,"From: noreply@example.com
+Subject: Quick question
+
+What apps are you on the most besides you know like, texting people?",Whatsapp,"Cool, thanks for sharing! Have a great day!",Thanks to you too,informal,0.97,informal,0.92,formal,0.94,informal,0.96,informal,0.9213052988052368
+2026-05-25T12:57:13,P016,PC,Messenger,Typing,prompt_011,What's something loads of people like that you just don't care about?,Fashion,"Thanks, same here with fashion!",Nice to know,informal,0.95,informal,0.9,informal,0.96,informal,0.92,informal,0.8955668210983276
+2026-05-25T12:59:05,P016,Mobile,Email,Swipe typing,prompt_012,"From: noreply@example.com
+Subject: Quick Question
+
+What's something you've been meaning to try for ages but still haven't?",Travelling worldwide,Nice choice! Traveling the world is definitely worth it. Let me know if you need any tips or recommendations.,Its fine though for right now,informal,0.98,informal,0.76,formal,1.0,informal,1.0,informal,0.7615474462509155
+2026-05-25T13:00:54,P016,Mobile,Messenger,Swipe typing,prompt_013,What's one thing you go on and on about without getting bored over it?,Reading books,Nice choice! Books are always a great topic to dive into. Thanks for sharing!,Thanks,informal,0.99,informal,0.95,formal,0.98,informal,0.95,informal,0.9514003396034241
+2026-05-25T13:04:14,P016,Mobile,Email,Typing,prompt_014,"From: noreply@example.com
+Subject: Quick question
+
+What do you usually end up doing when you've got nothing going on?",planning for next day,Thanks for sharing! Sounds like a good way to stay organized. Have a great day!,indeed it is great,informal,0.98,informal,0.89,formal,0.97,formal,0.86,informal,0.8929315805435181
+2026-05-25T13:06:08,P016,Mobile,Messenger,Typing,prompt_015,What's the latest thing you got kinda hooked on?,I tried new recipies,Nice! Any favorites so far?,not much,informal,0.98,informal,0.98,formal,0.94,informal,0.95,informal,0.9830921292304993
+2026-05-25T13:15:07,P018,PC,Messenger,Typing,prompt_010,"What apps are you on the most besides you know like, texting people?",whatsapp,"Cool, thanks for sharing! WhatsApp is a popular choice for sure.",yes correct,informal,0.97,informal,0.92,formal,0.91,informal,0.72,informal,0.9213052988052368
+2026-05-25T13:18:27,P018,PC,Email,Typing,prompt_011,"From: noreply@example.com
+Subject: Quick question
+
+What's something loads of people like that you just don't care about?",right now i dont have anything particularly have in mind.,"Got it, no worries! Thanks for letting me know",ok,informal,0.95,informal,1.0,informal,0.71,informal,0.93,informal,0.9974921941757202
+2026-05-25T13:24:14,P018,Mobile,Messenger,Typing,prompt_012,What's something you've been meaning to try for ages but still haven't?,Sky diving,Nice choice! Skydiving sounds like an amazing adventure. Let me know when you finally take the leap!,Still did not planned yet,informal,0.98,informal,0.81,formal,0.99,informal,0.78,informal,0.8070749044418335
+2026-05-25T13:26:32,P018,Mobile,Email,Typing,prompt_013,"From: noreply@example.com
+Subject: Quick question
+
+What's one thing you go on and on about without getting bored over it?",Live world cup game,Nice choice! Watching a live World Cup game can definitely be exciting. Thanks for sharing!,No problem,informal,0.99,informal,0.93,formal,0.98,informal,0.97,informal,0.9311848878860474
+2026-05-25T13:28:48,P018,Mobile,Messenger,Swipe typing,prompt_014,What do you usually end up doing when you've got nothing going on?,Cant think of anything.,"No worries, thanks for letting me know! If you ever need ideas, feel free to ask.",Ok,informal,0.98,informal,0.89,formal,0.86,informal,0.93,informal,0.888792097568512
+2026-05-25T13:30:01,P018,Mobile,Email,Swipe typing,prompt_015,"From: noreply@example.com
+Subject: Quick question
+
+What's the latest thing you got kinda hooked on?",Nothing really.,"Cool, thanks for letting me know! If something comes up, feel free to share.",Ok,informal,0.98,formal,0.97,formal,0.84,informal,0.93,formal,0.9674832224845886
+2026-05-31T11:45:36,P020,PC,Messenger,Typing,prompt_017,what's ur favorite place for lunch? I really want some good pizza,Bella italia is my favorite,Thanks for the suggestion! Bella Italia sounds great for pizza. Let's go there for lunch soon!,Sounds like a great idea when are you free?,informal,1.0,formal,0.85,formal,0.97,informal,0.9,formal,0.8544459939002991
+2026-05-31T11:49:16,P020,PC,Email,Typing,prompt_015,"From: friend@example.com
+Subject: Free time
+
+What do you usually end up doing when you've got nothing going on?","I usually play games or spend time with my girlfriend, what about you?","Nice, sounds like a good way to unwind! I usually catch up on TV shows or try out new recipes when I have some free time.",Sounds nice too we should hang out in the future,informal,0.98,formal,0.8,formal,0.52,informal,1.0,formal,0.7967300415039062
+2026-05-31T11:57:59,P020,Mobile,Messenger,Typing,prompt_020,"we're going gamling tonight, you in?",I don't gamble sorry,,,informal,0.96,informal,0.96,formal,0.65,formal,0.65,informal,0.9626798033714294
+2026-05-31T12:00:48,P020,Mobile,Email,Typing,prompt_021,"From: friend@example.com
+Subject: Feeling proud
+
+What's something you've done that you still feel pretty good about?",Helping the needy in the busses I take,,Yeah that's the point to show people how to act,informal,0.99,informal,0.92,formal,0.65,informal,0.99,informal,0.9192403554916382
+2026-05-31T12:05:51,P020,Mobile,Messenger,Swipe typing,prompt_012,What's something loads of people like that you just don't care about?,I don't know,,Of course,informal,0.98,informal,0.79,formal,0.65,informal,0.92,informal,0.7942113280296326
+2026-05-31T12:08:35,P020,Mobile,Email,Swipe typing,prompt_013,"From: friend@example.com
+Subject: Still to try
+
+What's something you've been meaning to try for ages but still haven't?",I don't really know sorry,,I will sorry again,informal,0.99,informal,0.97,formal,0.65,informal,0.77,informal,0.967187225818634
+2026-05-25T15:04:49,P022,PC,Messenger,Typing,prompt_010,"What apps are you on the most besides you know like, texting people?","I use Instagram,LinkedIn,Apple Music most of the time",Nice! Thanks for sharing. Have a good one!,thanks and have a good day too,informal,0.97,informal,0.92,formal,0.97,informal,1.0,informal,0.9218407273292542
+2026-05-25T15:09:35,P022,PC,Email,Typing,prompt_011,"From: noreply@example.com
+Subject: Quick question
+
+What's something loads of people like that you just don't care about?","Lots Of peopel love drinking alcohol, but i really don't care about alcohol",Thanks for sharing! Alcohol isn't for everyone.,thanks too and have a nice day,informal,0.95,informal,0.99,formal,0.98,informal,0.99,informal,0.993517279624939
+2026-05-25T15:13:28,P022,Mobile,Messenger,Typing,prompt_012,What's something you've been meaning to try for ages but still haven't?,Sky diving is something I have always wanted to try but haven't tried yet,"Got it, thanks for letting me know.",Thanks too,informal,0.98,informal,0.98,informal,0.76,informal,0.99,informal,0.9769468903541565
+2026-05-25T15:15:23,P022,Mobile,Email,Typing,prompt_013,"From: noreply@example.com
+Subject: Quick question
+
+What's one thing you go on and on about without getting bored over it?",Playing video game is that thing that I love doing all the time,Thanks for sharing! Video games are so much fun,Yeah yeah,informal,0.99,informal,0.9,informal,0.84,informal,0.97,informal,0.9000226259231567
+2026-05-25T15:18:22,P022,Mobile,Messenger,Swipe typing,prompt_014,What do you usually end up doing when you've got nothing going on?,Sleeping is one thing I love doing when  I'm free,",Nice! Sounds like a good way to relax. Thanks for sharing!",Yes it is,informal,0.98,informal,0.88,formal,0.97,informal,0.96,informal,0.8848779797554016
+2026-05-25T15:20:15,P022,Mobile,Email,Swipe typing,prompt_015,"From: noreply@example.com
+Subject: Quick question
+
+What's the latest thing you got kinda hooked on?",Using ai bots,Nice choice! AI bots can be pretty fascinating. Thanks for sharing!,Yes they are impressive,informal,0.98,informal,0.62,formal,0.97,formal,0.71,informal,0.617124617099762
+2026-05-25T15:35:55,P024,PC,Messenger,Typing,prompt_010,"What apps are you on the most besides you know like, texting people?","Twitter, Instagram, WhatsApp","Nice, good choices! Those are some solid apps for sure",Yeah,informal,0.97,informal,0.96,informal,0.72,informal,0.98,informal,0.9593425393104553
+2026-05-25T15:40:40,P024,PC,Messenger,Typing,prompt_012,What's something you've been meaning to try for ages but still haven't?,Skydiving,Nice choice! Skydiving sounds like an exhilarating experience. Maybe it's time to finally take the leap!,Yeah!Can't wait to get to try it,informal,0.98,informal,0.65,formal,0.99,informal,0.98,informal,0.646705687046051
+2026-05-25T15:42:05,P024,Mobile,Email,Typing,prompt_013,"From: noreply@example.com
+Subject: Quick question
+
+What's one thing you go on and on about without getting bored over it?",Playing video games,"Cool, video games are awesome! Thanks for sharing.",You highly welcome.,informal,0.99,informal,0.91,formal,0.87,formal,1.0,informal,0.9138014912605286
+2026-05-25T15:43:51,P024,Mobile,Messenger,Swipe typing,prompt_014,What do you usually end up doing when you've got nothing going on?,Listen to music as it fuels my imagination,"Cool, music can be so inspiring! Thanks for sharing.",You welcome,informal,0.98,formal,0.5,formal,0.88,informal,0.79,formal,0.5041458010673523
+2026-05-25T15:45:11,P024,Mobile,Email,Swipe typing,prompt_015,"From: noreply@example.com
+Subject: Quick question
+
+What's the latest thing you got kinda hooked on?",My woman is what I'm currently hooked on.,Nice one! Sounds like you've got a good thing going. Keep enjoying that!,Thank you,informal,0.98,formal,0.93,formal,0.87,formal,0.86,formal,0.9262077212333679
+2026-05-25T15:48:31,P024,Mobile,Email,Typing,prompt_011,"From: noreply@example.com
+Subject: Quick question
+
+What's something loads of people like that you just don't care about?",Seafood,Thanks for sharing! Seafood is definitely not for everyone.,You welcome. I agree,informal,0.95,informal,0.59,formal,0.99,formal,0.99,informal,0.590434193611145
+2026-05-31T14:38:13,P026,PC,Messenger,Typing,prompt_017,what's ur favorite place for lunch? I really want some good pizza,"I love this pizzaria at the corner next to the grocerystore, they make amazing pizza","Yum, that place sounds delicious! Thanks for the recommendation!",You are very welcome! :),informal,1.0,informal,0.85,informal,0.59,informal,0.99,informal,0.8453657031059265
+2026-05-31T14:41:07,P026,PC,Email,Typing,prompt_015,"From: friend@example.com
+Subject: Free time
+
+What do you usually end up doing when you've got nothing going on?","I love to workout or read books, I actually prefer to workout while i listen to audiobooks",Nice! Working out while listening to audiobooks sounds like a great way to stay active and entertained. Thanks for sharing!,"You are welcome, would you like to hear what kinds of books i listen to?",informal,0.98,informal,0.53,formal,0.97,formal,0.99,informal,0.527595043182373
+2026-05-31T14:47:45,P026,Mobile,Messenger,Typing,prompt_020,"we're going gamling tonight, you in?","Oh sorry, I can't.. I have work in the morning",,Looking forward to it!,informal,0.96,informal,1.0,formal,0.65,formal,0.96,informal,0.9980658888816833
+2026-05-31T14:50:40,P026,Mobile,Email,Typing,prompt_021,"From: friend@example.com
+Subject: Feeling proud
+
+What's something you've done that you still feel pretty good about?",My education as a nurse. I'm proud of the work I do every day with my patients,,Thanks! What do you do for a living?,informal,0.99,formal,0.69,formal,0.65,formal,0.86,formal,0.6871249079704285
+2026-05-31T14:55:22,P026,Mobile,Messenger,Swipe typing,prompt_012,What's something loads of people like that you just don't care about?,I really don't like,,,informal,0.98,informal,0.86,formal,0.65,formal,0.65,informal,0.8639666438102722
+2026-05-31T14:59:02,P026,Mobile,Email,Swipe typing,prompt_013,"From: friend@example.com
+Subject: Still to try
+
+What's something you've been meaning to try for ages but still haven't?",Cage diving with shorts,,Will do,informal,0.99,informal,0.83,formal,0.65,informal,0.93,informal,0.8286178112030029
+2026-05-31T15:04:05,P030,PC,Messenger,Typing,prompt_017,what's ur favorite place for lunch? I really want some good pizza,Azurra in the center of Aalborg,Thanks for the suggestion! I'll check out Azurra for some pizza.,"do that, you wont be disappointed",informal,1.0,informal,0.88,formal,0.96,informal,1.0,informal,0.8772783279418945
+2026-05-31T15:09:53,P030,PC,Email,Typing,prompt_014,"From: friend@example.com
+Subject: Favorite topic
+
+What's one thing you go on and on about without getting bored over it?","Tv shows, i can watch them again and again, it helps me relax after a hard and long day at work, so when my family is going to bed, I turn on the TV and watch the first show that come to my mind.",Thanks for sharing! Sounds like a great way to unwind after a long day. Keep enjoying those shows!,"thank you, I will do that. I can recommend some shows for you, if you want.",informal,0.98,formal,0.91,formal,0.99,formal,1.0,formal,0.9107473492622375
+2026-05-31T15:15:05,P030,Mobile,Messenger,Typing,prompt_016,What's the latest thing you got kinda hooked on?,"Pokemon cards, I've started collecting with my wife",,"Thank you, it is very satisfiring.",informal,0.98,informal,0.95,formal,0.65,formal,1.0,informal,0.94538414478302
+2026-05-31T15:18:15,P030,Mobile,Email,Typing,prompt_011,"From: friend@example.com
+Subject: Most-used apps
+
+What apps are you on the most besides you know like, texting people?","I use Messenger and Snapchat to test people, and also sms on my phone",,"It is easy to use, and the apps has some fun features.",informal,0.95,informal,0.67,formal,0.65,formal,0.98,informal,0.6742878556251526
+2026-05-31T15:29:30,P030,Mobile,Messenger,Swipe typing,prompt_018,What's a small thing that gets you amped up?,Football,,You are welcome,informal,0.52,informal,0.86,formal,0.65,formal,0.77,informal,0.8644774556159973
+2026-05-31T15:34:08,P030,Mobile,Email,Swipe typing,prompt_019,"From: friend@example.com
+Subject: Making people laugh
+
+Hey! I was wondering you had any tips on how to get some laughs out of people",The easiest way to make people laugh is to make a joke,,"I think so too, do you know any good jokes.",informal,0.91,informal,0.65,formal,0.65,formal,0.58,informal,0.6465792059898376
